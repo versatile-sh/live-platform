@@ -1,5 +1,6 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { describe, expect, test } from "vitest";
 
 import { fakeServices, renderWithApp, staticLobby } from "../test-support/render";
@@ -83,6 +84,45 @@ describe("LobbyPage", () => {
       japan.focus();
       await userEvent.keyboard("{Enter}");
       expect(within(screen.getByRole("group", { name: "Map" })).getByRole("link", { name: "Enter room tokyo" })).toBeInTheDocument();
+    });
+  });
+
+  describe("the window with every room", () => {
+    const many = () => fakeServices({ lobby: staticLobby({ status: "ready", rooms: ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot"].map((slug) => room({ slug, country: slug === "echo" ? "JP" : "BR" })) }) });
+
+    test("opens from the list, stays open, and narrows by the name typed", async () => {
+      renderWithApp(
+        <StrictMode>
+          <LobbyPage />
+        </StrictMode>,
+        { services: many() },
+      );
+      expect(screen.queryByRole("link", { name: "Enter room foxtrot" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "View all 6" }));
+      const all = within(screen.getByRole("dialog", { name: "Open rooms" }));
+      expect(all.getByRole("link", { name: "Enter room foxtrot" })).toBeInTheDocument();
+      await userEvent.type(all.getByLabelText("Search rooms by name"), "ech");
+      expect(all.getByRole("link", { name: "Enter room echo" })).toBeInTheDocument();
+      expect(all.queryByRole("link", { name: "Enter room foxtrot" })).not.toBeInTheDocument();
+      await userEvent.click(all.getByRole("button", { name: "Close" }));
+      expect(screen.queryByRole("dialog", { name: "Open rooms" })).not.toBeInTheDocument();
+    });
+
+    test("opens from the map with the rooms beside it, all of them or one country's", async () => {
+      renderWithApp(
+        <StrictMode>
+          <LobbyPage />
+        </StrictMode>,
+        { services: many() },
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Map" }));
+      await userEvent.click(screen.getByRole("button", { name: "Larger map" }));
+      const all = within(screen.getByRole("dialog", { name: "Open rooms" }));
+      expect(all.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+      expect(all.getAllByRole("link")).toHaveLength(6);
+      await userEvent.click(all.getByRole("button", { name: "Japan" }));
+      expect(all.getAllByRole("link")).toHaveLength(1);
+      expect(all.getByRole("link", { name: "Enter room echo" })).toBeInTheDocument();
     });
   });
 });
