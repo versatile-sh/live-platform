@@ -184,6 +184,8 @@ export const en = {
   "look.custom": "Other",
   "look.photoSelect": "Select a photo",
   "look.photoChange": "Change photo",
+  "look.save": "Save",
+  "look.unsaved": "Not saved yet.",
   "look.presets": "Faces to start from",
   "look.photoRemove": "Remove",
   "look.photoHint": "A photo lasts only while you are in this room.",
