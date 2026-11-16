@@ -108,6 +108,8 @@
 
 html {
   overflow-x: clip;
+  user-select: none;
+  -webkit-user-select: none;
   background: var(--color-canvas);
   color-scheme: dark light;
   scrollbar-color: var(--color-line-strong) var(--color-canvas);
@@ -149,6 +151,19 @@ body {
   button:disabled {
     cursor: not-allowed;
   }
+}
+
+img,
+a,
+svg {
+  -webkit-user-drag: none;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .bubble,

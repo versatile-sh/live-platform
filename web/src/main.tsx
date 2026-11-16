@@ -15,6 +15,8 @@ document.addEventListener("contextmenu", (event) => {
   if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) event.preventDefault();
 });
 
+document.addEventListener("dragstart", (event) => event.preventDefault());
+
 const container = document.getElementById("root");
 
 if (container) {

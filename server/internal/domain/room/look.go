@@ -2,6 +2,7 @@ package room
 
 import (
 	"bytes"
+	"encoding/binary"
 	"regexp"
 	"strconv"
 	"strings"
@@ -31,9 +32,18 @@ func NewLook(raw string) Look {
 const (
 	faceMaxRunes  = 12
 	photoMaxBytes = 10 << 10
+	gifMaxBytes   = 90 << 10
+	gifMaxSide    = 512
+	gifMaxFrames  = 120
 )
 
-var jpegMagic = []byte{0xFF, 0xD8, 0xFF}
+var (
+	jpegMagic = []byte{0xFF, 0xD8, 0xFF}
+	jpegEnd   = []byte{0xFF, 0xD9}
+	gif87     = []byte("GIF87a")
+	gif89     = []byte("GIF89a")
+	errPhoto  = shared.NewDomainError(shared.ErrCodeInvalidArgument, "a photo is a JPEG of at most 10 KiB or a GIF of at most 90 KiB", nil)
+)
 
 // NewFace accepts the few characters a participant typed to stand for their face, or nothing at all.
 func NewFace(raw string) (string, error) {
@@ -49,13 +59,81 @@ func NewFace(raw string) (string, error) {
 	return face, nil
 }
 
-// CheckPhoto accepts a small JPEG to show in place of a face, or an empty one to take it away.
-func CheckPhoto(jpeg []byte) error {
-	if len(jpeg) == 0 {
+// CheckPhoto accepts a small JPEG or a small, well-formed GIF to show in place of a face, or an empty one to take it away. The kind is read from the bytes, never from what the sender says it is.
+func CheckPhoto(photo []byte) error {
+	switch {
+	case len(photo) == 0:
 		return nil
+	case bytes.HasPrefix(photo, jpegMagic):
+		if len(photo) <= photoMaxBytes && bytes.HasSuffix(photo, jpegEnd) {
+			return nil
+		}
+	case bytes.HasPrefix(photo, gif87) || bytes.HasPrefix(photo, gif89):
+		if len(photo) <= gifMaxBytes && wellFormedGIF(photo) {
+			return nil
+		}
 	}
-	if len(jpeg) > photoMaxBytes || !bytes.HasPrefix(jpeg, jpegMagic) {
-		return shared.NewDomainError(shared.ErrCodeInvalidArgument, "a photo is a JPEG of at most 10 KiB", nil)
+	return errPhoto
+}
+
+// wellFormedGIF walks the blocks of a GIF without decoding a pixel: a screen of at most 512 by 512, at most 120 frames each inside the screen, and nothing after the trailer.
+func wellFormedGIF(b []byte) bool {
+	if len(b) < 13 {
+		return false
 	}
-	return nil
+	width, height := int(binary.LittleEndian.Uint16(b[6:])), int(binary.LittleEndian.Uint16(b[8:]))
+	if width < 1 || height < 1 || width > gifMaxSide || height > gifMaxSide {
+		return false
+	}
+	at := 13 + colourTable(b[10])
+	skipBlocks := func() bool {
+		for at < len(b) {
+			n := int(b[at])
+			at += 1 + n
+			if n == 0 {
+				return at <= len(b)
+			}
+		}
+		return false
+	}
+	frames := 0
+	for at < len(b) {
+		switch b[at] {
+		case 0x3B:
+			return frames > 0 && at == len(b)-1
+		case 0x21:
+			at += 2
+			if !skipBlocks() {
+				return false
+			}
+		case 0x2C:
+			if at+10 > len(b) {
+				return false
+			}
+			x, y := int(binary.LittleEndian.Uint16(b[at+1:])), int(binary.LittleEndian.Uint16(b[at+3:]))
+			w, h := int(binary.LittleEndian.Uint16(b[at+5:])), int(binary.LittleEndian.Uint16(b[at+7:]))
+			frames++
+			if w < 1 || h < 1 || x+w > width || y+h > height || frames > gifMaxFrames {
+				return false
+			}
+			at += 10 + colourTable(b[at+9])
+			if at >= len(b) || b[at] < 2 || b[at] > 8 {
+				return false
+			}
+			at++
+			if !skipBlocks() {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func colourTable(flags byte) int {
+	if flags&0x80 == 0 {
+		return 0
+	}
+	return 3 << ((flags & 7) + 1)
 }

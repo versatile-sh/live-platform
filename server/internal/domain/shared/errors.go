@@ -15,6 +15,7 @@ const (
 	ErrCodeInvariantViolation     = "INVARIANT_VIOLATION"
 	ErrCodePermissionDenied       = "PERMISSION_DENIED"
 	ErrCodeRateLimited            = "RATE_LIMITED"
+	ErrCodeBanned                 = "BANNED"
 )
 
 // DomainError is the only error type that leaves the domain.

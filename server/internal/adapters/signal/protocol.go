@@ -21,6 +21,7 @@ const (
 	CloseBadFrame   ws.StatusCode = 4400
 	CloseNoHello    ws.StatusCode = 4401
 	CloseRemoved    ws.StatusCode = 4403
+	CloseBanned     ws.StatusCode = 4404
 	CloseSilent     ws.StatusCode = 4408
 	CloseSlow       ws.StatusCode = 4409
 	CloseFlood      ws.StatusCode = 4429
@@ -182,6 +183,8 @@ func closeCode(reason room.CloseReason) ws.StatusCode {
 		return CloseSlow
 	case room.CloseRemoved:
 		return CloseRemoved
+	case room.CloseBanned:
+		return CloseBanned
 	}
 	return ws.StatusNormalClosure
 }

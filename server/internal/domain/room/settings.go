@@ -44,6 +44,7 @@ type Entry struct {
 	Proof   *Verifier
 	Listed  bool
 	Country string
+	Origin  string
 }
 
 // Settings returns the room this entry creates when its slug is free.

@@ -1,5 +1,6 @@
 import { openLink, type Link, type LinkEvent, type SocketFactory } from "../signal/link";
 import type { Hello, OwnerOp, ServerFrame, RtcSignal } from "../signal/protocol";
+import { photoAddress } from "../domain/photo";
 import { IDLE, reduceConnection, type Connection, type ConnectionEvent, type DropCause, type EndReason } from "./connection";
 import { clearSeat, readSeat, writeSeat, type SeatStorage } from "./seat";
 
@@ -22,7 +23,7 @@ const CHAT_KEPT = 300;
 export type SessionSnapshot = {
   connection: Connection;
   chat: readonly ChatLine[];
-  /** The photo each participant is showing, as a JPEG data address, by participant id. */
+  /** The photo each participant is showing, as a JPEG or GIF data address, by participant id. */
   photos: Readonly<Record<number, string>>;
   /** How long my last heartbeat took to come back, in milliseconds. */
   rtt: number | undefined;
@@ -63,7 +64,7 @@ export type Session = {
   onRtc(listener: (event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void): () => void;
   /** Changes how I appear to the room: colour and tilt, and the characters of my face. */
   setLook(look: string, face: string): void;
-  /** Shows a photo of mine to the room while I am in it (JPEG as base64), or takes it away when empty. */
+  /** Shows a photo of mine to the room while I am in it (JPEG or GIF as base64), or takes it away when empty. */
   setPhoto(data: string): void;
   /** Says a line to the room, or privately to one participant; false when it could not be sent. */
   say(text: string, to?: number): boolean;
@@ -224,7 +225,8 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
         rtcListeners.forEach((listener) => listener({ kind: "signal", signal }));
       } else if (frame.t === "photo") {
         const { [frame.pid]: _gone, ...others } = snapshot.photos;
-        patch({ photos: frame.data === "" ? others : { ...others, [frame.pid]: `data:image/jpeg;base64,${frame.data}` } });
+        const address = photoAddress(frame.data);
+        patch({ photos: address ? { ...others, [frame.pid]: address } : others });
       } else if (frame.t === "hb" && beatAt > 0) {
         patch({ rtt: Date.now() - beatAt });
         beatAt = 0;
@@ -246,6 +248,9 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
         return;
       case "removed":
         end({ kind: "removed" });
+        return;
+      case "banned":
+        end({ kind: "banned" });
         return;
       case "flood":
         end({ kind: "flood" });

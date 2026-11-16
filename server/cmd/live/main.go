@@ -54,6 +54,7 @@ func main() {
 	}
 	signalCfg := signal.DefaultConfig(origins())
 	signalCfg.CountryHeader = os.Getenv("COUNTRY_HEADER")
+	signalCfg.AddressHeader = os.Getenv("ADDRESS_HEADER")
 	var rooms inbound.Presence = presence.WithoutMedia{Hub: hub}
 	if os.Getenv("MEDIA") != "off" {
 		udpPort, _ := strconv.Atoi(os.Getenv("MEDIA_UDP_PORT"))

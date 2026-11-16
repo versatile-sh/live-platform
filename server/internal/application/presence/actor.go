@@ -111,6 +111,9 @@ func (a *actor) untilNextWake() time.Duration {
 }
 
 func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, error) {
+	if err := a.room.Admit(entry.Origin); err != nil {
+		return room.Seat{}, err
+	}
 	if err := a.room.Authorize(a.now(), entry.Proof); err != nil {
 		return room.Seat{}, err
 	}
@@ -122,6 +125,7 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 	if err != nil {
 		return room.Seat{}, err
 	}
+	a.room.From(p.ID, entry.Origin)
 	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
 	a.showPhotos(session)
@@ -176,6 +180,15 @@ func (a *actor) remove(by room.PID, gen uint32, target room.PID) error {
 		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
 	}
 	events, err := a.room.Remove(a.now(), by, target)
+	a.apply(events)
+	return err
+}
+
+func (a *actor) ban(by room.PID, gen uint32, target room.PID) error {
+	if !a.holds(by, gen) {
+		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
+	}
+	events, err := a.room.Ban(a.now(), by, target)
 	a.apply(events)
 	return err
 }
@@ -296,6 +309,8 @@ func (a *actor) apply(events []room.Event) {
 			case room.ReasonLeft:
 			case room.ReasonRemoved:
 				s.session.Close(room.CloseRemoved)
+			case room.ReasonBanned:
+				s.session.Close(room.CloseBanned)
 			default:
 				s.session.Close(room.CloseSilent)
 			}

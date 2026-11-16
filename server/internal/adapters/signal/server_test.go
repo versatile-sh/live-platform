@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/versatile-sh/live/server/internal/ports/inbound"
 	"net"
 	"net/http"
 	"strings"
@@ -52,7 +53,11 @@ func startServer(t *testing.T, tune func(*Config)) string {
 	require.NoError(t, err)
 	addr := probe.Addr().String()
 	require.NoError(t, probe.Close())
-	srv := NewServer(hub, cfg)
+	var port inbound.Presence = hub
+	if cfg.AddressHeader != "" {
+		port = presence.WithoutMedia{Hub: hub}
+	}
+	srv := NewServer(port, cfg)
 	go func() { _ = srv.Run(addr) }()
 	<-srv.Ready()
 	t.Cleanup(func() {
@@ -181,6 +186,27 @@ func TestSignalling(t *testing.T) {
 		assert.Equal(t, "INVARIANT_VIOLATION", refused.Code)
 	})
 
+	t.Run("a banned participant is closed with the ban code and their address cannot come back, while others can", func(t *testing.T) {
+		url := startServer(t, func(cfg *Config) { cfg.AddressHeader = "X-Client" })
+		from := func(address string) *client {
+			conn, _, _, err := ws.Dialer{Protocols: []string{Subprotocol}, Header: ws.HandshakeHeaderHTTP(http.Header{"X-Client": {address}})}.Dial(context.Background(), url)
+			require.NoError(t, err)
+			t.Cleanup(func() { conn.Close() })
+			return &client{t: t, conn: conn}
+		}
+		ana, bia := from("10.0.0.1"), from("10.0.0.2, 172.16.0.1")
+		ana.join("ana")
+		bia.join("bia")
+		ana.send(`{"t":"owner","op":"ban","pid":2}`)
+		assert.Equal(t, CloseBanned, bia.closeCode())
+		again := from("10.0.0.2")
+		again.send(`{"t":"join","slug":"bk","name":"bia"}`)
+		refused := again.until(func(f serverFrame) bool { return f.T == "error" })
+		assert.Equal(t, "BANNED", refused.Code)
+		caio := from("10.0.0.3")
+		caio.join("caio")
+	})
+
 	t.Run("a private room is created by its first entry and refuses a wrong password", func(t *testing.T) {
 		url := startServer(t, nil)
 		right := strings.Repeat("A", 43)
@@ -219,7 +245,7 @@ func TestSignalling(t *testing.T) {
 		bia.until(func(f serverFrame) bool {
 			return f.T == "roster" && len(f.People) > 0 && f.People[0].Look == "ffffff-000000-90" && f.People[0].Face == "^_^"
 		})
-		ana.send(`{"t":"photo","data":"/9j/4AECAw=="}`)
+		ana.send(`{"t":"photo","data":"/9j/4AECA//Z"}`)
 		shown := bia.until(func(f serverFrame) bool { return f.T == "photo" })
 		assert.Equal(t, uint32(1), shown.PID)
 		ana.send(`{"t":"photo","data":"PHN2Zy8+"}`)
@@ -286,7 +312,7 @@ func TestSignalling(t *testing.T) {
 			{"unknown frame type", nil, func(c *client) { c.join("ana"); c.send(`{"t":"nope"}`) }, CloseBadFrame},
 			{"frame above the size limit", nil, func(c *client) {
 				c.join("ana")
-				require.NoError(c.t, ws.WriteHeader(c.conn, ws.Header{Fin: true, OpCode: ws.OpText, Masked: true, Length: 65<<10 + 1}))
+				require.NoError(c.t, ws.WriteHeader(c.conn, ws.Header{Fin: true, OpCode: ws.OpText, Masked: true, Length: 128<<10 + 1}))
 			}, ws.StatusMessageTooBig},
 			{"flood", func(c *Config) { c.FramesPerSec, c.FrameBurst = 1, 3 }, func(c *client) {
 				c.join("ana")

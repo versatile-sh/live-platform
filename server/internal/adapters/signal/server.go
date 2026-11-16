@@ -3,7 +3,11 @@ package signal
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"io"
+	"net"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -27,6 +31,7 @@ var headEnd = []byte("\r\n\r\n")
 type Config struct {
 	Origins       []string
 	CountryHeader string
+	AddressHeader string
 	HelloTimeout  time.Duration
 	ReadLimit     int64
 	FramesPerSec  float64
@@ -40,10 +45,10 @@ func DefaultConfig(origins []string) Config {
 	return Config{
 		Origins:      origins,
 		HelloTimeout: 5 * time.Second,
-		ReadLimit:    64 << 10,
+		ReadLimit:    128 << 10,
 		FramesPerSec: 20,
 		FrameBurst:   80,
-		MaxPending:   1 << 20,
+		MaxPending:   2 << 20,
 		MaxConns:     20000,
 	}
 }
@@ -56,11 +61,14 @@ type Server struct {
 	engine   gnet.Engine
 	ready    chan struct{}
 	conns    atomic.Int64
+	salt     [16]byte
 }
 
 // NewServer builds the signalling endpoint over the presence port.
 func NewServer(presence inbound.Presence, cfg Config) *Server {
-	return &Server{presence: presence, cfg: cfg, ready: make(chan struct{})}
+	s := &Server{presence: presence, cfg: cfg, ready: make(chan struct{})}
+	_, _ = rand.Read(s.salt[:])
+	return s
 }
 
 // Run serves on addr until Stop is called.
@@ -94,6 +102,11 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 		return nil, gnet.Close
 	}
 	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, time.Now())}
+	if s.cfg.AddressHeader == "" && raw.RemoteAddr() != nil {
+		if host, _, err := net.SplitHostPort(raw.RemoteAddr().String()); err == nil {
+			c.origin = s.originOf(host)
+		}
+	}
 	c.late = time.AfterFunc(s.cfg.HelloTimeout, c.expireHello)
 	raw.SetContext(c)
 	return nil, gnet.None
@@ -174,6 +187,11 @@ func (c *conn) upgrader() ws.Upgrader {
 				origin = string(value)
 			case c.server.cfg.CountryHeader != "" && strings.EqualFold(string(key), c.server.cfg.CountryHeader):
 				c.country = countryCode(value)
+			case c.server.cfg.AddressHeader != "" && strings.EqualFold(string(key), c.server.cfg.AddressHeader):
+				first, _, _ := strings.Cut(string(value), ",")
+				if ip := net.ParseIP(strings.TrimSpace(first)); ip != nil {
+					c.origin = c.server.originOf(ip.String())
+				}
 			}
 			return nil
 		},
@@ -184,6 +202,12 @@ func (c *conn) upgrader() ws.Upgrader {
 			return nil, nil
 		},
 	}
+}
+
+// originOf turns a visitor's address into an opaque key that lasts as long as this process, so a ban never stores the address itself.
+func (s *Server) originOf(address string) string {
+	sum := sha256.Sum256(append(s.salt[:], address...))
+	return hex.EncodeToString(sum[:12])
 }
 
 func countryCode(value []byte) string {
