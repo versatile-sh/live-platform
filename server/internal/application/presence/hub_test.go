@@ -22,6 +22,7 @@ type fakeSession struct {
 	last   room.Snapshot
 	gone   []room.Departure
 	closed room.CloseReason
+	said   []room.ChatMessage
 	stuck  bool
 }
 
@@ -36,6 +37,22 @@ func (f *fakeSession) Roster(s room.Snapshot) bool {
 	}
 	f.gone = append(f.gone, s.Gone...)
 	return true
+}
+
+func (f *fakeSession) Chat(m room.ChatMessage) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.stuck {
+		return false
+	}
+	f.said = append(f.said, m)
+	return true
+}
+
+func (f *fakeSession) heard() []room.ChatMessage {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]room.ChatMessage(nil), f.said...)
 }
 
 func (f *fakeSession) Close(reason room.CloseReason) {
@@ -309,5 +326,21 @@ func TestHub(t *testing.T) {
 		require.NoError(t, err)
 		session = fresh
 		require.Eventually(t, active(resumed.PID), wait, tick)
+	})
+
+	t.Run("a line said in the room reaches everyone in it, the speaker included, and nobody outside", func(t *testing.T) {
+		h := newCalmHub()
+		ana, anaSession := enter(t, h, "ana")
+		_, biaSession := enter(t, h, "bia")
+		outsider := &fakeSession{}
+		h.Chat("bk", ana.PID, ana.Gen, "hello")
+		h.Chat("bk", ana.PID, ana.Gen+1, "from a stale connection")
+		h.Chat("bk", 99, 1, "from nobody")
+		require.Eventually(t, func() bool { return len(biaSession.heard()) == 1 && len(anaSession.heard()) == 1 }, wait, tick)
+		said := biaSession.heard()[0]
+		assert.Equal(t, ana.PID, said.From)
+		assert.Equal(t, "ana", said.Name)
+		assert.Equal(t, "hello", said.Text)
+		assert.Empty(t, outsider.heard())
 	})
 }
