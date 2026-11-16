@@ -180,6 +180,12 @@ func (h *Hub) Ban(slug room.Slug, by room.PID, gen uint32, target room.PID) erro
 	return err
 }
 
+// Quiet applies one of the owner's microphone decisions: mute everyone, give it back to everyone, mute one, or let one speak.
+func (h *Hub) Quiet(slug room.Slug, by room.PID, gen uint32, op room.QuietOp, target room.PID) error {
+	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.quiet(by, gen, op, target) })
+	return err
+}
+
 // Transfer lets the owner hand the room to another participant.
 func (h *Hub) Transfer(slug room.Slug, by room.PID, gen uint32, target room.PID) error {
 	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.transfer(by, gen, target) })
