@@ -28,6 +28,30 @@ describe("EntryForm", () => {
       expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
     });
 
+    test("shows the room name taken from the address, and a changed name opens that room instead, carrying what was chosen", async () => {
+      const { onEnter, services } = setup(free);
+      const put = vi.spyOn(services.entryIntent, "put");
+      const room = screen.getByLabelText("Room name");
+      expect(room).toHaveValue("demo");
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.clear(room);
+      await userEvent.type(room, "Sala-Nova ");
+      expect(screen.getByRole("heading", { name: "Create sala-nova" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      await waitFor(() => expect(put).toHaveBeenCalledWith("sala-nova", { name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true }));
+      expect(onEnter).not.toHaveBeenCalled();
+    });
+
+    test("refuses a room name the site cannot use", async () => {
+      const { onEnter } = setup(free);
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.clear(screen.getByLabelText("Room name"));
+      await userEvent.type(screen.getByLabelText("Room name"), "a");
+      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      expect(await screen.findByText("Use 2 to 40 characters.")).toBeInTheDocument();
+      expect(onEnter).not.toHaveBeenCalled();
+    });
+
     test("creates a public listed room without deriving anything", async () => {
       const { onEnter, services } = setup(free);
       const derive = vi.spyOn(services, "derive");
