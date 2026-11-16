@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react
 
 import { hasFlag } from "../domain/flags";
 import { useT } from "../i18n/I18nProvider";
+import { createRoomMedia, type Source } from "../media/room-media";
 import { createLocalMedia, type Device, type LocalMedia, type LocalMediaSnapshot, type MediaKind } from "../media/local-media";
 import { useNavigate } from "../routing/Navigation";
 import { useServices } from "../services";
@@ -91,6 +92,12 @@ function Options({ kind, media, local, onClose }: { kind: "microphone" | "camera
   );
 }
 
+function attach(stream: MediaStream | undefined) {
+  return (element: HTMLMediaElement | null) => {
+    if (element && element.srcObject !== (stream ?? null)) element.srcObject = stream ?? null;
+  };
+}
+
 function grid(count: number): string {
   if (count <= 1) return "grid-cols-1 max-w-4xl";
   if (count <= 2) return "grid-cols-1 sm:grid-cols-2 max-w-6xl";
@@ -115,9 +122,29 @@ function NoticeLine({ notice }: { notice: Notice }) {
 export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProps) {
   const t = useT();
   const navigate = useNavigate();
-  const { mediaDevices, lookMemory, faceMemory } = useServices();
+  const { mediaDevices, lookMemory, faceMemory, rtc } = useServices();
   const [media] = useState(() => createLocalMedia(mediaDevices, (flags) => session.setMedia(flags)));
   const local = useSyncExternalStore(media.subscribe, media.getSnapshot);
+  const [roomMedia] = useState(() => createRoomMedia(rtc, (signal) => void session.sendRtc(signal)));
+  const remote = useSyncExternalStore(roomMedia.subscribe, roomMedia.getSnapshot);
+  useEffect(() => {
+    const stop = session.onRtc((event) => (event.kind === "seated" ? roomMedia.restart() : roomMedia.signal(event.signal)));
+    return () => {
+      stop();
+      roomMedia.dispose();
+    };
+  }, [session, roomMedia]);
+  useEffect(() => {
+    const tracks: Partial<Record<Source, MediaStreamTrack>> = {};
+    const add = (source: Source, track: MediaStreamTrack | undefined) => {
+      if (track) tracks[source] = track;
+    };
+    add("microphone", local.microphone?.getAudioTracks()[0]);
+    add("camera", local.camera?.getVideoTracks()[0]);
+    add("screen", local.screen?.getVideoTracks()[0]);
+    add("screenAudio", local.screen?.getAudioTracks()[0]);
+    roomMedia.publish(tracks);
+  }, [roomMedia, local.microphone, local.camera, local.screen]);
   const [side, setSide] = useState<Side | undefined>("chat");
   const [shown, setShown] = useState<Side>("chat");
   const [menu, setMenu] = useState<"microphone" | "camera" | "more" | undefined>();
@@ -237,7 +264,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
           {people.length === 0 ? (
             <p className="text-muted">{t("room.gettingReady")}</p>
           ) : (
-            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(people.length + (local.screen ? 1 : 0))}`}>
+            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(people.length + (local.screen ? 1 : 0) + people.filter((person) => person.pid !== myPid && remote[person.pid]?.screen).length)}`}>
               {local.screen ? (
                 <li className="relative isolate flex aspect-video items-center justify-center overflow-hidden rounded-2xl border border-bubble bg-sunken">
                   <video
@@ -252,10 +279,23 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
                   <span className="absolute bottom-2.5 left-2.5 rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold">{t("room.yourScreen")}</span>
                 </li>
               ) : null}
+              {people
+                .filter((person) => person.pid !== myPid && remote[person.pid]?.screen)
+                .map((person) => (
+                  <li key={`screen-${person.pid}`} className="relative isolate flex aspect-video items-center justify-center overflow-hidden rounded-2xl border border-bubble bg-sunken">
+                    <video ref={attach(remote[person.pid]?.screen)} autoPlay muted playsInline className="absolute inset-0 -z-10 size-full object-contain" />
+                    <span className="absolute bottom-2.5 left-2.5 rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold" translate="no">
+                      {t("room.screenOf", { name: person.name })}
+                    </span>
+                  </li>
+                ))}
               {people.map((person) => (
-                <Tile key={person.pid} person={person} isMe={person.pid === myPid} video={person.pid === myPid ? local.camera : undefined} photo={snapshot.photos[person.pid]} />
+                <Tile key={person.pid} person={person} isMe={person.pid === myPid} video={person.pid === myPid ? local.camera : remote[person.pid]?.camera} photo={snapshot.photos[person.pid]} />
               ))}
             </ul>
+          )}
+          {Object.entries(remote).flatMap(([pid, sources]) =>
+            Number(pid) === myPid ? [] : (["microphone", "screenAudio"] as const).flatMap((source) => (sources[source] ? [<audio key={`${pid}-${source}`} ref={attach(sources[source])} autoPlay />] : [])),
           )}
           <ul role="status" className="pointer-events-none absolute top-2 left-2 flex max-w-sm flex-col items-start gap-2">
             {inRoom ? connection.notices.map((notice) => <NoticeLine key={notice.id} notice={notice} />) : null}

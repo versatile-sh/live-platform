@@ -136,6 +136,7 @@ export const en = {
   "room.peopleCount": "{count} here",
   "room.mediaNote": "Your camera, microphone and screen stay on this device for now.",
   "room.gettingReady": "Getting the room",
+  "room.screenOf": "Screen of {name}",
   "room.yourScreen": "Your screen",
   "tile.muted": "microphone off",
   "dock.label": "Call controls",

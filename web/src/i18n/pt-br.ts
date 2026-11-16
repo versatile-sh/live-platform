@@ -138,6 +138,7 @@ export const ptBR: Record<MessageKey, string> = {
   "room.peopleCount": "{count} aqui",
   "room.mediaNote": "Sua câmera, seu microfone e sua tela ficam neste aparelho por enquanto.",
   "room.gettingReady": "Preparando a sala",
+  "room.screenOf": "Tela de {name}",
   "room.yourScreen": "Sua tela",
   "tile.muted": "microfone desligado",
   "dock.label": "Controles da chamada",
