@@ -22,7 +22,7 @@ describe("project store", () => {
     const store = createProjectStore(async () => undefined);
     store.subscribe(() => undefined);
     await Promise.resolve();
-    expect(store.getSnapshot()).toEqual({ repo: "https://github.com/versatile-sh/call-platform", x: "https://x.com/versatile_sh", stars: 0 });
+    expect(store.getSnapshot()).toEqual({ repo: "https://github.com/versatile-sh/meeting-platform", x: "https://x.com/versatile_sh", stars: 0 });
   });
 });
 
