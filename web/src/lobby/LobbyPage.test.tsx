@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
 import { fakeServices, renderWithApp, staticLobby } from "../test-support/render";
@@ -42,6 +43,32 @@ describe("LobbyPage", () => {
       renderWithApp(<LobbyPage />, { services: fakeServices({ lobby: staticLobby({ status: "failed", rooms: [room({})] }) }) });
       expect(screen.getByRole("link", { name: "Enter room standup" })).toBeInTheDocument();
       expect(screen.getByRole("status")).toHaveTextContent("Could not reach the server. Trying again.");
+    });
+  });
+
+  describe("the map", () => {
+    const services = () => fakeServices({ lobby: staticLobby({ status: "ready", rooms: [room({ country: "BR" }), room({ slug: "tokyo", country: "JP" }), room({ slug: "nowhere" })] }) });
+
+    test("draws the countries that have open rooms and filters the list by the one picked", async () => {
+      renderWithApp(<LobbyPage />, { services: services() });
+      await userEvent.click(screen.getByRole("button", { name: "Map" }));
+      const brazil = await screen.findByRole("button", { name: "Brazil, 1 open rooms" });
+      expect(screen.getByRole("button", { name: "Japan, 1 open rooms" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Enter room standup" })).not.toBeInTheDocument();
+      await userEvent.click(brazil);
+      expect(brazil).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("status")).toHaveTextContent("Open rooms in Brazil.");
+      expect(screen.getByRole("link", { name: "Enter room standup" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Enter room tokyo" })).not.toBeInTheDocument();
+    });
+
+    test("can be worked from the keyboard", async () => {
+      renderWithApp(<LobbyPage />, { services: services() });
+      await userEvent.click(screen.getByRole("button", { name: "Map" }));
+      const japan = await screen.findByRole("button", { name: "Japan, 1 open rooms" });
+      japan.focus();
+      await userEvent.keyboard("{Enter}");
+      expect(screen.getByRole("link", { name: "Enter room tokyo" })).toBeInTheDocument();
     });
   });
 });
