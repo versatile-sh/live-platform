@@ -584,6 +584,29 @@ describe("RoomPage", () => {
       expect(await within(screen.getByRole("listitem", { name: "Whiteboard" })).findByText("a small picture of the board")).toBeInTheDocument();
     });
 
+    test("a private message is announced as private, with who sent it, and opens that conversation", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "chat", pid: 2, to: 1, name: "Bia", text: "só pra você", at: 1_700_000_000_000 });
+      expect(screen.getByText("Bia wrote only to you (1)")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Private · 1" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Open" }));
+      expect(within(screen.getByRole("list", { name: "Messages" })).getByText("só pra você")).toBeInTheDocument();
+      expect(screen.queryByText(/wrote only to you/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Private" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    test("an address in a message is a link that opens elsewhere, and a picture sent is shown", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "entra https://live.versatile.sh/meet", at: 1_700_000_000_000, img: "R0lGODlhAQABAAAAACw=" });
+      const link = screen.getByRole("link", { name: "https://live.versatile.sh/meet" });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noreferrer noopener");
+      expect(screen.getByRole("img", { name: "Picture from Bia" })).toHaveAttribute("src", "data:image/gif;base64,R0lGODlhAQABAAAAACw=");
+      await userEvent.click(screen.getByRole("button", { name: "Emoji" }));
+      await userEvent.click(screen.getByRole("button", { name: "🔥" }));
+      expect(screen.getByLabelText("Message to the room")).toHaveValue("🔥");
+    });
+
     test("a right click on a person offers what can be done about them, starting with a private message", async () => {
       const { socket } = await inCall();
       await userEvent.pointer({ keys: "[MouseRight]", target: screen.getByRole("listitem", { name: /Bia, connected/ }) });

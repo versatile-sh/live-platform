@@ -16,7 +16,7 @@ const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: string; face?: string };
 
 /** One line said in the room, as this page heard it. */
-export type ChatLine = { id: number; pid: number; to?: number; name: string; text: string; at: number };
+export type ChatLine = { id: number; pid: number; to?: number; name: string; text: string; at: number; image?: string };
 
 const CHAT_KEPT = 300;
 
@@ -66,8 +66,8 @@ export type Session = {
   setLook(look: string, face: string): void;
   /** Shows a photo of mine to the room while I am in it (JPEG or GIF as base64), or takes it away when empty. */
   setPhoto(data: string): void;
-  /** Says a line to the room, or privately to one participant; false when it could not be sent. */
-  say(text: string, to?: number): boolean;
+  /** Says a line to the room, or privately to one participant, with a small picture (GIF or JPEG as base64) if given; false when it could not be sent. */
+  say(text: string, to?: number, image?: string): boolean;
   /** Tells the room what I am sending (microphone, camera, screen, hand); it is told again after a reconnection. */
   setMedia(flags: number): void;
 };
@@ -218,7 +218,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       if (snapshot.connection.phase === "joined" || frame.t === "joined") armWatchdog(DEAD_AFTER_MS);
       if (frame.t === "joined") onJoined(frame);
       else if (frame.t === "roster") dispatch({ type: "roster", frame });
-      else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at, ...(frame.to ? { to: frame.to } : {}) }].slice(-CHAT_KEPT) });
+      else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at, ...(frame.to ? { to: frame.to } : {}), ...(frame.img && photoAddress(frame.img) ? { image: photoAddress(frame.img)! } : {}) }].slice(-CHAT_KEPT) });
       else if (frame.t === "board") boardListeners.forEach((listener) => listener(frame.pid, frame.data));
       else if (frame.t === "rtc") {
         const { t: _t, ...signal } = frame;
@@ -381,8 +381,8 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     setPhoto(data) {
       link?.send({ t: "photo", data });
     },
-    say(text, to) {
-      return link?.send({ t: "chat", text, ...(to ? { to } : {}) }) ?? false;
+    say(text, to, image) {
+      return link?.send({ t: "chat", text, ...(to ? { to } : {}), ...(image ? { data: image } : {}) }) ?? false;
     },
     setMedia(flags) {
       if (flags === mediaFlags) return;
