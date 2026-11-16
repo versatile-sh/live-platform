@@ -19,95 +19,54 @@ function setup(room: RoomSummary, extra: { refusal?: "PERMISSION_DENIED"; servic
 
 describe("EntryForm", () => {
   describe("for a free slug", () => {
-    test("says the room does not exist yet and that the visitor will own it", () => {
+    test("says the name is free and offers to create the room, public and shown in the open rooms", () => {
       setup(free);
-      expect(screen.getByRole("heading", { name: "Create room demo" })).toBeInTheDocument();
-      expect(screen.getByText(/does not exist yet. You will create it and own it/)).toBeInTheDocument();
-    });
-
-    test("starts public and unlisted, with no password field at all", () => {
-      setup(free);
+      expect(screen.getByRole("heading", { name: "Create demo" })).toBeInTheDocument();
+      expect(screen.getByText(/This name is free/)).toBeInTheDocument();
       expect(screen.getByRole("radio", { name: /Public/ })).toBeChecked();
-      expect(screen.getByRole("checkbox", { name: "Show in the lobby" })).not.toBeChecked();
-      expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
+      expect(screen.queryByLabelText("Room code")).not.toBeInTheDocument();
     });
 
-    test("creates a public listed room without deriving a password", async () => {
+    test("creates a public listed room without deriving anything", async () => {
       const { onEnter, services } = setup(free);
       const derive = vi.spyOn(services, "derive");
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.click(screen.getByLabelText("Show in the lobby"));
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      expect(onEnter).toHaveBeenCalledWith({ name: "Ana", listed: true });
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", listed: true }));
       expect(derive).not.toHaveBeenCalled();
     });
 
-    test("disables the lobby choice once Private is chosen and says why", async () => {
-      setup(free);
-      await userEvent.click(screen.getByLabelText("Private", { exact: false }));
-      expect(screen.getByLabelText("Show in the lobby")).toBeDisabled();
-      expect(screen.getByText("Private rooms are never listed.")).toBeInTheDocument();
-      expect(screen.getByLabelText("Password")).toBeEnabled();
-    });
-
-    test("creates a private room with the derived verifier and keeps the password for the share link", async () => {
-      const { onEnter } = setup(free);
+    test("a private room carries the room code it shows, and may still be shown in the open rooms or not", async () => {
+      const { onEnter } = setup(free, { services: fakeServices({ generatePassword: () => "8ABH-23HK" }) });
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.click(screen.getByLabelText("Private", { exact: false }));
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
+      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalled());
-      expect(onEnter).toHaveBeenCalledWith({ name: "Ana", verifier: "v:demo:Kq7mR2xP", password: "Kq7mR2xP" });
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: false }));
     });
 
-    test("draws a new password on request", async () => {
-      const generate = vi.fn().mockReturnValueOnce("Aa111111").mockReturnValueOnce("Zz222222");
-      setup(free, { services: fakeServices({ generatePassword: generate }) });
-      await userEvent.click(screen.getByLabelText("Private", { exact: false }));
-      await userEvent.click(screen.getByRole("button", { name: "New password" }));
-      expect(screen.getByLabelText("Password")).toHaveValue("Zz222222");
-    });
-
-    test("copies the password", async () => {
-      const { services } = setup(free);
-      await userEvent.click(screen.getByLabelText("Private", { exact: false }));
+    test("draws a new code on request and copies the one shown", async () => {
+      const codes = ["8ABH-23HK", "9XYZ-45QR"];
+      const { services } = setup(free, { services: fakeServices({ generatePassword: () => codes.shift() ?? "none" }) });
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await userEvent.click(screen.getByRole("button", { name: "New" }));
+      expect(screen.getByLabelText("Room code")).toHaveTextContent("9XYZ-45QR");
       await userEvent.click(screen.getByRole("button", { name: "Copy" }));
-      expect(services.copied).toEqual(["Kq7mR2xP"]);
-      expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
-    });
-
-    test("warns in words when the typed password is weak but still lets it through", async () => {
-      const { onEnter } = setup(free);
-      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.click(screen.getByLabelText("Private", { exact: false }));
-      await userEvent.clear(screen.getByLabelText("Password"));
-      await userEvent.type(screen.getByLabelText("Password"), "abcd1234");
-      expect(screen.getByText(/easy to guess/)).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalled());
-    });
-
-    test("refuses a typed password that is too short and focuses it", async () => {
-      const { onEnter } = setup(free);
-      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.click(screen.getByLabelText("Private", { exact: false }));
-      await userEvent.clear(screen.getByLabelText("Password"));
-      await userEvent.type(screen.getByLabelText("Password"), "abc1");
-      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      expect(screen.getByText("Use at least 8 characters.")).toBeInTheDocument();
-      expect(screen.getByLabelText("Password")).toBeInvalid();
-      expect(onEnter).not.toHaveBeenCalled();
+      expect(services.copied).toEqual(["9XYZ-45QR"]);
     });
   });
 
   describe("for an existing public room", () => {
     test("asks only for a name and shows how many are in it", async () => {
       const { onEnter } = setup(existing());
-      expect(screen.getByRole("heading", { name: "Join room demo" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Join demo" })).toBeInTheDocument();
       expect(screen.getByText("3/10 people are in it.")).toBeInTheDocument();
-      expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+      expect(screen.queryByRole("radio")).not.toBeInTheDocument();
       await userEvent.type(screen.getByLabelText("Your name"), "Bia");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
-      expect(onEnter).toHaveBeenCalledWith({ name: "Bia" });
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Bia" }));
     });
 
     test("explains a missing name and does not enter", async () => {
@@ -118,64 +77,53 @@ describe("EntryForm", () => {
       expect(onEnter).not.toHaveBeenCalled();
     });
 
-    test("says the room is full when it is", () => {
+    test("says the room is full and does not offer to enter", () => {
       setup(existing({ count: 10 }));
-      expect(screen.getByText(/This room is full \(10\/10\)/)).toBeInTheDocument();
+      expect(screen.getByText(/This room is full/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Enter room" })).toBeDisabled();
     });
 
-    test("remembers the name on this device", async () => {
-      const { services } = setup(existing());
+    test("remembers the name on this device and starts with it next time", async () => {
+      const services = fakeServices();
+      setup(existing(), { services });
       await userEvent.type(screen.getByLabelText("Your name"), "Bia");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
-      expect(services.nameMemory.read()).toBe("Bia");
-    });
-
-    test("starts with the remembered name", () => {
-      const services = fakeServices();
-      services.nameMemory.write("Caio");
-      setup(existing(), { services });
-      expect(screen.getByLabelText("Your name")).toHaveValue("Caio");
+      await waitFor(() => expect(services.nameMemory.read()).toBe("Bia"));
     });
   });
 
   describe("for an existing private room", () => {
-    test("asks for the password and sends its verifier without strength rules", async () => {
+    test("asks for the room code and sends its verifier", async () => {
       const { onEnter } = setup(existing({ private: true }));
       await userEvent.type(screen.getByLabelText("Your name"), "Bia");
-      await userEvent.type(screen.getByLabelText("Password"), "abc");
+      await userEvent.type(screen.getByLabelText("Room code"), "8abh-23hk");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalled());
-      expect(onEnter).toHaveBeenCalledWith({ name: "Bia", verifier: "v:demo:abc", password: "abc" });
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Bia", verifier: "v:demo:8abh-23hk", password: "8abh-23hk" }));
     });
 
-    test("requires a password", async () => {
+    test("requires the code", async () => {
       const { onEnter } = setup(existing({ private: true }));
       await userEvent.type(screen.getByLabelText("Your name"), "Bia");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
-      expect(screen.getByText("Type the password.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Room code")).toBeInvalid();
+      expect(screen.getByText("Type the room code.")).toBeInTheDocument();
       expect(onEnter).not.toHaveBeenCalled();
     });
 
-    test("prefills the password a share link carries", () => {
-      setup(existing({ private: true }), { services: fakeServices({ readPasswordHash: () => "Kq7mR2xP" }) });
-      expect(screen.getByLabelText("Password")).toHaveValue("Kq7mR2xP");
+    test("prefills the code a share link carries", () => {
+      setup(existing({ private: true }), { services: fakeServices({ readPasswordHash: () => "8ABH-23HK" }) });
+      expect(screen.getByLabelText("Room code")).toHaveValue("8ABH-23HK");
     });
 
-    test("hides the typed password until asked", async () => {
-      setup(existing({ private: true }));
-      expect(screen.getByLabelText("Password")).toHaveAttribute("type", "password");
-      await userEvent.click(screen.getByRole("button", { name: "Show" }));
-      expect(screen.getByLabelText("Password")).toHaveAttribute("type", "text");
-    });
-
-    test("tells a wrong password apart in words when the server refused it", () => {
+    test("tells a wrong code apart in words when the server refused it", () => {
       setup(existing({ private: true }), { refusal: "PERMISSION_DENIED" });
-      expect(screen.getByRole("alert")).toHaveTextContent("That password did not open the room");
+      expect(screen.getByRole("alert")).toHaveTextContent(/did not open the room/);
     });
   });
 
   test("speaks Portuguese with accents", () => {
-    setup(existing({ private: true }), { locale: "pt-BR" });
-    expect(screen.getByText("Esta sala é privada. Peça a senha ao dono.")).toBeInTheDocument();
+    setup(free, { locale: "pt-BR" });
+    expect(screen.getByRole("heading", { name: "Criar demo" })).toBeInTheDocument();
+    expect(screen.getByText(/Este nome está livre/)).toBeInTheDocument();
   });
 });

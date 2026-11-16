@@ -30,9 +30,6 @@ func NewSettings(verifier *Verifier, listed bool, country string) (Settings, err
 }
 
 func (s Settings) validate() error {
-	if s.Private && s.Listed {
-		return shared.NewDomainError(shared.ErrCodeInvalidArgument, "a private room is never listed", nil)
-	}
 	if len(s.Country) != 0 && (len(s.Country) != 2 || s.Country[0] < 'A' || s.Country[0] > 'Z' || s.Country[1] < 'A' || s.Country[1] > 'Z') {
 		return shared.NewDomainError(shared.ErrCodeInvalidArgument, "country is two capital letters or empty", nil)
 	}
@@ -47,9 +44,9 @@ type Entry struct {
 	Country string
 }
 
-// Settings returns the room this entry creates when its slug is free; a private room is never listed.
+// Settings returns the room this entry creates when its slug is free.
 func (e Entry) Settings() (Settings, error) {
-	return NewSettings(e.Proof, e.Listed && e.Proof == nil, e.Country)
+	return NewSettings(e.Proof, e.Listed, e.Country)
 }
 
 // Summary is what anyone may know about a room without entering it.
@@ -88,7 +85,7 @@ func (r *Room) Authorize(now time.Time, proof *Verifier) error {
 	return shared.NewDomainError(shared.ErrCodePermissionDenied, "this room needs its password", nil)
 }
 
-// SetListed lets the owner show or hide a public room in the lobby.
+// SetListed lets the owner show or hide the room in the lobby.
 func (r *Room) SetListed(by PID, listed bool) error {
 	if err := r.ownerOnly(by); err != nil {
 		return err
@@ -102,12 +99,12 @@ func (r *Room) SetListed(by PID, listed bool) error {
 	return nil
 }
 
-// SetPassword lets the owner make the room private with a new verifier, or public with none.
+// SetPassword lets the owner make the room private with a new verifier, or public with none; listing is untouched.
 func (r *Room) SetPassword(by PID, verifier *Verifier) error {
 	if err := r.ownerOnly(by); err != nil {
 		return err
 	}
-	next, err := NewSettings(verifier, r.settings.Listed && verifier == nil, r.settings.Country)
+	next, err := NewSettings(verifier, r.settings.Listed, r.settings.Country)
 	if err != nil {
 		return err
 	}
