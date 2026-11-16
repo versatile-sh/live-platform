@@ -11,13 +11,23 @@ describe("LobbyPage", () => {
   describe("with no listed rooms", () => {
     test("says how to start one", () => {
       renderWithApp(<LobbyPage />);
-      expect(screen.getByText("No listed rooms right now.")).toBeInTheDocument();
-      expect(screen.getByText(/Go back and type a name/)).toBeInTheDocument();
+      expect(screen.getByText("No open rooms right now.")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Create a room" })).toHaveAttribute("href", "/");
     });
 
     test("speaks Portuguese for a pt-BR visitor", () => {
       renderWithApp(<LobbyPage />, { locale: "pt-BR" });
-      expect(screen.getByText("Nenhuma sala listada agora.")).toBeInTheDocument();
+      expect(screen.getByText("Nenhuma sala aberta agora.")).toBeInTheDocument();
+    });
+  });
+
+  describe("on the map with no rooms", () => {
+    test("says so over the map and offers to create one", async () => {
+      renderWithApp(<LobbyPage />);
+      await userEvent.click(screen.getByRole("button", { name: "Map" }));
+      expect(screen.getByText("No open rooms right now.")).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Create a room" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Larger map" })).not.toBeInTheDocument();
     });
   });
 
