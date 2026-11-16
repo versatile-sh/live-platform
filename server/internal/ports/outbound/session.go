@@ -1,0 +1,12 @@
+// Package outbound holds the contracts the application needs from the outside.
+package outbound
+
+import "github.com/versatile-sh/live/server/internal/domain/room"
+
+// Session is one participant's connection as the room sees it.
+type Session interface {
+	// Roster queues a snapshot without blocking and reports false when the connection cannot keep up.
+	Roster(snapshot room.Snapshot) bool
+	// Close ends the connection with the reason the participant is shown.
+	Close(reason room.CloseReason)
+}
