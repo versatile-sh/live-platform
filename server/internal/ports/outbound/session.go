@@ -9,6 +9,8 @@ type Session interface {
 	Roster(snapshot room.Snapshot) bool
 	// Chat queues a message without blocking and reports false when the connection cannot keep up.
 	Chat(message room.ChatMessage) bool
+	// Board queues a piece of the whiteboard without blocking and reports false when the connection cannot keep up.
+	Board(update room.BoardUpdate) bool
 	// Photo queues a participant's photo, or its removal when empty, without blocking.
 	Photo(pid room.PID, jpeg []byte)
 	// Media queues a media signal without blocking; one that cannot be queued is dropped and the media path will time out.
