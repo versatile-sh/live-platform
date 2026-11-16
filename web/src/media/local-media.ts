@@ -23,8 +23,11 @@ export type VoiceChain = { denoise: boolean; strength: number; balanced: boolean
 /** Passes a microphone's voice through a chain in this browser; absent where the browser cannot. */
 export type VoiceCleaner = (raw: MediaStream, chain: VoiceChain) => Promise<CleanedVoice>;
 
-/** Redraws a camera through a colour effect; absent where the browser cannot. */
-export type CameraEffects = (raw: MediaStream, effect: Exclude<CameraEffect, "none">) => CleanedVoice;
+/** A camera with what is behind the person out of focus: the changed picture, a way to change how much without a new picture, and the way to stop. */
+export type CameraChange = { stream: MediaStream; set(effect: Exclude<CameraEffect, "none">): void; release(): void };
+
+/** Puts the background of a camera out of focus in this browser; absent where the browser cannot. */
+export type CameraEffects = (raw: MediaStream, effect: Exclude<CameraEffect, "none">) => Promise<CameraChange>;
 
 export type MediaKind = "microphone" | "camera" | "screen";
 
@@ -112,6 +115,8 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
   const listeners = new Set<() => void>();
   let snapshot: LocalMediaSnapshot = { ...OFF, settings: initial };
   let disposed = false;
+  let rawCamera: MediaStream | undefined;
+  let changer: CameraChange | undefined;
 
   function patch(next: Partial<LocalMediaSnapshot>) {
     snapshot = { ...snapshot, ...next };
@@ -127,20 +132,8 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     }
     if (kind === "camera") {
       const { width, height, frameRate } = cameraShape(snapshot.settings.cameraQuality);
-      const raw = await devices.user({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
-      const effect = snapshot.settings.cameraEffect;
-      if (effect === "none" || !effects) return raw;
-      try {
-        const changed = effects(raw, effect);
-        releases.set(changed.stream, () => {
-          changed.release();
-          stop(raw);
-        });
-        raw.getTracks().forEach((track) => track.addEventListener("ended", () => changed.stream.getTracks().forEach((made) => made.dispatchEvent(new Event("ended")))));
-        return changed.stream;
-      } catch {
-        return raw;
-      }
+      rawCamera = await devices.user({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
+      return dress(rawCamera);
     }
     return microphone(devices);
   }
@@ -165,6 +158,48 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     } catch {
       return raw;
     }
+  }
+
+  async function dress(raw: MediaStream): Promise<MediaStream> {
+    const effect = snapshot.settings.cameraEffect;
+    changer = undefined;
+    if (effect === "none" || !effects) return raw;
+    try {
+      const made = await effects(raw, effect);
+      changer = made;
+      releases.set(made.stream, () => {
+        made.release();
+        stop(raw);
+      });
+      raw.getTracks().forEach((track) => track.addEventListener("ended", () => made.stream.getTracks().forEach((dressed) => dressed.dispatchEvent(new Event("ended")))));
+      return made.stream;
+    } catch {
+      return raw;
+    }
+  }
+
+  async function redress() {
+    const shown = snapshot.camera;
+    const raw = rawCamera;
+    const effect = snapshot.settings.cameraEffect;
+    if (!shown || !raw) return;
+    if (effect !== "none" && changer && shown === changer.stream) {
+      changer.set(effect);
+      return;
+    }
+    changer?.release();
+    releases.delete(shown);
+    const next = await dress(raw);
+    if (disposed || snapshot.camera !== shown) {
+      if (next !== raw) releases.get(next)?.();
+      return;
+    }
+    next.getTracks().forEach((track) =>
+      track.addEventListener("ended", () => {
+        if (snapshot.camera === next) patch({ camera: undefined });
+      }),
+    );
+    patch({ camera: next });
   }
 
   function gateKey() {
@@ -266,7 +301,8 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       const differs = (...keys: (keyof MediaSettings)[]) => keys.some((key) => before[key] !== settings[key]);
       if (differs("pushToTalk")) gateKey();
       if (differs("echo", "gain", "strength", "balanced", "gate", "gateDb")) await restart("microphone");
-      if (differs("cameraQuality", "cameraEffect")) await restart("camera");
+      if (differs("cameraQuality")) await restart("camera");
+      else if (differs("cameraEffect")) await redress();
       if (differs("screenQuality")) {
         const { width, height, frameRate } = screenShape(settings.screenQuality);
         await Promise.all((snapshot.screen?.getVideoTracks() ?? []).map((track) => track.applyConstraints({ width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } }).catch(() => undefined)));
