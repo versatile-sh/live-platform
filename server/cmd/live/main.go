@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"io/fs"
 	"log/slog"
 	"net"
 	"net/http"
@@ -37,7 +38,11 @@ func main() {
 	}
 	httpapi.Register(mux, hub, starCount)
 	if dir := os.Getenv("WEB_DIR"); dir != "" {
-		web, err := page.Handler(os.DirFS(dir))
+		var files fs.FS = os.DirFS(dir)
+		if over := os.Getenv("WEB_LIVE_DIR"); over != "" {
+			files = page.Layered(os.DirFS(over), files)
+		}
+		web, err := page.Handler(files)
 		if err != nil {
 			log.Error("web directory unusable", "error", err.Error())
 			os.Exit(1)

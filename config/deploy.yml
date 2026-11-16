@@ -12,6 +12,10 @@ servers:
       network-alias: live-signal
       publish: "40000:40000/udp"
 
+# A newer client is laid over the one in the image from this directory of the server, so the page can change without restarting calls.
+volumes:
+  - /srv/live/web:/web-live:ro
+
 ssh:
   user: root
 
@@ -51,6 +55,7 @@ env:
     ADDRESS_HEADER: CF-Connecting-IP
     MEDIA_UDP_PORT: "40000"
     MEDIA_PUBLIC_IP: 217.76.62.157
+    WEB_LIVE_DIR: /web-live
     GITHUB_REPO: versatile-sh/meeting-platform
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
     CF_ACCESS_TEAM_DOMAIN: versatile-sh.cloudflareaccess.com
