@@ -7,12 +7,13 @@ import {
   type ReactNode,
 } from "react";
 
-import { hasFlag } from "../domain/flags";
 import { shareLink } from "../domain/share-link";
 import { createBoardSync } from "../board/board-sync";
 import { chime } from "../media/chime";
 import { cameraShape, screenShape } from "../media/settings";
 import { MediaSettings } from "./MediaSettings";
+import { StageFrame, type StageMode } from "./StageFrame";
+import { hasFlag } from "../domain/flags";
 import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
 import {
@@ -245,7 +246,8 @@ export function RoomView({
     roomMedia.getSnapshot,
   );
   const [board] = useState(() => createBoardSync((message, to) => session.sendBoard(message, to)));
-  const [boardOpen, setBoardOpen] = useState(false);
+  const [boardGone, setBoardGone] = useState(false);
+  const [pinned, setPinned] = useState<string | null | undefined>();
   useEffect(() => {
     const stop = session.onRtc((event) => {
       if (event.kind === "signal") return roomMedia.signal(event.signal);
@@ -392,6 +394,95 @@ export function RoomView({
       remote[person.pid]?.screen &&
       sees(person.pid).screen,
   );
+  const presenter = people.find((person) => hasFlag(person.flags, "board"));
+  if (!presenter && boardGone) setBoardGone(false);
+  const boardShown = local.board || (presenter !== undefined && !boardGone);
+  const toggleBoard = () => {
+    if (boardShown) {
+      media.setBoard(false);
+      setBoardGone(presenter !== undefined && presenter.pid !== myPid);
+    } else {
+      setBoardGone(false);
+      media.setBoard(true);
+    }
+  };
+  const SHOW = "absolute inset-0 -z-10 size-full object-contain";
+  const TAG = "absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold";
+  const frames: { key: string; render(mode: StageMode): ReactNode }[] = [
+    ...(boardShown
+      ? [
+          {
+            key: "board",
+            render: (mode: StageMode) => (
+              <StageFrame key="board" mode={mode} name={t("board.label")} onFront={() => bring("board")} clickable={mode !== "front"} data-board aria-label={t("board.label")} className="swap-in bubble flex-col border border-bubble bg-card">
+                {mode === "front" ? (
+                  <>
+                    <div className="flex h-11 w-full shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-24">
+                      <h2 className="truncate text-sm font-semibold">{presenter && presenter.pid !== myPid ? t("board.of", { name: presenter.name }) : t("board.label")}</h2>
+                      <button type="button" aria-label={t("board.close")} title={t("board.close")} className={ICON_BUTTON} onClick={toggleBoard}>
+                        <Icon name="close" className="size-4" />
+                      </button>
+                    </div>
+                    <div className="min-h-0 w-full flex-1">
+                      <Suspense fallback={<p role="status" className="grid h-full place-items-center text-muted">{t("board.loading")}</p>}>
+                        <Whiteboard sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} />
+                      </Suspense>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Icon name="board" className="size-10 text-accent" />
+                    <span className={TAG}>{t("board.label")}</span>
+                  </>
+                )}
+              </StageFrame>
+            ),
+          },
+        ]
+      : []),
+    ...(local.screen
+      ? [
+          {
+            key: "screen-me",
+            render: (mode: StageMode) => (
+              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} className="bubble-sent border border-bubble bg-sunken">
+                <video ref={attach(local.screen)} autoPlay muted playsInline className={SHOW} />
+                <span className={TAG}>{t("room.yourScreen")}</span>
+              </StageFrame>
+            ),
+          },
+        ]
+      : []),
+    ...screens.map((person) => ({
+      key: `screen-${person.pid}`,
+      render: (mode: StageMode) => (
+        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} className="bubble border border-bubble bg-sunken">
+          <video ref={attach(remote[person.pid]?.screen)} autoPlay muted playsInline className={SHOW} />
+          <span className={TAG} translate="no">
+            {t("room.screenOf", { name: person.name })}
+          </span>
+        </StageFrame>
+      ),
+    })),
+    ...shownPeople.map((person) => ({
+      key: `person-${person.pid}`,
+      render: (mode: StageMode) => (
+        <Tile
+          key={person.pid}
+          person={person}
+          isMe={person.pid === myPid}
+          video={!sees(person.pid).camera ? undefined : person.pid === myPid ? local.camera : remote[person.pid]?.camera}
+          photo={snapshot.photos[person.pid]}
+          mode={mode}
+          onFront={() => bring(`person-${person.pid}`)}
+          onMenu={(at) => setPersonMenu({ pid: person.pid, ...at })}
+        />
+      ),
+    })),
+  ];
+  const chosen = frames.find((frame) => frame.key === pinned);
+  const front = pinned === null ? undefined : (chosen ?? frames.find((frame) => frame.key === "board" || frame.key.startsWith("screen-")));
+  const bring = (key: string) => setPinned(front?.key === key ? null : key);
 
   function leave() {
     withMotion("back", () => {
@@ -524,85 +615,21 @@ export function RoomView({
           aria-label={t("room.peopleHeading", { slug })}
           className="relative flex min-w-0 flex-1 items-center justify-center"
         >
-          {boardOpen ? (
-            <div data-board role="region" aria-label={t("board.label")} className="swap-in absolute inset-0 z-10 flex flex-col overflow-hidden bubble border border-line-strong bg-card">
-              <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
-                <h2 className="font-display text-base font-bold tracking-[-0.03em]">{t("board.label")}</h2>
-                <button type="button" aria-label={t("board.close")} className={ICON_BUTTON} onClick={() => setBoardOpen(false)}>
-                  <Icon name="minimize" className="size-4" />
-                </button>
-              </div>
-              <div className="min-h-0 flex-1">
-                <Suspense fallback={<p role="status" className="grid h-full place-items-center text-muted">{t("board.loading")}</p>}>
-                  <Whiteboard sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} />
-                </Suspense>
-              </div>
-            </div>
-          ) : null}
           {people.length === 0 ? (
             <p className="text-muted">{t("room.gettingReady")}</p>
-          ) : shownPeople.length === 0 &&
-            screens.length === 0 &&
-            !local.screen ? (
+          ) : frames.length === 0 ? (
             <p className="text-muted">{t("visibility.none")}</p>
-          ) : (
-            <ul
-              className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(shownPeople.length + (local.screen ? 1 : 0) + screens.length)}`}
-            >
-              {local.screen ? (
-                <li className="relative isolate flex aspect-video items-center justify-center overflow-hidden bubble-sent border border-bubble bg-sunken">
-                  <video
-                    ref={(element) => {
-                      if (element && element.srcObject !== local.screen)
-                        element.srcObject = local.screen ?? null;
-                    }}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="absolute inset-0 -z-10 size-full object-contain"
-                  />
-                  <span className="absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold">
-                    {t("room.yourScreen")}
-                  </span>
-                </li>
+          ) : front ? (
+            <div className="swap-in flex size-full min-h-0 gap-3 max-lg:flex-col">
+              <ul className="flex min-h-0 min-w-0 flex-1">{front.render("front")}</ul>
+              {frames.length > 1 ? (
+                <ul aria-label={t("stage.others")} className="no-scrollbar flex shrink-0 gap-3 overflow-auto max-lg:h-28 max-lg:[&>li]:h-full max-lg:[&>li]:w-auto lg:w-52 lg:flex-col">
+                  {frames.filter((frame) => frame !== front).map((frame) => frame.render("strip"))}
+                </ul>
               ) : null}
-              {screens.map((person) => (
-                <li
-                  key={`screen-${person.pid}`}
-                  className="relative isolate flex aspect-video items-center justify-center overflow-hidden bubble border border-bubble bg-sunken"
-                >
-                  <video
-                    ref={attach(remote[person.pid]?.screen)}
-                    autoPlay
-                    muted
-                    playsInline
-                    className="absolute inset-0 -z-10 size-full object-contain"
-                  />
-                  <span
-                    className="absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold"
-                    translate="no"
-                  >
-                    {t("room.screenOf", { name: person.name })}
-                  </span>
-                </li>
-              ))}
-              {shownPeople.map((person) => (
-                <Tile
-                  key={person.pid}
-                  person={person}
-                  isMe={person.pid === myPid}
-                  video={
-                    !sees(person.pid).camera
-                      ? undefined
-                      : person.pid === myPid
-                        ? local.camera
-                        : remote[person.pid]?.camera
-                  }
-                  photo={snapshot.photos[person.pid]}
-                  onMenu={(at) => setPersonMenu({ pid: person.pid, ...at })}
-                />
-              ))}
-            </ul>
+            </div>
+          ) : (
+            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length)}`}>{frames.map((frame) => frame.render("grid"))}</ul>
           )}
           {Object.entries(remote).flatMap(([pid, sources]) =>
             Number(pid) === myPid
@@ -764,7 +791,7 @@ export function RoomView({
                   },
                 ]
               : []),
-            { id: "board", group: t("palette.group.room"), label: t("more.board"), run: () => setBoardOpen((open) => !open) },
+            { id: "board", group: t("palette.group.room"), label: t("more.board"), run: toggleBoard },
             { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
             {
               id: "look",
@@ -1071,7 +1098,7 @@ export function RoomView({
           >
             <Icon name="hand" />
           </button>
-          <button type="button" aria-pressed={boardOpen} aria-label={t("more.board")} title={t("more.board")} className={`${DOCK.round} ${boardOpen ? DOCK.on : DOCK.idle}`} onClick={() => setBoardOpen((open) => !open)}>
+          <button type="button" aria-pressed={boardShown} aria-label={t("more.board")} title={t("more.board")} className={`${DOCK.round} ${boardShown ? DOCK.on : DOCK.idle}`} onClick={toggleBoard}>
             <Icon name="board" />
           </button>
           <div className="relative">
@@ -1135,7 +1162,7 @@ export function RoomView({
                         "more.board",
                         "board",
                         undefined,
-                        () => setBoardOpen((open) => !open),
+                        toggleBoard,
                       ] as const,
                       ["more.media", "settings", undefined, () => setSheet("media")] as const,
                       [

@@ -396,3 +396,13 @@ func TestBan(t *testing.T) {
 	assert.NoError(t, r.Admit("home"), "an origin shared with the owner is never barred")
 	assert.NoError(t, r.Admit(""))
 }
+
+func TestBoardFlag(t *testing.T) {
+	r := newRoom(t)
+	ana := joinActive(t, r, "ana", true)
+	require.Len(t, r.SetMedia(ana.ID, FlagBoard|FlagOwner|FlagUnstable), 1)
+	got := r.Roster()[0].Flags
+	assert.True(t, got.Has(FlagBoard), "a participant says they opened the whiteboard")
+	assert.Equal(t, Flags(128), FlagBoard)
+	assert.False(t, got.Has(FlagUnstable), "and still cannot set what only the server sets")
+}
