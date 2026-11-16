@@ -36,6 +36,15 @@ type clientFrame struct {
 	Op       string `json:"op"`
 	Verifier string `json:"verifier"`
 	Listed   bool   `json:"listed"`
+	Text     string `json:"text"`
+}
+
+type chatFrame struct {
+	T    string `json:"t"`
+	PID  uint32 `json:"pid"`
+	Name string `json:"name"`
+	Text string `json:"text"`
+	At   int64  `json:"at"`
 }
 
 type person struct {
@@ -80,6 +89,10 @@ func encodeRoster(s room.Snapshot) []byte {
 		f.Gone = append(f.Gone, departure{PID: uint32(d.PID), Reason: string(d.Reason)})
 	}
 	return mustJSON(f)
+}
+
+func encodeChat(m room.ChatMessage) []byte {
+	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), Name: m.Name, Text: m.Text, At: m.At.UnixMilli()})
 }
 
 func encodeJoined(seat room.Seat) []byte {

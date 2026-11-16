@@ -124,6 +124,11 @@ func (h *Hub) SetMedia(slug room.Slug, pid room.PID, gen uint32, flags room.Flag
 	})
 }
 
+// Chat relays a line a participant said to everyone in the room, the speaker included.
+func (h *Hub) Chat(slug room.Slug, pid room.PID, gen uint32, text string) {
+	h.tell(slug, func(a *actor) { a.chat(pid, gen, text) })
+}
+
 // Leave removes a participant at once.
 func (h *Hub) Leave(slug room.Slug, pid room.PID, gen uint32) {
 	h.tell(slug, func(a *actor) {

@@ -7,6 +7,8 @@ import "github.com/versatile-sh/live/server/internal/domain/room"
 type Session interface {
 	// Roster queues a snapshot without blocking and reports false when the connection cannot keep up.
 	Roster(snapshot room.Snapshot) bool
+	// Chat queues a message without blocking and reports false when the connection cannot keep up.
+	Chat(message room.ChatMessage) bool
 	// Close ends the connection with the reason the participant is shown.
 	Close(reason room.CloseReason)
 }

@@ -61,6 +61,21 @@ func (c *conn) Roster(snapshot room.Snapshot) bool {
 	return true
 }
 
+// Chat queues a message and reports false when the connection has fallen too far behind.
+func (c *conn) Chat(message room.ChatMessage) bool {
+	frame := textFrame(encodeChat(message))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch {
+	case c.gone || c.phase != phaseJoined:
+		return true
+	case c.pending.Load() > c.server.cfg.MaxPending:
+		return false
+	}
+	c.send(frame)
+	return true
+}
+
 // Close ends the connection from the room's side with the code of the reason.
 func (c *conn) Close(reason room.CloseReason) {
 	c.fail(closeCode(reason), string(reason))
@@ -194,6 +209,13 @@ func (c *conn) dispatch(f clientFrame) {
 		c.send(hbFrame)
 	case "media":
 		p.SetMedia(c.slug, c.seat.PID, c.seat.Gen, room.Flags(f.Flags))
+	case "chat":
+		text, err := room.NewChatText(f.Text)
+		if err != nil {
+			c.send(textFrame(encodeError(err)))
+			return
+		}
+		p.Chat(c.slug, c.seat.PID, c.seat.Gen, text)
 	case "leave":
 		c.mu.Lock()
 		c.left = true
