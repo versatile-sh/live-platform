@@ -69,3 +69,6 @@ The server sends a participant only the tracks their page is showing.
 
 **Egress budget**:
 The operator's ceiling on media the server may send; joins are refused above it.
+
+**Whiteboard**:
+The one drawing surface a room shares. Each browser keeps it; the server relays its pieces unread and stores nothing, so it is gone when the room empties.

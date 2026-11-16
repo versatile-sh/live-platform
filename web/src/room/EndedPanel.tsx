@@ -67,7 +67,7 @@ export function EndedPanel({
   return (
     <section
       aria-labelledby="ended-title"
-      className={`${SURFACE} max-w-xl p-6`}
+      className={`swap-in ${SURFACE} max-w-xl p-6`}
     >
       <h2
         id="ended-title"

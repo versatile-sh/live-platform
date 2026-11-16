@@ -16,7 +16,7 @@ export function PeoplePanel({ people, me, canModerate, onRemove, onTransfer, pho
         const view = describePerson(person);
         const mine = person.pid === me;
         return (
-          <li key={person.pid} className="bubble flex min-h-14 items-center gap-3 border border-line-strong bg-canvas px-3 py-2">
+          <li key={person.pid} className="arrive bubble flex min-h-14 items-center gap-3 border border-line-strong bg-canvas px-3 py-2">
             <Avatar look={person.look} face={person.face} name={person.name} photo={photos[person.pid]} />
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-sm font-semibold" translate="no">
