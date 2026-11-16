@@ -38,7 +38,7 @@ type client struct {
 
 func startServer(t *testing.T, tune func(*Config)) string {
 	t.Helper()
-	roomCfg := room.Config{Capacity: 10, ConnectTimeout: time.Second, Grace: 150 * time.Millisecond, UnhealthyCap: 300 * time.Millisecond, EmptyRelease: 200 * time.Millisecond}
+	roomCfg := room.Config{Capacity: 10, ConnectTimeout: time.Second, Grace: 150 * time.Millisecond, UnhealthyCap: 300 * time.Millisecond, EmptyRelease: 200 * time.Millisecond, PasswordTries: 10, PasswordWindow: time.Minute}
 	hub := presence.NewHub(roomCfg, presence.Liveness{UnstableAfter: 200 * time.Millisecond, SuspectAfter: 500 * time.Millisecond}, time.Now)
 	cfg := DefaultConfig(nil)
 	if tune != nil {
@@ -175,6 +175,30 @@ func TestSignalling(t *testing.T) {
 		bia.send(`{"t":"owner","op":"remove","pid":1}`)
 		refused := bia.until(func(f serverFrame) bool { return f.T == "error" })
 		assert.Equal(t, "INVARIANT_VIOLATION", refused.Code)
+	})
+
+	t.Run("a private room is created by its first entry and refuses a wrong password", func(t *testing.T) {
+		url := startServer(t, nil)
+		right := strings.Repeat("A", 43)
+		wrong := strings.Repeat("B", 43)
+		owner := dial(t, url)
+		owner.send(`{"t":"join","slug":"bk","name":"ana","verifier":"` + right + `"}`)
+		f, err := owner.next()
+		require.NoError(t, err)
+		require.Equal(t, "joined", f.T)
+		for _, proof := range []string{"", wrong, "not-base64!"} {
+			guest := dial(t, url)
+			guest.send(`{"t":"join","slug":"bk","name":"bia","verifier":"` + proof + `"}`)
+			refused, err := guest.next()
+			require.NoError(t, err)
+			assert.Equal(t, "error", refused.T)
+			assert.Equal(t, CloseBadFrame, guest.closeCode())
+		}
+		guest := dial(t, url)
+		guest.send(`{"t":"join","slug":"bk","name":"bia","verifier":"` + right + `"}`)
+		f, err = guest.next()
+		require.NoError(t, err)
+		assert.Equal(t, "joined", f.T)
 	})
 
 	t.Run("a frame split across packets is reassembled", func(t *testing.T) {

@@ -2,6 +2,8 @@
 package presence
 
 import (
+	"cmp"
+	"slices"
 	"sync"
 	"time"
 
@@ -38,13 +40,59 @@ func NewHub(cfg room.Config, liveness Liveness, now func() time.Time) *Hub {
 }
 
 // Join seats a participant, creating the room when the slug is free; the first to arrive owns it.
-func (h *Hub) Join(slug room.Slug, name string, session outbound.Session) (room.Seat, error) {
-	return ask(h, slug, true, func(a *actor) (room.Seat, error) { return a.join(name, session) })
+func (h *Hub) Join(slug room.Slug, entry room.Entry, session outbound.Session) (room.Seat, error) {
+	return ask(h, slug, &entry, func(a *actor) (room.Seat, error) { return a.join(entry, session) })
+}
+
+// Status returns what anyone may know about a room, or false when the slug is free.
+func (h *Hub) Status(slug room.Slug) (room.Summary, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if a := h.actors[slug]; a != nil {
+		return *a.summary.Load(), true
+	}
+	return room.Summary{}, false
+}
+
+// Lobby returns the listed rooms, fullest first.
+func (h *Hub) Lobby() []room.Summary {
+	h.mu.RLock()
+	out := make([]room.Summary, 0, len(h.actors))
+	for _, a := range h.actors {
+		if s := *a.summary.Load(); s.Listed && s.Count > 0 {
+			out = append(out, s)
+		}
+	}
+	h.mu.RUnlock()
+	slices.SortFunc(out, func(x, y room.Summary) int {
+		return cmp.Or(cmp.Compare(y.Count, x.Count), cmp.Compare(x.Slug, y.Slug))
+	})
+	return out
+}
+
+// SetListed lets the owner show or hide a public room in the lobby.
+func (h *Hub) SetListed(slug room.Slug, by room.PID, gen uint32, listed bool) error {
+	return h.owner(slug, by, gen, func(a *actor) error { return a.room.SetListed(by, listed) })
+}
+
+// SetPassword lets the owner make the room private with a new verifier, or public with none.
+func (h *Hub) SetPassword(slug room.Slug, by room.PID, gen uint32, verifier *room.Verifier) error {
+	return h.owner(slug, by, gen, func(a *actor) error { return a.room.SetPassword(by, verifier) })
+}
+
+func (h *Hub) owner(slug room.Slug, by room.PID, gen uint32, fn func(*actor) error) error {
+	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) {
+		if !a.holds(by, gen) {
+			return struct{}{}, shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
+		}
+		return struct{}{}, fn(a)
+	})
+	return err
 }
 
 // Resume gives a participant its place back on a new connection when the secret matches.
 func (h *Hub) Resume(slug room.Slug, pid room.PID, secret [32]byte, session outbound.Session) (room.Seat, error) {
-	return ask(h, slug, false, func(a *actor) (room.Seat, error) { return a.resume(pid, secret, session) })
+	return ask(h, slug, nil, func(a *actor) (room.Seat, error) { return a.resume(pid, secret, session) })
 }
 
 // Touch records that a participant's connection is alive.
@@ -87,13 +135,13 @@ func (h *Hub) Leave(slug room.Slug, pid room.PID, gen uint32) {
 
 // Remove lets the owner remove another participant.
 func (h *Hub) Remove(slug room.Slug, by room.PID, gen uint32, target room.PID) error {
-	_, err := ask(h, slug, false, func(a *actor) (struct{}, error) { return struct{}{}, a.remove(by, gen, target) })
+	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.remove(by, gen, target) })
 	return err
 }
 
 // Transfer lets the owner hand the room to another participant.
 func (h *Hub) Transfer(slug room.Slug, by room.PID, gen uint32, target room.PID) error {
-	_, err := ask(h, slug, false, func(a *actor) (struct{}, error) { return struct{}{}, a.transfer(by, gen, target) })
+	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.transfer(by, gen, target) })
 	return err
 }
 
@@ -119,7 +167,7 @@ func (h *Hub) tell(slug room.Slug, fn func(*actor)) bool {
 	}
 }
 
-func ask[T any](h *Hub, slug room.Slug, create bool, fn func(*actor) (T, error)) (T, error) {
+func ask[T any](h *Hub, slug room.Slug, create *room.Entry, fn func(*actor) (T, error)) (T, error) {
 	type reply struct {
 		value T
 		err   error
@@ -131,10 +179,10 @@ func ask[T any](h *Hub, slug room.Slug, create bool, fn func(*actor) (T, error))
 		out <- reply{v, err}
 	}
 	if !h.tell(slug, cmd) {
-		if !create {
+		if create == nil {
 			return zero, shared.NewDomainError(shared.ErrCodeNotFound, "room not found or busy", nil)
 		}
-		if err := h.open(slug, cmd); err != nil {
+		if err := h.open(slug, *create, cmd); err != nil {
 			return zero, err
 		}
 	}
@@ -142,12 +190,16 @@ func ask[T any](h *Hub, slug room.Slug, create bool, fn func(*actor) (T, error))
 	return r.value, r.err
 }
 
-func (h *Hub) open(slug room.Slug, first func(*actor)) error {
+func (h *Hub) open(slug room.Slug, entry room.Entry, first func(*actor)) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	a := h.actors[slug]
 	if a == nil {
-		r, err := room.New(slug, h.cfg, h.now())
+		settings, err := entry.Settings()
+		if err != nil {
+			return err
+		}
+		r, err := room.New(slug, h.cfg, settings, h.now())
 		if err != nil {
 			return err
 		}

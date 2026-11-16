@@ -3,6 +3,7 @@ package presence
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"sync/atomic"
 	"time"
 
 	"github.com/versatile-sh/live/server/internal/domain/room"
@@ -23,19 +24,29 @@ type actor struct {
 	seats map[room.PID]*seat
 	inbox chan func(*actor)
 	gone  []room.Departure
+
+	summary atomic.Pointer[room.Summary]
 }
 
 func newActor(h *Hub, r *room.Room) *actor {
-	return &actor{hub: h, room: r, seats: map[room.PID]*seat{}, inbox: make(chan func(*actor), inboxSize)}
+	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, inbox: make(chan func(*actor), inboxSize)}
+	a.publish()
+	return a
 }
 
 func (a *actor) now() time.Time { return a.hub.now() }
+
+func (a *actor) publish() {
+	s := a.room.Summary()
+	a.summary.Store(&s)
+}
 
 func (a *actor) run() {
 	timer := time.NewTimer(time.Hour)
 	defer timer.Stop()
 	for {
 		a.sweep()
+		a.publish()
 		if a.room.ReleaseDue(a.now()) && a.hub.release(a) {
 			return
 		}
@@ -86,12 +97,15 @@ func (a *actor) untilNextWake() time.Duration {
 	return max(wake.Sub(now), time.Millisecond)
 }
 
-func (a *actor) join(name string, session outbound.Session) (room.Seat, error) {
+func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, error) {
+	if err := a.room.Authorize(a.now(), entry.Proof); err != nil {
+		return room.Seat{}, err
+	}
 	secret, err := newSecret()
 	if err != nil {
 		return room.Seat{}, err
 	}
-	p, events, err := a.room.Join(a.now(), name, sha256.Sum256(secret[:]), a.room.Count() == 0)
+	p, events, err := a.room.Join(a.now(), entry.Name, sha256.Sum256(secret[:]), a.room.Count() == 0)
 	if err != nil {
 		return room.Seat{}, err
 	}

@@ -79,8 +79,15 @@ func newHub() *Hub {
 		Grace:          80 * time.Millisecond,
 		UnhealthyCap:   160 * time.Millisecond,
 		EmptyRelease:   100 * time.Millisecond,
+		PasswordTries:  10,
+		PasswordWindow: time.Minute,
 	}
 	return NewHub(cfg, Liveness{UnstableAfter: 60 * time.Millisecond, SuspectAfter: 150 * time.Millisecond}, time.Now)
+}
+
+func newCalmHub() *Hub {
+	cfg := room.DefaultConfig()
+	return NewHub(cfg, DefaultLiveness(), time.Now)
 }
 
 func keepAlive(t *testing.T, h *Hub, seat *room.Seat) {
@@ -102,7 +109,7 @@ func keepAlive(t *testing.T, h *Hub, seat *room.Seat) {
 func enter(t *testing.T, h *Hub, name string) (*room.Seat, *fakeSession) {
 	t.Helper()
 	session := &fakeSession{}
-	seat, err := h.Join("bk", name, session)
+	seat, err := h.Join("bk", room.Entry{Name: name}, session)
 	require.NoError(t, err)
 	h.MediaUp("bk", seat.PID, seat.Gen)
 	return &seat, session
@@ -233,7 +240,7 @@ func TestHub(t *testing.T) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				if _, err := h.Join("bk", "p", &fakeSession{}); err == nil {
+				if _, err := h.Join("bk", room.Entry{Name: "p"}, &fakeSession{}); err == nil {
 					mu.Lock()
 					admitted++
 					mu.Unlock()
@@ -242,5 +249,46 @@ func TestHub(t *testing.T) {
 		}
 		wg.Wait()
 		assert.Equal(t, 10, admitted)
+	})
+
+	t.Run("the first entry decides the room; a private room asks everyone for the password and stays out of the lobby", func(t *testing.T) {
+		h := newCalmHub()
+		password, wrong := room.Verifier{7}, room.Verifier{8}
+		_, err := h.Join("bk", room.Entry{Name: "ana", Proof: &password, Listed: true, Country: "BR"}, &fakeSession{})
+		require.NoError(t, err)
+		_, err = h.Join("bk", room.Entry{Name: "bia"}, &fakeSession{})
+		assert.Equal(t, shared.ErrCodePermissionDenied, shared.CodeOf(err))
+		_, err = h.Join("bk", room.Entry{Name: "bia", Proof: &wrong}, &fakeSession{})
+		assert.Equal(t, shared.ErrCodePermissionDenied, shared.CodeOf(err))
+		_, err = h.Join("bk", room.Entry{Name: "bia", Proof: &password}, &fakeSession{})
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			s, ok := h.Status("bk")
+			return ok && s.Private && s.Count == 2 && s.Country == "BR"
+		}, wait, tick)
+		assert.Empty(t, h.Lobby())
+		_, ok := h.Status("free")
+		assert.False(t, ok)
+	})
+
+	t.Run("the lobby shows listed rooms with people, fullest first, until the owner unlists", func(t *testing.T) {
+		h := newCalmHub()
+		enterAs := func(slug room.Slug, name string, listed bool) room.Seat {
+			seat, err := h.Join(slug, room.Entry{Name: name, Listed: listed, Country: "BR"}, &fakeSession{})
+			require.NoError(t, err)
+			h.MediaUp(slug, seat.PID, seat.Gen)
+			return seat
+		}
+		owner := enterAs("small", "a", true)
+		enterAs("big", "a", true)
+		enterAs("big", "b", false)
+		enterAs("hidden", "a", false)
+		require.Eventually(t, func() bool {
+			l := h.Lobby()
+			return len(l) == 2 && l[0].Slug == "big" && l[0].Count == 2 && l[1].Slug == "small"
+		}, wait, tick)
+		require.NoError(t, h.SetListed("small", owner.PID, owner.Gen, false))
+		require.Eventually(t, func() bool { return len(h.Lobby()) == 1 }, wait, tick)
+		assert.Equal(t, shared.ErrCodeNotFound, shared.CodeOf(h.SetListed("small", owner.PID, owner.Gen+1, true)))
 	})
 }

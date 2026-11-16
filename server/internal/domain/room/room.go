@@ -27,6 +27,8 @@ type Config struct {
 	Grace          time.Duration
 	UnhealthyCap   time.Duration
 	EmptyRelease   time.Duration
+	PasswordTries  int
+	PasswordWindow time.Duration
 }
 
 // DefaultConfig returns the capacity and timers agreed in ADR 0003 and ADR 0005.
@@ -37,6 +39,8 @@ func DefaultConfig() Config {
 		Grace:          4 * time.Second,
 		UnhealthyCap:   8 * time.Second,
 		EmptyRelease:   30 * time.Second,
+		PasswordTries:  10,
+		PasswordWindow: 5 * time.Minute,
 	}
 }
 
@@ -58,6 +62,9 @@ type Participant struct {
 type Room struct {
 	slug     Slug
 	cfg      Config
+	settings Settings
+	tries    int
+	triesEnd time.Time
 	slots    [MaxCapacity]*Participant
 	occupied uint64
 	nextPID  PID
@@ -66,14 +73,20 @@ type Room struct {
 }
 
 // New creates an empty room that is released if nobody joins within the empty-release time.
-func New(slug Slug, cfg Config, now time.Time) (*Room, error) {
+func New(slug Slug, cfg Config, settings Settings, now time.Time) (*Room, error) {
+	if err := settings.validate(); err != nil {
+		return nil, err
+	}
 	if cfg.Capacity < 1 || cfg.Capacity > MaxCapacity {
 		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "capacity must be between 1 and 64", nil)
 	}
 	if cfg.ConnectTimeout <= 0 || cfg.Grace <= 0 || cfg.UnhealthyCap < cfg.Grace || cfg.EmptyRelease <= 0 {
 		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "timers must be positive and the cap no shorter than the grace", nil)
 	}
-	return &Room{slug: slug, cfg: cfg, emptyAt: now}, nil
+	if cfg.PasswordTries < 1 || cfg.PasswordWindow <= 0 {
+		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "password attempts need a positive limit and window", nil)
+	}
+	return &Room{slug: slug, cfg: cfg, settings: settings, emptyAt: now}, nil
 }
 
 // Slug returns the room's address.
@@ -311,10 +324,10 @@ func (r *Room) giveOwnership(to *Participant) []Event {
 }
 
 func (r *Room) ownerAnd(by, target PID) (*Participant, *Participant, error) {
-	owner := r.find(by)
-	if owner == nil || !owner.Flags.Has(FlagOwner) || owner.State != StateActive {
-		return nil, nil, shared.NewDomainError(shared.ErrCodeInvariantViolation, "only the active owner may do this", nil)
+	if err := r.ownerOnly(by); err != nil {
+		return nil, nil, err
 	}
+	owner := r.find(by)
 	p := r.find(target)
 	if p == nil {
 		return nil, nil, shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
