@@ -72,6 +72,8 @@ func (f *fakeSession) photoOf(pid room.PID) (int, bool) {
 	return n, ok
 }
 
+func (f *fakeSession) Media(room.MediaSignal) {}
+
 func (f *fakeSession) Close(reason room.CloseReason) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

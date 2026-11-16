@@ -11,6 +11,8 @@ type Session interface {
 	Chat(message room.ChatMessage) bool
 	// Photo queues a participant's photo, or its removal when empty, without blocking.
 	Photo(pid room.PID, jpeg []byte)
+	// Media queues a media signal without blocking; one that cannot be queued is dropped and the media path will time out.
+	Media(signal room.MediaSignal)
 	// Close ends the connection with the reason the participant is shown.
 	Close(reason room.CloseReason)
 }

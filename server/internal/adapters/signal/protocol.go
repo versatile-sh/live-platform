@@ -27,19 +27,32 @@ const (
 )
 
 type clientFrame struct {
-	T        string `json:"t"`
-	Slug     string `json:"slug"`
-	Name     string `json:"name"`
-	PID      uint32 `json:"pid"`
-	Secret   string `json:"secret"`
-	Flags    uint16 `json:"flags"`
-	Op       string `json:"op"`
-	Verifier string `json:"verifier"`
-	Listed   bool   `json:"listed"`
-	Text     string `json:"text"`
-	Look     uint16 `json:"look"`
-	Face     string `json:"face"`
-	Data     string `json:"data"`
+	T         string            `json:"t"`
+	Slug      string            `json:"slug"`
+	Name      string            `json:"name"`
+	PID       uint32            `json:"pid"`
+	Secret    string            `json:"secret"`
+	Flags     uint16            `json:"flags"`
+	Op        string            `json:"op"`
+	Verifier  string            `json:"verifier"`
+	Listed    bool              `json:"listed"`
+	Text      string            `json:"text"`
+	Look      uint16            `json:"look"`
+	Face      string            `json:"face"`
+	Data      string            `json:"data"`
+	Role      string            `json:"role"`
+	Kind      string            `json:"kind"`
+	SDP       string            `json:"sdp"`
+	Candidate string            `json:"candidate"`
+	Sources   map[string]string `json:"sources"`
+}
+
+type mediaFrame struct {
+	T         string `json:"t"`
+	Role      string `json:"role"`
+	Kind      string `json:"kind"`
+	SDP       string `json:"sdp,omitempty"`
+	Candidate string `json:"candidate,omitempty"`
 }
 
 type photoFrame struct {
@@ -100,6 +113,10 @@ func encodeRoster(s room.Snapshot) []byte {
 		f.Gone = append(f.Gone, departure{PID: uint32(d.PID), Reason: string(d.Reason)})
 	}
 	return mustJSON(f)
+}
+
+func encodeMedia(s room.MediaSignal) []byte {
+	return mustJSON(mediaFrame{T: "rtc", Role: s.Role, Kind: s.Kind, SDP: s.SDP, Candidate: s.Candidate})
 }
 
 func encodePhoto(pid room.PID, jpeg []byte) []byte {

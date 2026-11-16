@@ -24,7 +24,7 @@ type Reporter interface {
 }
 
 // Sender delivers a media signal to one participant without blocking.
-type Sender func(room.MediaSignal)
+type Sender = func(room.MediaSignal)
 
 // Config says where media travels: one UDP port for everyone when set, and the address to announce when the host is behind one.
 type Config struct {
@@ -259,7 +259,7 @@ func (e *Engine) incoming(p *peer, remote *webrtc.TrackRemote) {
 		p.mu.Unlock()
 		return
 	}
-	local, err := webrtc.NewTrackLocalStaticRTP(remote.Codec().RTPCodecCapability, source, strconv.FormatUint(uint64(p.pid), 10))
+	local, err := webrtc.NewTrackLocalStaticRTP(remote.Codec().RTPCodecCapability, source, strconv.FormatUint(uint64(p.pid), 10)+":"+source)
 	if err != nil {
 		p.mu.Unlock()
 		return

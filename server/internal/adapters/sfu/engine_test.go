@@ -159,14 +159,14 @@ func TestEngine(t *testing.T) {
 		ana.publish("camera")
 		require.Eventually(t, func() bool { _, ok := bia.hears("camera"); return ok }, wait, 20*time.Millisecond)
 		stream, _ := bia.hears("camera")
-		assert.Equal(t, "1", stream)
+		assert.Equal(t, "1:camera", stream)
 		_, echoed := ana.hears("camera")
 		assert.False(t, echoed)
 	})
 
 	t.Run("someone who arrives later is sent what is already published", func(t *testing.T) {
 		caio := enter(t, engine, 3)
-		require.Eventually(t, func() bool { stream, ok := caio.hears("camera"); return ok && stream == "1" }, wait, 20*time.Millisecond)
+		require.Eventually(t, func() bool { stream, ok := caio.hears("camera"); return ok && stream == "1:camera" }, wait, 20*time.Millisecond)
 	})
 
 	t.Run("signals from a connection the participant no longer holds are ignored", func(t *testing.T) {
