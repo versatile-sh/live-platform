@@ -27,6 +27,7 @@ export const ptBR: Record<MessageKey, string> = {
   "home.addressHint": "Letras minúsculas, números e hifens.",
   "home.seeRooms": "Ver salas abertas",
 
+  "lobby.back": "Voltar para entrar numa sala",
   "lobby.heading": "Salas abertas",
   "lobby.intro": "Compartilhe uma tela, sua voz e sua câmera a partir de um link. Sem conta e sem instalar nada.",
   "lobby.goLabel": "Nome da sala",

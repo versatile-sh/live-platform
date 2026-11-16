@@ -3,18 +3,23 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { checkSlug, normalizeSlug } from "../domain/slug";
 import { useT } from "../i18n/I18nProvider";
 import { AppLink, useNavigate } from "../routing/Navigation";
+import { LobbyPage } from "../lobby/LobbyPage";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
 import { Social } from "../ui/Social";
 import { FIELD, QUIET_LINK, button } from "../ui/styles";
 import { Wordmark } from "../ui/Wordmark";
 
+const SWAP = "transition-colors duration-700";
+
 function Said({ mine = false, live = false, children }: { mine?: boolean; live?: boolean; children: ReactNode }) {
   return (
     <li className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <span
-        className={`inline-flex max-w-[22rem] items-center gap-2 px-4 py-2.5 text-[0.9375rem] leading-snug ${
-          mine ? "rounded-[1.25rem] rounded-br-[0.3rem] bg-paper font-mono text-sm text-ink" : "bubble bg-ink text-paper"
+        className={`inline-flex max-w-[22rem] items-center gap-2 border px-4 py-2.5 text-[0.9375rem] leading-snug ${SWAP} ${
+          mine
+            ? "rounded-[1.25rem] rounded-br-[0.3rem] border-transparent bg-paper font-mono text-sm text-ink group-data-[view=lobby]:bg-bubble"
+            : "bubble border-transparent bg-ink text-paper group-data-[view=lobby]:border-line-strong group-data-[view=lobby]:bg-card"
         }`}
       >
         {live ? <span aria-hidden="true" className="pulse size-2 shrink-0 rounded-full bg-ink" /> : null}
@@ -28,15 +33,17 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className="relative isolate flex flex-col overflow-hidden bg-bubble px-6 py-8 text-ink sm:px-10 lg:w-1/2 lg:px-14 lg:py-12">
-      <div aria-hidden="true" className="backdrop-glow pointer-events-none absolute inset-0 -z-10" />
-      <div aria-hidden="true" className="backdrop-grid-ink pointer-events-none absolute inset-0 -z-10" />
-      <Wordmark onAccent className="self-start text-lg" />
+    <section className={`relative flex flex-col bg-bubble px-6 py-8 text-ink group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:w-1/2 lg:bg-transparent lg:px-14 lg:py-12 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
+      <AppLink href="/" aria-label={t("app.home")} className="self-start">
+        <Wordmark onAccent className="text-lg" />
+      </AppLink>
       <div className="flex flex-1 flex-col justify-center py-12 lg:py-0">
         <h1 className="font-display text-[2.5rem] leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl xl:text-6xl">
           <span className="block">{t("home.line1")}</span>
           <span className="block">{t("home.line2")}</span>
-          <span className="bubble-word mt-[0.34em] inline-block bg-ink px-[0.5em] py-[0.24em] font-mono text-[0.42em] leading-[1.15] font-medium tracking-[-0.02em] text-bubble">{t("home.answer")}</span>
+          <span className={`bubble-word mt-[0.34em] inline-block bg-ink px-[0.5em] py-[0.24em] font-mono text-[0.42em] leading-[1.15] font-medium tracking-[-0.02em] text-bubble group-data-[view=lobby]:bg-bubble group-data-[view=lobby]:text-ink ${SWAP}`}>
+            {t("home.answer")}
+          </span>
         </h1>
         <ul aria-hidden="true" className="mt-12 hidden max-w-md flex-col gap-2.5 sm:flex">
           <Said>{t("home.chat1")}</Said>
@@ -74,9 +81,8 @@ function EnterRoom() {
   }
 
   return (
-    <section className="flex flex-1 flex-col px-6 py-8 sm:px-10 lg:py-12">
-      <Social className="justify-end" />
-      <form onSubmit={submit} noValidate className="m-auto w-full max-w-md py-10">
+    <>
+      <form onSubmit={submit} noValidate className="w-full max-w-md">
         <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">{t("home.formTitle")}</h2>
         <p className="mt-2 mb-9 text-muted">{t("home.formIntro")}</p>
 
@@ -125,16 +131,33 @@ function EnterRoom() {
           </AppLink>
         </p>
       </form>
-    </section>
+    </>
   );
 }
 
-/** The home, in two halves: what the product is, told as a conversation, and the form that takes you into a room. */
-export function HomePage() {
+/** The home, in two halves: what the product is, told as a conversation, and the form that takes you into a room. Asking for the open rooms slides the lime half across, and the rooms arrive on it. */
+export function HomePage({ view = "home" }: { view?: "home" | "lobby" }) {
+  const lobby = view === "lobby";
   return (
-    <div className="flex flex-1 flex-col lg:flex-row">
+    <div data-view={view} className="group relative isolate flex flex-1 flex-col overflow-hidden bg-canvas lg:flex-row">
+      <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-1/2 bg-bubble transition-transform duration-700 ease-(--ease-glide) group-data-[view=lobby]:translate-x-full lg:block">
+        <div className="backdrop-glow absolute inset-0" />
+        <div className="backdrop-grid-ink absolute inset-0" />
+      </div>
       <Pitch />
-      <EnterRoom />
+      <div className={`relative flex flex-1 flex-col px-6 py-8 group-data-[view=lobby]:bg-bubble sm:px-10 lg:py-12 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
+        <Social className="justify-end" />
+        <div className="relative flex flex-1 items-center justify-center py-10">
+          <div inert={lobby} className="flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) group-data-[view=lobby]:pointer-events-none group-data-[view=lobby]:translate-x-16 group-data-[view=lobby]:opacity-0 max-lg:group-data-[view=lobby]:hidden">
+            <EnterRoom />
+          </div>
+          {lobby ? (
+            <div className="arrive-late flex w-full justify-center lg:absolute lg:inset-0 lg:items-center">
+              <LobbyPage />
+            </div>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }
