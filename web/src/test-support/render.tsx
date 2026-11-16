@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import type { LobbyState, LobbyStore } from "../lobby/lobby-store";
@@ -82,4 +82,11 @@ export function renderWithApp(ui: ReactNode, { services = fakeServices(), locale
       </ServicesProvider>
     </I18nProvider>,
   );
+}
+
+/** Renders and lets a suspended tree settle, for pages that wait on a promise. */
+export async function renderWithAppSettled(...args: Parameters<typeof renderWithApp>) {
+  await act(async () => {
+    renderWithApp(...args);
+  });
 }

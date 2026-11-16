@@ -58,6 +58,7 @@ export const en = {
   "entry.passwordLabel": "Password",
   "entry.passwordCreateHint": "We drew this one for you. Share it with the people you invite.",
   "entry.passwordJoinHint": "The password stays in your browser. It only unlocks the room.",
+  "entry.passwordPublic": "Public rooms have no password. Choose Private to set one.",
   "entry.passwordGenerate": "New password",
   "entry.passwordShow": "Show",
   "entry.passwordHide": "Hide",
@@ -170,6 +171,8 @@ export const en = {
   "owner.passwordWarning": "Changing the password changes the key: everyone without the new password leaves the room.",
   "owner.passwordSave": "Save password",
   "owner.passwordCancel": "Cancel",
+  "owner.removeShort": "Remove",
+  "owner.transferShort": "Make owner",
   "owner.remove": "Remove {name}",
   "owner.transfer": "Make {name} the owner",
 } as const;
