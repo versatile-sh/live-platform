@@ -187,6 +187,7 @@ export const ptBR: Record<MessageKey, string> = {
   "look.photoSelect": "Selecionar uma foto",
   "look.photoChange": "Trocar a foto",
   "look.save": "Salvar",
+  "look.cancel": "Cancelar",
   "look.unsaved": "Ainda não salvo.",
   "look.presets": "Carinhas para começar",
   "look.photoRemove": "Remover",

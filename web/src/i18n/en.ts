@@ -185,6 +185,7 @@ export const en = {
   "look.photoSelect": "Select a photo",
   "look.photoChange": "Change photo",
   "look.save": "Save",
+  "look.cancel": "Cancel",
   "look.unsaved": "Not saved yet.",
   "look.presets": "Faces to start from",
   "look.photoRemove": "Remove",
