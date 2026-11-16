@@ -128,7 +128,7 @@ export function LobbyPage() {
                         </svg>
                       </button>
                     </div>
-                    <ul className="flex flex-col gap-2 overflow-y-auto">
+                    <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto">
                       {rooms
                         .filter((room) => room.country === picked)
                         .map((room) => (

@@ -27,6 +27,7 @@
   --color-light: #f5f5f2;
   --color-ink: #0e1116;
   --color-ink-raised: #1c222c;
+  --color-lime-deep: #5e8c00;
   --color-paper: #f5f5f2;
 
   --radius-bubble: 1.25rem;
@@ -162,6 +163,29 @@ body {
   from {
     opacity: 0;
   }
+}
+
+.country {
+  cursor: pointer;
+  stroke: var(--color-bubble);
+  stroke-width: 0.75;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    fill 0.3s,
+    stroke 0.2s,
+    scale 0.35s var(--ease-settle),
+    filter 0.35s var(--ease-settle);
+}
+
+.country:hover,
+.country:focus-visible {
+  stroke: var(--color-lime-deep);
+  stroke-width: 2.5;
+  paint-order: stroke;
+  scale: 1.07;
+  filter: drop-shadow(0 6px 8px color-mix(in srgb, var(--color-ink) 35%, transparent));
+  outline: none;
 }
 
 .no-scrollbar {
