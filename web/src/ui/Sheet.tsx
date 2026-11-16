@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Icon } from "./icons";
+import { ICON_BUTTON } from "./styles";
 
 /** A small window in the shape of a message sent: round, with its tail at the bottom right. It closes on its button or on a click outside. */
 export function Sheet({ title, closeLabel, onClose, children, wide = false }: { title: string; closeLabel: string; onClose(): void; children: ReactNode; wide?: boolean }) {
@@ -14,7 +15,7 @@ export function Sheet({ title, closeLabel, onClose, children, wide = false }: { 
       >
         <div className="flex shrink-0 items-center justify-between gap-3 py-3 pr-3 pl-5">
           <h2 className="font-display text-xl font-bold tracking-[-0.03em]">{title}</h2>
-          <button type="button" aria-label={closeLabel} className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg" onClick={onClose}>
+          <button type="button" aria-label={closeLabel} className={ICON_BUTTON} onClick={onClose}>
             <Icon name="close" className="size-4" />
           </button>
         </div>

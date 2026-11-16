@@ -46,6 +46,19 @@ Shape. One family of speech bubbles, and nothing else has a tail:
 
 Outside the family only three shapes exist: `rounded-full` for round things (avatars, icon buttons, dots, colour swatches), `rounded-2xl` for screens (call tiles and side panels, which show and do not speak), and `rounded-md` for keycaps. No arbitrary radius (`rounded-[…]`) in components; `src/ui/shape.test.ts` fails when one appears.
 
+Buttons. Every clickable skin lives in `src/ui/styles.ts`, and pages only pick one:
+
+| What | Use | Shape |
+| --- | --- | --- |
+| `button({ variant, size })` | anything with words. Variants: `primary` (paper), `accent` (lime, the one confirming action), `secondary` (outline), `quiet`, `ink` and `onInk` for the lime and ink surfaces. Sizes `xs` 2rem, `sm` 2.25rem, `md` 2.75rem, `lg` 3rem | `.bubble-word` |
+| `ICON_BUTTON`, `ICON_BUTTON_PLAIN`, `ICON_BUTTON_SOLID` | an icon alone: quiet, on a coloured surface, or filled (send) | round |
+| `CHIP`, `CHIP_ON_INK` | a small choice that stays pressed; lime (paper on ink) when on | `.bubble-word` |
+| `DOCK.*` | the call controls and their states | round |
+| `Segmented` | a choice between two or three things; the thumb slides | `.bubble-word` |
+| `Switch` | on or off | `.bubble-word` |
+
+`src/ui/shape.test.ts` fails when a page builds a button skin by hand.
+
 Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and thumbs, 500 to 700 ms); `--ease-settle` for things that arrive. Classes: `ride-in`, `swap-in`, `arrive`. Reduced motion turns all of it off.
 
 ## Components (`src/ui/`)

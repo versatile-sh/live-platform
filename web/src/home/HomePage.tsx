@@ -12,8 +12,9 @@ import { Arrow } from "../ui/Arrow";
 import { CommandPalette } from "../ui/CommandPalette";
 import { Social } from "../ui/Social";
 import { Field } from "../ui/Field";
-import { button } from "../ui/styles";
+import { CONVEYOR_LINK, button } from "../ui/styles";
 import { Wordmark } from "../ui/Wordmark";
+import { Segmented } from "../ui/Segmented";
 
 const SWAP = "transition-colors duration-700";
 
@@ -65,7 +66,6 @@ function Pitch() {
   );
 }
 
-const SEGMENT = "relative z-10 h-full flex-1 rounded-full text-sm font-semibold text-muted transition-colors duration-300 hover:text-fg aria-pressed:text-canvas";
 function EnterRoom() {
   const t = useT();
   const navigate = useNavigate();
@@ -108,15 +108,16 @@ function EnterRoom() {
       <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">{t("home.formTitle")}</h2>
       <p className="mt-2 mb-7 text-muted">{t("home.formIntro")}</p>
 
-      <div role="group" aria-label={t("home.paneLabel")} data-pane={pane} className="group/pill relative mb-7 flex h-11 rounded-full border border-line-strong p-1">
-        <span aria-hidden="true" className="absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full bg-fg transition-transform duration-500 ease-(--ease-glide) group-data-[pane=settings]/pill:translate-x-full" />
-        <button type="button" aria-pressed={pane === "room"} className={SEGMENT} onClick={() => setPane("room")}>
-          {t("home.paneRoom")}
-        </button>
-        <button type="button" aria-pressed={pane === "settings"} className={SEGMENT} onClick={() => setPane("settings")}>
-          {t("home.paneSettings")}
-        </button>
-      </div>
+      <Segmented<"room" | "settings">
+        label={t("home.paneLabel")}
+        value={pane}
+        onChange={setPane}
+        className="mb-7 h-11"
+        options={[
+          { value: "room", text: t("home.paneRoom") },
+          { value: "settings", text: t("home.paneSettings") },
+        ]}
+      />
 
       <div className="-mx-1 overflow-hidden px-1">
         <div data-pane={pane} className="flex w-[200%] transition-transform duration-500 ease-(--ease-glide) data-[pane=settings]:-translate-x-1/2">
@@ -255,7 +256,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         </div>
         <AppLink
           href={lobby ? "/" : view === "entry" ? (leftLobby ? "/lobby" : "/") : "/lobby"}
-          className="mx-auto inline-flex h-10 w-56 shrink-0 items-center justify-center gap-2 rounded-full border border-line-strong text-sm font-semibold text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg group-data-[view=lobby]:border-ink group-data-[view=lobby]:bg-ink group-data-[view=lobby]:text-paper group-data-[view=lobby]:hover:opacity-85"
+          className={CONVEYOR_LINK}
         >
           {view === "home" ? null : <Arrow back />}
           {t(lobby ? "lobby.back" : view === "entry" ? "home.back" : "home.seeRooms")}

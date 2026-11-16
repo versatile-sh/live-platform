@@ -38,6 +38,7 @@ import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
 import { PeoplePanel } from "./PeoplePanel";
 import { Tile } from "./Tile";
+import { CHIP, DOCK, ICON_BUTTON, button } from "../ui/styles";
 
 const Whiteboard = lazy(() => import("../board/Whiteboard"));
 
@@ -48,13 +49,6 @@ type RoomViewProps = {
   onEnterAgain: () => void;
 };
 type Side = "chat" | "people" | "settings";
-
-const ROUND =
-  "relative grid size-12 shrink-0 place-items-center rounded-full transition-colors duration-200 disabled:opacity-40";
-const IDLE = "bg-line-strong text-fg hover:bg-fg/25";
-const ON = "bg-bubble text-on-bubble hover:opacity-85";
-const MUTED = "bg-line-strong text-muted hover:bg-fg/25 hover:text-fg";
-const OPEN = "bg-fg text-canvas hover:opacity-85";
 
 function Caret() {
   return (
@@ -132,6 +126,7 @@ function Options({
   onClose(): void;
 }) {
   const t = useT();
+  const { voiceCleaner } = useServices();
   return (
     <>
       <button
@@ -159,17 +154,18 @@ function Options({
               <p className="mb-1.5 text-sm font-semibold">
                 {t("menu.voiceFilter")}
               </p>
-              <Segmented<"off" | "standard">
+              <Segmented<"off" | "standard" | "strong">
                 label={t("menu.voiceFilter")}
                 value={local.voiceFilter}
                 onChange={(filter) => void media.setVoiceFilter(filter)}
                 options={[
                   { value: "off", text: t("menu.filterOff") },
                   { value: "standard", text: t("menu.filterStandard") },
+                  ...(voiceCleaner ? [{ value: "strong" as const, text: t("menu.filterStrong") }] : []),
                 ]}
               />
               <p className="mt-2 text-[0.8125rem] leading-snug text-muted">
-                {t("menu.filterHint")}
+                {t(local.voiceFilter === "strong" ? "menu.filterHintStrong" : local.voiceFilter === "off" ? "menu.filterHintOff" : "menu.filterHint")}
               </p>
             </div>
           </>
@@ -190,8 +186,7 @@ function Options({
 type Seeing = { tile: boolean; camera: boolean; screen: boolean };
 
 const SEE_ALL: Seeing = { tile: true, camera: true, screen: true };
-const CHIP =
-  "bubble-word h-8 border border-line-strong px-3 text-xs font-semibold text-muted transition-colors duration-200 hover:border-fg/50 aria-pressed:border-transparent aria-pressed:bg-bubble aria-pressed:text-on-bubble";
+
 
 function attach(stream: MediaStream | undefined) {
   return (element: HTMLMediaElement | null) => {
@@ -234,9 +229,9 @@ export function RoomView({
   const t = useT();
   const locale = useLocale();
   const navigate = useNavigate();
-  const { mediaDevices, lookMemory, faceMemory, rtc } = useServices();
+  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner } = useServices();
   const [media] = useState(() =>
-    createLocalMedia(mediaDevices, (flags) => session.setMedia(flags)),
+    createLocalMedia(mediaDevices, (flags) => session.setMedia(flags), voiceCleaner),
   );
   const local = useSyncExternalStore(media.subscribe, media.getSnapshot);
   const [roomMedia] = useState(() =>
@@ -380,7 +375,7 @@ export function RoomView({
         aria-label={active ? labels[1] : labels[0]}
         title={active ? labels[1] : labels[0]}
         disabled={local.busy !== undefined}
-        className={`${ROUND} ${active ? ON : kind === "screen" ? IDLE : MUTED}`}
+        className={`${DOCK.round} ${active ? DOCK.on : kind === "screen" ? DOCK.idle : DOCK.muted}`}
         onClick={() => void media.toggle(kind)}
       >
         <Icon name={active ? on : off} />
@@ -401,7 +396,7 @@ export function RoomView({
           aria-expanded={menu === kind}
           aria-label={label}
           title={label}
-          className="grid h-12 w-8 place-items-center rounded-full text-muted transition-colors duration-200 hover:text-fg"
+          className={DOCK.caret}
           onClick={() => {
             void media.refreshDevices();
             setMenu(menu === kind ? undefined : kind);
@@ -434,7 +429,7 @@ export function RoomView({
         aria-pressed={side === panel}
         aria-label={label}
         title={label}
-        className={`${ROUND} size-11 ${side === panel ? OPEN : "text-fg hover:bg-fg/10"}`}
+        className={`${DOCK.round} size-11 ${side === panel ? DOCK.open : "text-fg hover:bg-fg/10"}`}
         onClick={() => setSide(side === panel ? undefined : panel)}
       >
         <Icon name={icon} />
@@ -493,7 +488,7 @@ export function RoomView({
             <div data-board role="region" aria-label={t("board.label")} className="swap-in absolute inset-0 z-10 flex flex-col overflow-hidden rounded-2xl border border-line-strong bg-card">
               <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
                 <h2 className="font-display text-base font-bold tracking-[-0.03em]">{t("board.label")}</h2>
-                <button type="button" aria-label={t("board.close")} className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg" onClick={() => setBoardOpen(false)}>
+                <button type="button" aria-label={t("board.close")} className={ICON_BUTTON} onClick={() => setBoardOpen(false)}>
                   <Icon name="minimize" className="size-4" />
                 </button>
               </div>
@@ -618,7 +613,7 @@ export function RoomView({
                 <button
                   type="button"
                   aria-label={t("side.close")}
-                  className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg"
+                  className={ICON_BUTTON}
                   onClick={() => setSide(undefined)}
                 >
                   <Icon name="minimize" className="size-4" />
@@ -1023,7 +1018,7 @@ export function RoomView({
             aria-pressed={local.hand}
             aria-label={t(local.hand ? "dock.handDown" : "dock.handUp")}
             title={t(local.hand ? "dock.handDown" : "dock.handUp")}
-            className={`${ROUND} ${local.hand ? "bg-bubble text-on-bubble hover:opacity-85" : IDLE}`}
+            className={`${DOCK.round} ${local.hand ? DOCK.on : DOCK.idle}`}
             onClick={media.toggleHand}
           >
             <Icon name="hand" />
@@ -1034,7 +1029,7 @@ export function RoomView({
               aria-expanded={menu === "more"}
               aria-label={t("more.label")}
               title={t("more.label")}
-              className={`${ROUND} ${menu === "more" ? OPEN : IDLE}`}
+              className={`${DOCK.round} ${menu === "more" ? DOCK.open : DOCK.idle}`}
               onClick={() => setMenu(menu === "more" ? undefined : "more")}
             >
               <svg
@@ -1154,7 +1149,7 @@ export function RoomView({
           </div>
           <button
             type="button"
-            className="ml-1 inline-flex h-12 items-center gap-2 rounded-full bg-fg px-5 font-semibold text-canvas transition-opacity duration-200 hover:opacity-85"
+            className={`${button({ size: "lg" })} ml-1`}
             onClick={leave}
           >
             <Icon name="leave" />

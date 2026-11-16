@@ -58,6 +58,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     signalUrl: "ws://test/ws",
     seatStorage: memoryStorage(),
     mediaDevices: undefined,
+    voiceCleaner: undefined,
     rtc: undefined,
     entryIntent: createEntryIntent(),
     lookMemory: { read: () => "ff9ec7-0e1116-0", write: () => undefined },
