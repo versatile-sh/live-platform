@@ -71,10 +71,14 @@ func (s *Server) Run(addr string) error {
 // Ready is closed once the server accepts connections.
 func (s *Server) Ready() <-chan struct{} { return s.ready }
 
-// Stop closes every connection and ends Run.
+// Stop closes every connection and ends Run; a server that never booted has nothing to stop.
 func (s *Server) Stop(ctx context.Context) error {
-	<-s.ready
-	return s.engine.Stop(ctx)
+	select {
+	case <-s.ready:
+		return s.engine.Stop(ctx)
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // OnBoot records the engine so that Stop can reach it.
