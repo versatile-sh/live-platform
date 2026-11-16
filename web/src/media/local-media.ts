@@ -31,6 +31,8 @@ export type LocalMediaSnapshot = {
   camera: MediaStream | undefined;
   screen: MediaStream | undefined;
   hand: boolean;
+  /** Whether I have the whiteboard open for the room. */
+  board: boolean;
   microphones: readonly Device[];
   cameras: readonly Device[];
   microphoneId: string | undefined;
@@ -48,6 +50,8 @@ export type LocalMedia = {
   getSnapshot(): LocalMediaSnapshot;
   toggle(kind: MediaKind): Promise<void>;
   toggleHand(): void;
+  /** Opens the whiteboard for the room, or stops showing it. */
+  setBoard(open: boolean): void;
   /** Reads the microphones and cameras the browser offers; their names appear only after a capture was allowed. */
   refreshDevices(): Promise<void>;
   /** Uses another microphone or camera, restarting the capture when it is on. */
@@ -66,6 +70,7 @@ const OFF: LocalMediaSnapshot = {
   camera: undefined,
   screen: undefined,
   hand: false,
+  board: false,
   microphones: [],
   cameras: [],
   microphoneId: undefined,
@@ -84,7 +89,8 @@ export function flagsOf(snapshot: LocalMediaSnapshot): number {
     (snapshot.camera ? FLAG.camera : 0) |
     (snapshot.screen ? FLAG.screen : 0) |
     (snapshot.screen && snapshot.screen.getAudioTracks().length > 0 ? FLAG.screenAudio : 0) |
-    (snapshot.hand ? FLAG.hand : 0)
+    (snapshot.hand ? FLAG.hand : 0) |
+    (snapshot.board ? FLAG.board : 0)
   );
 }
 
@@ -209,6 +215,9 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     },
     toggleHand() {
       patch({ hand: !snapshot.hand });
+    },
+    setBoard(open) {
+      if (snapshot.board !== open) patch({ board: open });
     },
     refreshDevices,
     async choose(kind, id) {

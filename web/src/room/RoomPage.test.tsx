@@ -1,7 +1,9 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../media/settings";
+
+vi.mock("../board/Whiteboard", () => ({ default: () => "the drawing surface" }));
 
 import type { RoomSummary, StatusResult } from "../api/rooms";
 import { writeSeat } from "../session/seat";
@@ -499,6 +501,35 @@ describe("RoomPage", () => {
       expect(screen.getByRole("button", { name: "Whiteboard" })).toHaveAttribute("aria-pressed", "false");
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       expect(screen.getByRole("menuitem", { name: /Whiteboard/ })).toBeInTheDocument();
+    });
+
+    test("a click on a person brings them to the front with the others beside, and another click sends them back", async () => {
+      await inCall();
+      const bia = () => screen.getByRole("listitem", { name: /Bia, connected/ });
+      expect(bia()).toHaveAttribute("data-mode", "grid");
+      await userEvent.click(bia());
+      expect(bia()).toHaveAttribute("data-mode", "front");
+      expect(screen.getByRole("listitem", { name: /Ana, connected/ })).toHaveAttribute("data-mode", "strip");
+      expect(within(bia()).getByRole("button", { name: "Show Bia on the whole screen" })).toBeInTheDocument();
+      await userEvent.click(within(bia()).getByRole("button", { name: "Send Bia back to the grid" }));
+      expect(bia()).toHaveAttribute("data-mode", "grid");
+    });
+
+    test("the whiteboard someone opens comes to the front for me too, and I can close it for myself or open it for the room", async () => {
+      const { socket } = await inCall();
+      expect(screen.queryByRole("listitem", { name: "Whiteboard" })).not.toBeInTheDocument();
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { flags: 128, state: "active" })], gone: [] });
+      const boardFrame = screen.getByRole("listitem", { name: "Whiteboard" });
+      expect(boardFrame).toHaveAttribute("data-mode", "front");
+      expect(within(boardFrame).getByRole("heading", { name: "Whiteboard, opened by Bia" })).toBeInTheDocument();
+      expect(await within(boardFrame).findByText("the drawing surface")).toBeInTheDocument();
+      const sentBefore = socket.sent.length;
+      await userEvent.click(within(boardFrame).getByRole("button", { name: "Close the whiteboard for me" }));
+      expect(screen.queryByRole("listitem", { name: "Whiteboard" })).not.toBeInTheDocument();
+      expect(socket.sent.length).toBe(sentBefore);
+      await userEvent.click(screen.getByRole("button", { name: "Whiteboard" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 128 });
+      expect(screen.getByRole("listitem", { name: "Whiteboard" })).toBeInTheDocument();
     });
 
     test("a right click on a person offers what can be done about them, starting with a private message", async () => {

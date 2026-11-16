@@ -3,8 +3,9 @@ import { useT } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
+import { StageFrame, type StageMode } from "./StageFrame";
 
-type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined; onMenu?(at: { x: number; y: number }): void };
+type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined; mode?: StageMode; onFront?(): void; onMenu?(at: { x: number; y: number }): void };
 
 function attach(stream: MediaStream | undefined) {
   return (element: HTMLVideoElement | null) => {
@@ -13,26 +14,29 @@ function attach(stream: MediaStream | undefined) {
 }
 
 /** One participant on the stage: their camera when there is one to show, otherwise their initial; always their name and, in words, any trouble. */
-export function Tile({ person, isMe, video, photo, onMenu }: TileProps) {
+export function Tile({ person, isMe, video, photo, mode = "grid", onFront = () => undefined, onMenu }: TileProps) {
   const t = useT();
   const view = describePerson(person);
     const muted = !view.flags.includes("microphone");
   const hand = view.flags.includes("hand");
 
   return (
-    <li
+    <StageFrame
+      mode={mode}
+      name={person.name}
+      onFront={onFront}
       data-tone={view.tone}
       aria-label={t("room.tile", { name: person.name, state: t(view.stateKey) })}
       onContextMenu={(event) => {
         event.preventDefault();
         onMenu?.({ x: event.clientX, y: event.clientY });
       }}
-      className={`arrive relative isolate flex aspect-video min-h-0 items-center justify-center overflow-hidden ${isMe ? "bubble-sent" : "bubble"} border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
+      className={`arrive ${isMe ? "bubble-sent" : "bubble"} border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
     >
       {video ? (
-        <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full object-cover ${isMe ? "-scale-x-100" : ""}`} />
+        <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full ${mode === "front" ? "object-contain" : "object-cover"} ${isMe ? "-scale-x-100" : ""}`} />
       ) : (
-        <Avatar look={person.look} face={person.face} name={person.name} photo={photo} className={`text-[clamp(4.5rem,14vw,9rem)] ${view.trouble ? "opacity-50" : ""}`} />
+        <Avatar look={person.look} face={person.face} name={person.name} photo={photo} className={`${mode === "strip" ? "text-[3.25rem]" : "text-[clamp(4.5rem,14vw,9rem)]"} ${view.trouble ? "opacity-50" : ""}`} />
       )}
 
       <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
@@ -63,6 +67,6 @@ export function Tile({ person, isMe, video, photo, onMenu }: TileProps) {
           </span>
         ) : null}
       </div>
-    </li>
+    </StageFrame>
   );
 }
