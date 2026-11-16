@@ -83,7 +83,7 @@ func newHub() *Hub {
 	return NewHub(cfg, Liveness{UnstableAfter: 60 * time.Millisecond, SuspectAfter: 150 * time.Millisecond}, time.Now)
 }
 
-func keepAlive(t *testing.T, h *Hub, seat *Seat) {
+func keepAlive(t *testing.T, h *Hub, seat *room.Seat) {
 	t.Helper()
 	stop := make(chan struct{})
 	t.Cleanup(func() { close(stop) })
@@ -99,7 +99,7 @@ func keepAlive(t *testing.T, h *Hub, seat *Seat) {
 	}()
 }
 
-func enter(t *testing.T, h *Hub, name string) (*Seat, *fakeSession) {
+func enter(t *testing.T, h *Hub, name string) (*room.Seat, *fakeSession) {
 	t.Helper()
 	session := &fakeSession{}
 	seat, err := h.Join("bk", name, session)
