@@ -1,0 +1,25 @@
+const PATHS = {
+  mic: "M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM6 11a6 6 0 0 0 12 0M12 17v4M8.5 21h7",
+  micOff: "M9 9v2a3 3 0 0 0 4.6 2.5M15 10.5V6a3 3 0 0 0-5.7-1.3M6 11a6 6 0 0 0 9.6 4.8M18 11a6 6 0 0 1-.4 2.1M12 17v4M8.5 21h7M4 4l16 16",
+  camera: "M4 7.5A1.5 1.5 0 0 1 5.5 6h8A1.5 1.5 0 0 1 15 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 4 16.5zM15 10.5l5-3v9l-5-3",
+  cameraOff: "M15 13.5l5 3v-9l-5 3V7.5A1.5 1.5 0 0 0 13.5 6H10M6 6h-.5A1.5 1.5 0 0 0 4 7.5v9A1.5 1.5 0 0 0 5.5 18h8a1.5 1.5 0 0 0 1.4-1M4 4l16 16",
+  screen: "M4 5.5h16v10.5H4zM9 20h6M12 16v4M12 13V8.5M9.5 10.5L12 8l2.5 2.5",
+  hand: "M8 12.5V6.2a1.2 1.2 0 0 1 2.4 0V11M10.4 10.5V4.8a1.2 1.2 0 0 1 2.4 0v5.7M12.8 10.5V5.6a1.2 1.2 0 0 1 2.4 0v6M15.2 11.5V8a1.2 1.2 0 0 1 2.4 0v6.4c0 3.4-2.3 5.8-5.6 5.8-2.3 0-3.9-1-5-2.9L4.6 13.4a1.3 1.3 0 0 1 2.2-1.3L8 14",
+  chat: "M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 16.5h-7L7.5 20v-3.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5z",
+  people: "M9 11a3.25 3.25 0 1 0 0-6.5A3.25 3.25 0 0 0 9 11zM3 19.5c0-3 2.7-5 6-5s6 2 6 5M16 4.8a3.25 3.25 0 0 1 0 6.1M17.5 14.8c2.1.6 3.5 2.300 3.5 4.700",
+  leave: "M3.500 13.500c5.200-4.500 11.800-4.500 17 0l-2.200 2.500-3.300-1.500v-2.300a9 9 0 0 0-6 0v2.300l-3.300 1.500z",
+  send: "M4 12l15.500-7-5 15-3-6.500zM11.500 13.500L19.500 5",
+  settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 12a7 7 0 0 0-.1-1.300l2-1.500-2-3.400-2.300.9a7 7 0 0 0-2.200-1.300L14 3h-4l-.4 2.400a7 7 0 0 0-2.200 1.300l-2.300-.9-2 3.400 2 1.500a7 7 0 0 0 0 2.600l-2 1.500 2 3.400 2.300-.9a7 7 0 0 0 2.200 1.300L10 21h4l.4-2.400a7 7 0 0 0 2.200-1.300l2.300.9 2-3.400-2-1.500c.07-.4.1-.9.1-1.300z",
+  close: "M6 6l12 12M18 6L6 18",
+} as const;
+
+export type IconName = keyof typeof PATHS;
+
+/** One icon of the room's set: a 24-unit outline in the text colour, one stroke weight throughout. */
+export function Icon({ name, className = "size-5" }: { name: IconName; className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`shrink-0 ${className}`} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d={PATHS[name]} />
+    </svg>
+  );
+}

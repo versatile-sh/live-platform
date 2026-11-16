@@ -57,6 +57,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     socket: factory,
     signalUrl: "ws://test/ws",
     seatStorage: memoryStorage(),
+    mediaDevices: undefined,
     entryIntent: createEntryIntent(),
     nameMemory: { read: () => names.value, write: (name) => void (names.value = name) },
     origin: "https://live.test",

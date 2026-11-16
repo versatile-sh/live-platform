@@ -18,7 +18,7 @@ export function ConnectionStatus({ connection }: { connection: Connection }) {
           ? `${t("connection.reconnecting")} ${t(`connection.cause.${connection.cause}`)}`
           : "";
   return (
-    <p role="status" aria-label={t("connection.label")} className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 py-2 text-sm ${trouble ? "border-amber" : "border-transparent text-muted"}`}>
+    <p role="status" aria-label={t("connection.label")} className={`flex min-h-9 max-w-full items-center gap-2 rounded-full border px-3 py-1 text-sm ${trouble ? "border-amber" : "border-transparent text-muted"}`}>
       {trouble ? <Bubble tone="amber">{t("person.reconnecting")}</Bubble> : null}
       <span>{text}</span>
     </p>

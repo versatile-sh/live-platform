@@ -117,7 +117,7 @@ export function useRoomGate(slug: string | undefined): RoomGate | undefined {
 /** The first thing anyone sees, and everything before being in a room: the home, the open rooms and a room's doorway share one page that slides between them; being in a room replaces it. */
 export function FrontPage({ view, slug }: { view: "home" | "lobby" | "entry"; slug?: string }) {
   const room = useRoomGate(slug);
-  if (room?.inRoom) return <Shell>{room.view}</Shell>;
+  if (room?.inRoom) return <Shell bare>{room.view}</Shell>;
   return (
     <Shell bare>
       <HomePage view={view} panel={room?.panel} />
