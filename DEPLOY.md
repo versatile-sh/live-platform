@@ -27,3 +27,11 @@ Audio and video do not pass through the Cloudflare Tunnel. The container publish
 op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal app stop
 op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal deploy
 ```
+
+## Check a deploy
+
+Two stand-in browsers enter a room on the deployed server, wait for their media path and hear each other:
+
+```sh
+cd server && LIVE_PUBLIC_WS=wss://live.versatile.sh/ws go test -count=1 -run TestPublicCall ./internal/integration/
+```
