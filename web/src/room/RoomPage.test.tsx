@@ -425,12 +425,23 @@ describe("RoomPage", () => {
       expect(document.querySelector("img")).toBeNull();
     });
 
-    test("more options show the connection with its round trip, and the keyboard shortcuts, which work", async () => {
-      const { socket } = await inCall();
+    test("the connection card opens from more options, stays while the call goes on, moves with the arrow keys and is put away with the minus", async () => {
+      await inCall();
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: /Connection quality/ }));
-      expect(within(screen.getByRole("dialog", { name: "Connection quality" })).getByText("measuring")).toBeInTheDocument();
-      await userEvent.click(within(screen.getByRole("dialog", { name: "Connection quality" })).getByRole("button", { name: "Close" }));
+      const card = screen.getByRole("group", { name: "Connection quality" });
+      expect(within(card).getByText("measuring")).toBeInTheDocument();
+      expect(screen.getByLabelText("Message to the room")).toBeInTheDocument();
+      const before = card.style.left;
+      card.focus();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(card.style.left).not.toBe(before);
+      await userEvent.click(within(card).getByRole("button", { name: "Put the connection card away" }));
+      expect(screen.queryByRole("group", { name: "Connection quality" })).not.toBeInTheDocument();
+    });
+
+    test("the keyboard shortcuts are listed and work", async () => {
+      const { socket } = await inCall();
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: /Keyboard shortcuts/ }));
       expect(within(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).getByText("Ctrl+Alt+H")).toBeInTheDocument();
