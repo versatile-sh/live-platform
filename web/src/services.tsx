@@ -1,0 +1,38 @@
+import { createContext, use, type ReactNode } from "react";
+
+import type { RoomsApi } from "./api/rooms";
+import type { Derived, RandomBytes } from "./domain/password";
+import type { LobbyStore } from "./lobby/lobby-store";
+import type { SeatStorage } from "./session/seat";
+import type { SocketFactory } from "./signal/link";
+
+/** Everything the pages need from the outside world, so tests can replace each piece. */
+export type Services = {
+  roomsApi: RoomsApi;
+  lobby: LobbyStore;
+  socket: SocketFactory;
+  signalUrl: string;
+  seatStorage: SeatStorage;
+  nameMemory: { read(): string; write(name: string): void };
+  origin: string;
+  clipboard: { write(text: string): Promise<boolean> };
+  readPasswordHash(): string;
+  forgetHash(): void;
+  derive(password: string, slug: string): Promise<Derived>;
+  generatePassword(random?: RandomBytes): string;
+  pageLifecycle: { onPageHide(listener: () => void): () => void };
+};
+
+const ServicesContext = createContext<Services | undefined>(undefined);
+
+/** Hands the services to the pages below it. */
+export function ServicesProvider({ services, children }: { services: Services; children: ReactNode }) {
+  return <ServicesContext value={services}>{children}</ServicesContext>;
+}
+
+/** The services of the running app. */
+export function useServices(): Services {
+  const services = use(ServicesContext);
+  if (!services) throw new Error("useServices needs a ServicesProvider above it");
+  return services;
+}
