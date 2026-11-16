@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -229,4 +230,17 @@ func TestCall(t *testing.T) {
 		require.Eventually(t, func() bool { return ana.state(3) == "connecting" }, wait, 50*time.Millisecond)
 		require.Eventually(t, func() bool { return ana.state(3) == "" }, wait, 50*time.Millisecond)
 	})
+}
+
+// TestPublicCall is the smoke test of a deployed server: set LIVE_PUBLIC_WS to its signalling address and two stand-in browsers must reach it, become active over the real media port and hear each other.
+func TestPublicCall(t *testing.T) {
+	url := os.Getenv("LIVE_PUBLIC_WS")
+	if url == "" {
+		t.Skip("LIVE_PUBLIC_WS is not set")
+	}
+	ana := open(t, url, "ana")
+	bia := open(t, url, "bia")
+	require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, 4*wait, 50*time.Millisecond)
+	ana.publish("microphone")
+	require.Eventually(t, func() bool { return bia.hears("1:microphone") }, 4*wait, 50*time.Millisecond)
 }
