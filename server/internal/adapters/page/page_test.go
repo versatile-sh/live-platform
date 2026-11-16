@@ -41,3 +41,20 @@ func TestHandler(t *testing.T) {
 		assert.Equal(t, "nosniff", rec.Header().Get("X-Content-Type-Options"), c.path)
 	}
 }
+
+func TestLayered(t *testing.T) {
+	under := fstest.MapFS{"index.html": {Data: []byte("old page")}, "assets/app-Ab3dE_9z.js": {Data: []byte("old script")}}
+	over := fstest.MapFS{"index.html": {Data: []byte("new page")}, "assets/app-Zz9yX8wV.js": {Data: []byte("new script")}}
+	h, err := Handler(Layered(over, under))
+	require.NoError(t, err)
+	for path, want := range map[string]string{"/": "new page", "/assets/app-Zz9yX8wV.js": "new script", "/assets/app-Ab3dE_9z.js": "old script"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		assert.Equal(t, want, rec.Body.String(), path)
+	}
+	empty, err := Handler(Layered(fstest.MapFS{}, under))
+	require.NoError(t, err)
+	rec := httptest.NewRecorder()
+	empty.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	assert.Equal(t, "old page", rec.Body.String(), "with nothing laid over, the built-in client is served")
+}
