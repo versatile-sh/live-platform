@@ -1,1 +1,136 @@
 @import "tailwindcss";
+@import "@fontsource/space-grotesk/latin-500.css";
+@import "@fontsource/space-grotesk/latin-700.css";
+@import "@fontsource/noto-sans/latin-400.css";
+@import "@fontsource/noto-sans/latin-600.css";
+@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/jetbrains-mono/latin-500.css";
+
+@theme {
+  --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-canvas: #1a1a1e;
+  --color-card: #212226;
+  --color-sunken: #121214;
+  --color-fg: #f5f5f7;
+  --color-muted: #bebfc7;
+  --color-muted-light: #8e8f99;
+  --color-accent: #a5b4ff;
+  --color-bubble: #a5b4ff;
+  --color-on-bubble: #0e1116;
+  --color-sky: #5eb6e6;
+  --color-amber: #e8b23a;
+  --color-green: #2fc9a6;
+  --color-line: #36373d;
+  --color-line-strong: #4c4d54;
+
+  --radius-bubble: 1.25rem;
+  --radius-tail: 0.3rem;
+
+  --ease-settle: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-canvas: #f6f4f0;
+    --color-card: #ffffff;
+    --color-sunken: #eae7e2;
+    --color-fg: #1d1815;
+    --color-muted: #534f4b;
+    --color-muted-light: #7d7873;
+    --color-accent: #3346b8;
+    --color-bubble: #3346b8;
+    --color-on-bubble: #ffffff;
+    --color-sky: #086b99;
+    --color-amber: #8a5300;
+    --color-green: #0a6e5c;
+    --color-line: #d8d4ce;
+    --color-line-strong: #c6c2bc;
+  }
+}
+
+html {
+  background: var(--color-canvas);
+  color-scheme: dark light;
+  scrollbar-color: var(--color-line-strong) var(--color-canvas);
+  scrollbar-width: thin;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--color-bubble);
+  color: var(--color-on-bubble);
+}
+
+@layer base {
+  :focus {
+    outline: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-fg) 55%, transparent);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  input {
+    caret-color: var(--color-accent);
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.bubble {
+  border-radius: var(--radius-bubble);
+  border-bottom-left-radius: var(--radius-tail);
+}
+
+.bubble-word {
+  border-radius: 0.42em;
+  border-bottom-left-radius: 0.1em;
+}
+
+.arrive {
+  animation: arrive 0.45s var(--ease-settle) both;
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.pulse {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
