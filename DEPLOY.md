@@ -15,3 +15,15 @@ op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar
 
 The service token in `ssh.env.op` lets Kamal reach the server without a browser login. The contract the app must meet
 (port, `/up`, logs, telemetry, the Access check) is in the hosting docs, page "Deploy a repo".
+
+## Media
+
+Audio and video do not pass through the Cloudflare Tunnel. The container publishes UDP 40000 on the server's own address (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP` in `config/deploy.yml`), and browsers send media straight to it. Two consequences:
+
+- The server's address is visible to anyone who enters a room.
+- Two containers cannot hold the same published port, and Kamal starts the new one before stopping the old. Stop the running one first; calls in progress drop and reconnect:
+
+```sh
+op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal app stop
+op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal deploy
+```
