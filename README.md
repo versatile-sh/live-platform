@@ -9,7 +9,7 @@ Rooms to share a screen, a voice and a camera from a link. No account, nothing t
 - **Rooms by name.** Whoever opens a free name creates the room and owns it. The room is released 30 seconds after the last person leaves. Up to 10 people.
 - **Public or private.** A public room lets in anyone with the link. A private room asks for a room code (`8ABH-23HK`), drawn at random or chosen by the owner. Either kind can be shown in the open rooms, with its country.
 - **Nobody is left behind as a ghost.** A closed tab, a dead socket or a lost network removes the participant. The server decides who is in the room; browsers only report.
-- **In the call.** Microphone, camera, screen with system audio, raised hand, chat, private messages, people list, owner controls (transfer, kick, ban, change access), a shared whiteboard, three voice filters with echo, gain, balanced voice and a noise gate, push to talk, camera and screen quality, live connection figures (route, delay, loss, jitter, rates, codecs), per-person choice of what to see, a command search on `Ctrl+K`.
+- **In the call.** Microphone, camera, screen with system audio, raised hand, chat, private messages, people list, owner controls (transfer, kick, ban, mute everyone and let speak by raised hand, change access), a shared whiteboard, three voice filters with echo, gain, balanced voice and a noise gate, push to talk, camera and screen quality, colour effects for the camera, live connection figures (route, delay, loss, jitter, rates, codecs), per-person choice of what to see, a command search on `Ctrl+K`.
 - **English and Portuguese.**
 
 ## How it is built

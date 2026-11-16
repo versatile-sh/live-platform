@@ -1,11 +1,12 @@
 let context: AudioContext | undefined;
 
-/** Plays a short two-note sound: rising when someone arrives, falling when someone leaves. Silent where the browser cannot or will not. */
-export function chime(kind: "arrive" | "leave"): void {
+/** Plays a short two-note sound: rising when someone arrives, falling when someone leaves, the same note twice when someone asks to speak. Silent where the browser cannot or will not. */
+export function chime(kind: "arrive" | "leave" | "ask"): void {
   try {
     context ??= new AudioContext();
+    if (context.state === "suspended") void context.resume();
     const start = context.currentTime;
-    const notes = kind === "arrive" ? [587, 880] : [659, 440];
+    const notes = kind === "arrive" ? [587, 880] : kind === "leave" ? [659, 440] : [784, 784];
     notes.forEach((frequency, index) => {
       const tone = new OscillatorNode(context!, { type: "sine", frequency });
       const level = new GainNode(context!, { gain: 0 });

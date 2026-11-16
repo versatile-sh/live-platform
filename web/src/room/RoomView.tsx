@@ -10,7 +10,8 @@ import {
 import { shareLink } from "../domain/share-link";
 import { createBoardSync } from "../board/board-sync";
 import { chime } from "../media/chime";
-import { cameraShape, screenShape } from "../media/settings";
+import { CAMERA_EFFECTS, cameraShape, screenShape } from "../media/settings";
+import { Choice } from "../ui/Choice";
 import { MediaSettings } from "./MediaSettings";
 import { StageFrame, type StageMode } from "./StageFrame";
 import { hasFlag } from "../domain/flags";
@@ -130,7 +131,7 @@ function Options({
   onClose(): void;
 }) {
   const t = useT();
-  const { voiceCleaner } = useServices();
+  const { voiceCleaner, cameraEffects, settingsMemory } = useServices();
   return (
     <>
       <button
@@ -174,12 +175,20 @@ function Options({
             </div>
           </>
         ) : (
-          <DeviceList
-            label={t("menu.camera")}
-            devices={local.cameras}
-            chosen={local.cameraId}
-            onChoose={(id) => void media.choose("camera", id)}
-          />
+          <>
+            <DeviceList label={t("menu.camera")} devices={local.cameras} chosen={local.cameraId} onChoose={(id) => void media.choose("camera", id)} />
+            {cameraEffects ? (
+              <Choice
+                label={t("menu.cameraEffect")}
+                value={local.settings.cameraEffect}
+                onChange={(cameraEffect) => {
+                  settingsMemory.write({ ...local.settings, cameraEffect });
+                  void media.setSettings({ cameraEffect });
+                }}
+                options={CAMERA_EFFECTS.map((effect) => ({ value: effect, text: t(`settings.effect.${effect}`) }))}
+              />
+            ) : null}
+          </>
         )}
       </div>
     </>
@@ -233,9 +242,9 @@ export function RoomView({
   const t = useT();
   const locale = useLocale();
   const navigate = useNavigate();
-  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner, settingsMemory } = useServices();
+  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner, settingsMemory, cameraEffects } = useServices();
   const [media] = useState(() =>
-    createLocalMedia(mediaDevices, (flags) => session.setMedia(flags), voiceCleaner, settingsMemory.read()),
+    createLocalMedia(mediaDevices, (flags) => session.setMedia(flags), voiceCleaner, settingsMemory.read(), cameraEffects),
   );
   const local = useSyncExternalStore(media.subscribe, media.getSnapshot);
   const [roomMedia] = useState(() =>
@@ -394,18 +403,41 @@ export function RoomView({
       remote[person.pid]?.screen &&
       sees(person.pid).screen,
   );
+  const iAmMuted = me !== undefined && hasFlag(me.flags, "muted");
+  const [wasMuted, setWasMuted] = useState(iAmMuted);
+  const [prompt, setPrompt] = useState<"may-speak" | "camera-hidden" | undefined>();
+  if (wasMuted !== iAmMuted) {
+    setWasMuted(iAmMuted);
+    setPrompt(iAmMuted ? undefined : "may-speak");
+  }
+  useEffect(() => media.silence(iAmMuted), [media, iAmMuted]);
+  const cameraOn = local.camera !== undefined;
+  const [hadCamera, setHadCamera] = useState(cameraOn);
+  const mineHidden = myPid !== undefined && (!sees(myPid).tile || !sees(myPid).camera);
+  if (hadCamera !== cameraOn) {
+    setHadCamera(cameraOn);
+    if (cameraOn && mineHidden) setPrompt("camera-hidden");
+    else if (prompt === "camera-hidden") setPrompt(undefined);
+  }
+  const asking = iAmOwner ? people.filter((person) => hasFlag(person.flags, "muted") && hasFlag(person.flags, "hand")).length : 0;
+  const [asked, setAsked] = useState(asking);
+  useEffect(() => {
+    if (asking > asked && sounds) chime("ask");
+    if (asking !== asked) setAsked(asking);
+  }, [asking, asked, sounds]);
   const presenter = people.find((person) => hasFlag(person.flags, "board"));
   if (!presenter && boardGone) setBoardGone(false);
   const boardShown = local.board || (presenter !== undefined && !boardGone);
-  const toggleBoard = () => {
-    if (boardShown) {
-      media.setBoard(false);
-      setBoardGone(presenter !== undefined && presenter.pid !== myPid);
-    } else {
-      setBoardGone(false);
-      media.setBoard(true);
-    }
-  };
+  const toggleBoard = () =>
+    withMotion("words", () => {
+      if (boardShown) {
+        media.setBoard(false);
+        setBoardGone(presenter !== undefined && presenter.pid !== myPid);
+      } else {
+        setBoardGone(false);
+        media.setBoard(true);
+      }
+    });
   const SHOW = "absolute inset-0 -z-10 size-full object-contain";
   const TAG = "absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold";
   const frames: { key: string; render(mode: StageMode): ReactNode }[] = [
@@ -482,7 +514,7 @@ export function RoomView({
   ];
   const chosen = frames.find((frame) => frame.key === pinned);
   const front = pinned === null ? undefined : (chosen ?? frames.find((frame) => frame.key === "board" || frame.key.startsWith("screen-")));
-  const bring = (key: string) => setPinned(front?.key === key ? null : key);
+  const bring = (key: string) => withMotion("words", () => setPinned(front?.key === key ? null : key));
 
   function leave() {
     withMotion("back", () => {
@@ -655,6 +687,27 @@ export function RoomView({
                   <NoticeLine key={notice.id} notice={notice} />
                 ))
               : null}
+            {prompt ? (
+              <li className="swap-in bubble pointer-events-auto flex flex-col gap-2.5 border border-bubble bg-card px-4 py-3 text-sm">
+                <span>{t(prompt === "may-speak" ? "quiet.maySpeak" : "prompt.cameraHidden")}</span>
+                <span className="flex gap-2">
+                  <button
+                    type="button"
+                    className={button({ variant: "accent", size: "xs" })}
+                    onClick={() => {
+                      if (prompt === "may-speak") void media.toggle("microphone");
+                      else if (myPid !== undefined) see(myPid, { tile: true, camera: true });
+                      setPrompt(undefined);
+                    }}
+                  >
+                    {t(prompt === "may-speak" ? "dock.micOn" : "prompt.cameraShow")}
+                  </button>
+                  <button type="button" className={button({ variant: "secondary", size: "xs" })} onClick={() => setPrompt(undefined)}>
+                    {t(prompt === "may-speak" ? "prompt.notNow" : "prompt.cameraKeep")}
+                  </button>
+                </span>
+              </li>
+            ) : null}
             {local.problem ? (
               <li className="arrive bubble border border-fg/40 bg-card px-3.5 py-2 text-sm">
                 {t(`media.${local.problem.why}.${local.problem.kind}`)}
@@ -711,6 +764,8 @@ export function RoomView({
                   canModerate={iAmOwner}
                   onRemove={(pid) => session.owner({ op: "remove", pid })}
                   onBan={(pid) => session.owner({ op: "ban", pid })}
+                  onQuiet={(op) => session.owner({ op })}
+                  onVoice={(pid, op) => session.owner({ op, pid })}
                   onTransfer={(pid) => session.owner({ op: "transfer", pid })}
                   photos={snapshot.photos}
                   onEditLook={() => setSheet("look")}
@@ -792,6 +847,7 @@ export function RoomView({
                 ]
               : []),
             { id: "board", group: t("palette.group.room"), label: t("more.board"), run: toggleBoard },
+            ...(iAmOwner ? [{ id: "quiet", group: t("palette.group.people"), label: t(people.some((person) => hasFlag(person.flags, "muted")) ? "quiet.unmuteAll" : "quiet.muteAll"), run: () => void session.owner({ op: people.some((person) => hasFlag(person.flags, "muted")) ? "unmute-all" : "mute-all" }) }] : []),
             { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
             {
               id: "look",
@@ -958,7 +1014,7 @@ export function RoomView({
 
       {sheet === "media" ? (
         <Sheet title={t("more.media")} closeLabel={t("more.close")} onClose={() => setSheet(undefined)} wide>
-          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
+          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} effectsAvailable={cameraEffects !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
         </Sheet>
       ) : null}
       {sheet === "shortcuts" ? (

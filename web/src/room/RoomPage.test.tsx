@@ -532,6 +532,29 @@ describe("RoomPage", () => {
       expect(screen.getByRole("listitem", { name: "Whiteboard" })).toBeInTheDocument();
     });
 
+    test("the owner mutes everyone, sees who asks to speak, and lets them", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mute everyone" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "mute-all" });
+      await send(socket, { t: "roster", v: 9, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { flags: 256 | 16, state: "active" })], gone: [] });
+      expect(screen.getByText(/asks to speak/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Let everyone speak" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Let Bia speak" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "allow", pid: 2 });
+    });
+
+    test("a muted participant is told why the microphone stays off, and is asked when they may speak again", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 256, state: "active" }), person(2, "Bia", { flags: 32, state: "active" })], gone: [] });
+      await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
+      expect(screen.getByText("The owner muted the room. Raise your hand to ask to speak.")).toBeInTheDocument();
+      await send(socket, { t: "roster", v: 4, people: [person(1, "Ana", { flags: 0, state: "active" }), person(2, "Bia", { flags: 32, state: "active" })], gone: [] });
+      expect(screen.getByText("The owner let you speak. Your microphone is still off.")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Not now" }));
+      expect(screen.queryByText(/The owner let you speak/)).not.toBeInTheDocument();
+    });
+
     test("a right click on a person offers what can be done about them, starting with a private message", async () => {
       const { socket } = await inCall();
       await userEvent.pointer({ keys: "[MouseRight]", target: screen.getByRole("listitem", { name: /Bia, connected/ }) });

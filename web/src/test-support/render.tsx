@@ -60,6 +60,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     seatStorage: memoryStorage(),
     mediaDevices: undefined,
     voiceCleaner: undefined,
+    cameraEffects: undefined,
     settingsMemory: { read: () => DEFAULT_SETTINGS, write: () => undefined },
     rtc: undefined,
     entryIntent: createEntryIntent(),
