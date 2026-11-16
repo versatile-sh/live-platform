@@ -76,6 +76,7 @@ export function createBrowserServices(): Services {
           display: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
         }
       : undefined,
+    voiceCleaner: typeof AudioWorkletNode === "undefined" || typeof WebAssembly === "undefined" ? undefined : async (raw) => (await import("./media/voice-cleaner")).cleanVoice(raw),
     entryIntent: createEntryIntent(),
     faceMemory: {
       read: () => local?.getItem(FACE_KEY) ?? "",

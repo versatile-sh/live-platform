@@ -11,7 +11,13 @@ export type MediaDevicesPort = {
 export type Device = { id: string; label: string };
 
 /** How hard the browser cleans the microphone: not at all, or its own noise and echo removal. */
-export type VoiceFilter = "off" | "standard";
+export type VoiceFilter = "off" | "standard" | "strong";
+
+/** A microphone after a noise remover, and the way to let the remover go. */
+export type CleanedVoice = { stream: MediaStream; release(): void };
+
+/** Cleans a microphone's voice in this browser; absent where the browser cannot. */
+export type VoiceCleaner = (raw: MediaStream) => Promise<CleanedVoice>;
 
 export type MediaKind = "microphone" | "camera" | "screen";
 
@@ -74,7 +80,8 @@ function stop(stream: MediaStream | undefined) {
 }
 
 /** Microphone, camera, screen and the raised hand of this device, as a store: each is asked of the browser when turned on and released when turned off. */
-export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags: (flags: number) => void): LocalMedia {
+export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags: (flags: number) => void, cleaner?: VoiceCleaner): LocalMedia {
+  const releases = new WeakMap<MediaStream, () => void>();
   const listeners = new Set<() => void>();
   let snapshot = OFF;
   let disposed = false;
@@ -89,8 +96,32 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     if (!devices) return Promise.reject(new DOMException("no capture on this device", "NotFoundError"));
     if (kind === "screen") return devices.display({ video: true, audio: true });
     if (kind === "camera") return devices.user({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
-    const clean = snapshot.voiceFilter === "standard";
-    return devices.user({ audio: { echoCancellation: clean, noiseSuppression: clean, autoGainControl: clean, ...(snapshot.microphoneId ? { deviceId: { exact: snapshot.microphoneId } } : {}) } });
+    return microphone(devices);
+  }
+
+  async function microphone(from: MediaDevicesPort): Promise<MediaStream> {
+    const filter = snapshot.voiceFilter;
+    const strong = filter === "strong" && cleaner !== undefined;
+    const raw = await from.user({ audio: { echoCancellation: filter !== "off", noiseSuppression: filter !== "off" && !strong, autoGainControl: filter !== "off", ...(snapshot.microphoneId ? { deviceId: { exact: snapshot.microphoneId } } : {}) } });
+    if (!strong) return raw;
+    try {
+      const cleaned = await cleaner(raw);
+      releases.set(cleaned.stream, () => {
+        cleaned.release();
+        stop(raw);
+      });
+      raw.getTracks().forEach((track) => track.addEventListener("ended", () => cleaned.stream.getTracks().forEach((made) => made.dispatchEvent(new Event("ended")))));
+      return cleaned.stream;
+    } catch {
+      return raw;
+    }
+  }
+
+  function end(stream: MediaStream | undefined) {
+    if (!stream) return;
+    releases.get(stream)?.();
+    releases.delete(stream);
+    stop(stream);
   }
 
   async function refreshDevices() {
@@ -120,7 +151,7 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       if (snapshot.busy) return;
       const current = snapshot[kind];
       if (current) {
-        stop(current);
+        end(current);
         patch({ [kind]: undefined, problem: undefined });
         return;
       }
@@ -128,7 +159,7 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       try {
         const stream = await capture(kind);
         if (disposed) {
-          stop(stream);
+          end(stream);
           return;
         }
         stream.getTracks().forEach((track) =>
@@ -158,9 +189,9 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     },
     dispose() {
       disposed = true;
-      stop(snapshot.microphone);
-      stop(snapshot.camera);
-      stop(snapshot.screen);
+      end(snapshot.microphone);
+      end(snapshot.camera);
+      end(snapshot.screen);
       snapshot = OFF;
     },
   };

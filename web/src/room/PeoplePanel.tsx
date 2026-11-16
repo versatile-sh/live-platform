@@ -3,8 +3,11 @@ import { useT } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
+import { button } from "../ui/styles";
 
 type PeoplePanelProps = { people: readonly Person[]; me: number | undefined; canModerate: boolean; onRemove(pid: number): void; onTransfer(pid: number): void; photos: Readonly<Record<number, string>>; onEditLook(): void };
+
+const XS = button({ variant: "secondary", size: "xs" });
 
 /** Everyone in the room as a list: who they are, what they are doing, and, for the owner, what can be done about them. */
 export function PeoplePanel({ people, me, canModerate, onRemove, onTransfer, photos, onEditLook }: PeoplePanelProps) {
@@ -29,16 +32,16 @@ export function PeoplePanel({ people, me, canModerate, onRemove, onTransfer, pho
               {view.flags.includes("hand") ? <Icon name="hand" className="size-4 text-accent" /> : null}
               <Icon name={view.flags.includes("microphone") ? "mic" : "micOff"} className="size-4" />
               {mine ? (
-                <button type="button" className="ml-1 h-8 rounded-full border border-line-strong px-2.5 text-xs font-semibold text-fg transition-colors duration-200 hover:border-fg/50" onClick={onEditLook}>
+                <button type="button" className={`ml-1 ${XS}`} onClick={onEditLook}>
                   {t("look.edit")}
                 </button>
               ) : null}
               {canModerate && !mine ? (
                 <>
-                  <button type="button" className="ml-1 h-8 rounded-full border border-line-strong px-2.5 text-xs font-semibold text-fg transition-colors duration-200 hover:border-fg/50" onClick={() => onTransfer(person.pid)} aria-label={t("owner.transfer", { name: person.name })}>
+                  <button type="button" className={`ml-1 ${XS}`} onClick={() => onTransfer(person.pid)} aria-label={t("owner.transfer", { name: person.name })}>
                     {t("owner.transferShort")}
                   </button>
-                  <button type="button" className="h-8 rounded-full border border-line-strong px-2.5 text-xs font-semibold text-fg transition-colors duration-200 hover:border-fg/50" onClick={() => onRemove(person.pid)} aria-label={t("owner.remove", { name: person.name })}>
+                  <button type="button" className={`${XS}`} onClick={() => onRemove(person.pid)} aria-label={t("owner.remove", { name: person.name })}>
                     {t("owner.removeShort")}
                   </button>
                 </>

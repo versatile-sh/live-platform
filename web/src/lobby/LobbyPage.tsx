@@ -7,11 +7,12 @@ import { Arrow } from "../ui/Arrow";
 import { Segmented } from "../ui/Segmented";
 import { RoomRow } from "./RoomRow";
 import { RoomsDialog } from "./RoomsDialog";
+import { ICON_BUTTON_PLAIN, button } from "../ui/styles";
 
 const WorldMap = lazy(() => import("../map/WorldMap"));
 
 const PREVIEW = 4;
-const MORE = "inline-flex h-10 items-center gap-2 rounded-full bg-ink px-5 text-sm font-semibold text-paper transition-opacity duration-200 hover:opacity-85";
+const MORE = button({ variant: "ink", size: "sm" });
 
 function Expand() {
   return (
@@ -27,7 +28,7 @@ function Nobody({ className = "" }: { className?: string }) {
     <div className={`bubble bg-ink p-6 text-paper ${className}`}>
       <p className="font-display text-xl font-bold tracking-[-0.03em]">{t("lobby.emptyTitle")}</p>
       <p className="mt-2 text-paper/70">{t("lobby.emptyBody")}</p>
-      <AppLink href="/" className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-bubble px-5 text-sm font-semibold text-ink transition-opacity duration-200 hover:opacity-85">
+      <AppLink href="/" className={`${button({ variant: "accent", size: "sm" })} mt-5`}>
         {t("lobby.emptyAction")}
         <Arrow />
       </AppLink>
@@ -123,7 +124,7 @@ export function LobbyPage({ active = true }: { active?: boolean }) {
                   <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-ink p-3 text-paper">
                     <div className="flex items-center justify-between gap-3 px-2 pb-2">
                       <p className="font-display text-lg font-bold tracking-[-0.03em]">{names.of(picked) ?? picked}</p>
-                      <button type="button" aria-label={t("lobby.mapClose")} className="grid size-8 place-items-center rounded-full transition-colors duration-200 hover:bg-paper/15" onClick={() => setCountry(undefined)}>
+                      <button type="button" aria-label={t("lobby.mapClose")} className={ICON_BUTTON_PLAIN} onClick={() => setCountry(undefined)}>
                         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                           <path d="M4 4l8 8M12 4l-8 8" />
                         </svg>
