@@ -8,13 +8,13 @@ import { HomePage } from "./HomePage";
 describe("HomePage", () => {
   test("says what the product is and shows the address a room will have", () => {
     renderWithApp(<HomePage />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Your screen,for whoever has the link.no account, no install");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Share anything.Watch anywhere.be live");
     expect(screen.getAllByText("live.test").length).toBeGreaterThan(0);
   });
 
   test("speaks Portuguese for a pt-BR visitor", () => {
     renderWithApp(<HomePage />, { locale: "pt-BR" });
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sua tela,para quem tiver o link.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Compartilhe qualquer coisa.Assista de qualquer lugar.");
   });
 
   test("remembers the name typed here for the room it leads to", async () => {
