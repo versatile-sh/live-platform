@@ -1,6 +1,8 @@
 import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { useLocale, useT } from "../i18n/I18nProvider";
+import { EMOJI, linkify } from "../domain/links";
+import { GIF_MAX_BYTES, sniffPhoto, toBase64 } from "../domain/photo";
 import type { ChatLine } from "../session/session";
 import type { Person } from "../signal/protocol";
 import { Avatar } from "../ui/Avatar";
@@ -18,7 +20,9 @@ type ChatPanelProps = {
   onPeer(pid: number | undefined): void;
   privately: boolean;
   onPrivately(privately: boolean): void;
-  onSay(text: string, to?: number): boolean;
+  /** How many private lines from each person I have not read yet, by participant id. */
+  unread: Readonly<Record<number, number>>;
+  onSay(text: string, to?: number, image?: string): boolean;
 };
 
 const MAX = 500;
@@ -38,6 +42,7 @@ export function ChatPanel({
   onPeer,
   privately,
   onPrivately,
+  unread,
   onSay,
 }: ChatPanelProps) {
   const t = useT();
@@ -47,6 +52,9 @@ export function ChatPanel({
     minute: "2-digit",
   });
   const [draft, setDraft] = useState("");
+  const waiting = Object.values(unread).reduce((sum, count) => sum + count, 0);
+  const [pickingEmoji, setPickingEmoji] = useState(false);
+  const [gifProblem, setGifProblem] = useState(false);
   const others = people.filter((person) => person.pid !== me);
   const target = privately
     ? others.find((person) => person.pid === peer)
@@ -61,12 +69,18 @@ export function ChatPanel({
     : all.filter((line) => line.to === undefined);
   const picking = privately && target === undefined;
   const ready = canSend && !picking;
-  const unread = (pid: number) =>
-    all.filter((line) => line.to !== undefined && line.pid === pid).length;
 
   function send() {
     const text = draft.trim();
     if (text && ready && onSay(text, target?.pid)) setDraft("");
+  }
+
+  async function sendGif(file: File | undefined) {
+    if (!file || !ready) return;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const fits = sniffPhoto(bytes) === "gif" && bytes.length <= GIF_MAX_BYTES;
+    setGifProblem(!fits);
+    if (fits) onSay("", target?.pid, toBase64(bytes));
   }
 
   function submit(event: FormEvent) {
@@ -94,7 +108,7 @@ export function ChatPanel({
           onChange={(next) => onPrivately(next === "private")}
           options={[
             { value: "room", text: t("chat.room") },
-            { value: "private", text: t("chat.private") },
+            { value: "private", text: waiting > 0 ? `${t("chat.private")} · ${waiting}` : t("chat.private") },
           ]}
         />
         {target ? (
@@ -123,7 +137,8 @@ export function ChatPanel({
           </div>
         ) : null}
       </div>
-      <div key={privately ? (target ? `to-${target.pid}` : "pick") : "room"} className={`flex min-h-0 flex-1 flex-col ${privately ? "swap-from-right" : "swap-from-left"}`}>
+      <div key={privately ? "private" : "room"} className={`flex min-h-0 flex-1 flex-col ${privately ? "swap-from-right" : "swap-from-left"}`}>
+      <div key={target ? `to-${target.pid}` : "all"} className="arrive flex min-h-0 flex-1 flex-col">
       {picking ? (
         others.length === 0 ? (
           <p className="m-auto max-w-56 text-center text-sm text-muted">
@@ -153,9 +168,9 @@ export function ChatPanel({
                     <span className="min-w-0 flex-1 truncate" translate="no">
                       {person.name}
                     </span>
-                    {unread(person.pid) > 0 ? (
+                    {(unread[person.pid] ?? 0) > 0 ? (
                       <span className="grid min-w-5 place-items-center rounded-full bg-bubble px-1 font-mono text-[0.6875rem] leading-5 font-bold text-on-bubble">
-                        {unread(person.pid)}
+                        {(unread[person.pid] ?? 0)}
                       </span>
                     ) : null}
                   </button>
@@ -205,7 +220,16 @@ export function ChatPanel({
                           : "bubble border border-line-strong bg-canvas"
                       }`}
                     >
-                      {line.text}
+                      {line.image ? <img src={line.image} alt={t("chat.picture", { name: line.name })} className={`block max-h-44 max-w-full rounded-md ${line.text ? "mb-1.5" : ""}`} /> : null}
+                      {linkify(line.text).map((piece, at) =>
+                        piece.href ? (
+                          <a key={at} href={piece.href} target="_blank" rel="noreferrer noopener" className="underline decoration-current/50 underline-offset-2 hover:decoration-current">
+                            {piece.text}
+                          </a>
+                        ) : (
+                          piece.text
+                        ),
+                      )}
                     </span>
                   </li>
                 );
@@ -216,7 +240,19 @@ export function ChatPanel({
             <label htmlFor={id} className="sr-only">
               {t("chat.label")}
             </label>
-            <div className="flex items-end gap-2 bubble border border-line-strong bg-canvas py-1.5 pr-1.5 pl-4 transition-colors duration-200 focus-within:border-fg/50">
+            {pickingEmoji ? (
+              <div role="group" aria-label={t("chat.emoji")} className="swap-in bubble mb-2 grid grid-cols-8 gap-0.5 border border-line-strong bg-canvas p-2">
+                {EMOJI.map((emoji) => (
+                  <button key={emoji} type="button" aria-label={emoji} className="grid aspect-square place-items-center rounded-md text-lg transition-colors duration-150 hover:bg-fg/10" onClick={() => setDraft((text) => (text + emoji).slice(0, MAX))}>
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <p role="alert" className={`px-1 text-[0.8125rem] text-amber ${gifProblem ? "mb-1.5" : "sr-only"}`}>
+              {gifProblem ? t("chat.gifProblem") : ""}
+            </p>
+            <div className="flex items-end gap-1 bubble border border-line-strong bg-canvas py-1.5 pr-1.5 pl-4 transition-colors duration-200 focus-within:border-fg/50">
               <textarea
                 id={id}
                 rows={1}
@@ -232,6 +268,23 @@ export function ChatPanel({
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={onKey}
               />
+              <button type="button" aria-expanded={pickingEmoji} aria-label={t("chat.emoji")} title={t("chat.emoji")} disabled={!ready} className={ICON_BUTTON} onClick={() => setPickingEmoji((open) => !open)}>
+                <span aria-hidden="true" className="text-base leading-none">☺</span>
+              </button>
+              <label aria-disabled={!ready} title={t("chat.gif")} className={`${ICON_BUTTON} cursor-pointer font-mono text-[0.6875rem] font-bold has-focus-visible:outline-2 has-focus-visible:outline-fg/55 aria-disabled:pointer-events-none aria-disabled:opacity-40`}>
+                GIF
+                <input
+                  type="file"
+                  accept="image/gif"
+                  aria-label={t("chat.gif")}
+                  disabled={!ready}
+                  className="sr-only"
+                  onChange={(event) => {
+                    void sendGif(event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
               <button
                 type="submit"
                 disabled={!ready || draft.trim() === ""}
@@ -244,6 +297,7 @@ export function ChatPanel({
           </form>
         </>
       )}
+      </div>
       </div>
     </div>
   );

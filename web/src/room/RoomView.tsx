@@ -346,6 +346,7 @@ export function RoomView({
     { pid: number; x: number; y: number } | undefined
   >();
   const [privately, setPrivately] = useState(false);
+  const [readUpTo, setReadUpTo] = useState<Readonly<Record<number, number>>>({});
   const [palette, setPalette] = useState(false);
   const choose = useChooseLocale();
   const { clipboard, origin } = useServices();
@@ -406,6 +407,16 @@ export function RoomView({
   if (side === "settings" && !iAmOwner) setSide("people");
   if (shown === "settings" && !iAmOwner) setShown("people");
   const unread = side === "chat" ? 0 : chat.length - seen;
+  const reading = side === "chat" && privately ? peer : undefined;
+  const lastFrom: Record<number, number> = {};
+  const unreadFrom: Record<number, number> = {};
+  for (const line of chat) {
+    if (line.to === undefined || line.pid === myPid) continue;
+    lastFrom[line.pid] = line.id;
+    if (line.id > (readUpTo[line.pid] ?? 0) && line.pid !== reading) unreadFrom[line.pid] = (unreadFrom[line.pid] ?? 0) + 1;
+  }
+  if (reading !== undefined && (lastFrom[reading] ?? 0) > (readUpTo[reading] ?? 0)) setReadUpTo({ ...readUpTo, [reading]: lastFrom[reading]! });
+  const whispers = people.filter((person) => (unreadFrom[person.pid] ?? 0) > 0);
   const shownPeople = people.filter((person) => sees(person.pid).tile);
   const screens = people.filter(
     (person) =>
@@ -712,6 +723,25 @@ export function RoomView({
                   <NoticeLine key={notice.id} notice={notice} />
                 ))
               : null}
+            {whispers.map((person) => (
+              <li key={`whisper-${person.pid}`} className="swap-in bubble pointer-events-auto flex items-center gap-3 border border-bubble bg-card py-2 pr-2 pl-4 text-sm">
+                <span className="min-w-0">
+                  <span className="mr-2 bubble-word bg-bubble px-2 py-0.5 font-mono text-xs text-on-bubble">{t("chat.private")}</span>
+                  {t("chat.privateFrom", { name: person.name, count: unreadFrom[person.pid] ?? 0 })}
+                </span>
+                <button
+                  type="button"
+                  className={button({ variant: "accent", size: "xs" })}
+                  onClick={() => {
+                    setPeer(person.pid);
+                    setPrivately(true);
+                    setSide("chat");
+                  }}
+                >
+                  {t("chat.open")}
+                </button>
+              </li>
+            ))}
             {iAmMuted ? (
               <li className="swap-in bubble pointer-events-auto flex items-center gap-2.5 border border-line-strong bg-card px-4 py-2.5 text-sm">
                 <Icon name="micOff" className="size-4 shrink-0 text-accent" />
@@ -786,6 +816,7 @@ export function RoomView({
                   onPeer={setPeer}
                   privately={privately}
                   onPrivately={setPrivately}
+                  unread={unreadFrom}
                   onSay={session.say}
                 />
               ) : shown === "people" ? (
