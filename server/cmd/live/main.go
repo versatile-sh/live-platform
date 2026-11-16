@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"github.com/versatile-sh/live/server/internal/adapters/handoff"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -22,6 +23,12 @@ import (
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
 	"github.com/versatile-sh/live/server/internal/ports/inbound"
+)
+
+// handoverHold is how long a room taken over waits for each person to come back; handoverWait is how long a stopping server waits for another to take its rooms.
+const (
+	handoverHold = 12 * time.Second
+	handoverWait = 4 * time.Second
 )
 
 func main() {
@@ -71,6 +78,21 @@ func main() {
 		hub.UseMedia(engine)
 		rooms = hub
 	}
+	var handover *handoff.Dir
+	if dir := os.Getenv("HANDOVER_DIR"); dir != "" {
+		opened, err := handoff.Open(dir)
+		if err != nil {
+			log.Error("handover directory unusable", "error", err.Error())
+			os.Exit(1)
+		}
+		handover = opened
+		if salt, err := handover.Salt(); err == nil {
+			signalCfg.Salt = salt
+		}
+		go handover.Watch(ctx, func(handed []presence.HandedRoom) {
+			log.Info("rooms taken over", "handed", len(handed), "taken", hub.Adopt(handed, handoverHold))
+		})
+	}
 	signalling := signal.NewServer(rooms, signalCfg)
 	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
 
@@ -84,6 +106,17 @@ func main() {
 	case err := <-failed:
 		log.Error("server stopped", "error", err.Error())
 		defer os.Exit(1)
+	}
+	if handed := hub.Export(); handover != nil && len(handed) > 0 {
+		if err := handover.Leave(handed); err != nil {
+			log.Error("rooms not handed over", "error", err.Error())
+		} else {
+			wait, done := context.WithTimeout(context.Background(), handoverWait)
+			log.Info("rooms handed over", "rooms", len(handed), "taken", handover.Taken(wait))
+			done()
+		}
+		signalling.Handoff()
+		time.Sleep(200 * time.Millisecond)
 	}
 	grace, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

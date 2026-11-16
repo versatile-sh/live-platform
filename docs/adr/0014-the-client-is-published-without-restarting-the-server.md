@@ -9,14 +9,20 @@ Most changes are to the page, not to the server. So the two are published separa
 
 **The client alone** (`deploy/web.sh`): the built files are copied to a directory of the host that the container sees at `/web-live`, and the server answers from there before the copy built into its image (`page.Layered`). Files are read at each request, so nothing restarts. Scripts and styles carry their content in their names: the new ones are copied first and the old ones are kept for thirty days, so a tab opened before the deploy still finds the chunks it loads later; `index.html`, which names the new ones, is copied last. People in a call keep the page they have and get the new one at their next visit. Measured with two stand-in browsers in a call across a publish (`TestPublicStay`): neither was dropped.
 
-**The server** (`deploy/server.sh`) still interrupts: maintenance page, stop, start. It is needed only when Go code, the image or the deploy configuration changes, and should be done when the rooms are empty.
+**The server** (`deploy/server.sh`) is replaced while calls go on, and people see the call blink:
 
-## What is still missing for a server deploy nobody feels
+1. The new container starts beside the old one. Two containers cannot publish the same media port, so the port alternates between 40000 and 40001 from one deploy to the next.
+2. When the proxy has moved to the new container, the old one is told to stop. It writes what it knows of each room to a directory both see (`/state`): settings, the hash of the room code's verifier, bans, whether the room is muted, who is in it, each one's look and photo, and the hash of each resume secret. Never a secret itself.
+3. The new server, which watches that directory, rebuilds the rooms with everyone held as reconnecting for twelve seconds, and removes the note. The old server waits for the note to be gone, so that nobody returns before their place exists, then closes every socket with code 4012.
+4. Each browser does what it already does when a connection drops: it returns at once with its secret, is given its place back (same id, same role), and negotiates media again with the new server.
 
-Decided in outline, not built:
+Measured at the signalling level by a test that moves a muted room between two servers over real sockets (`TestRoomsOutliveAServer`). In a real browser the pause in sound and picture is the time to reconnect the socket and bring media up again, about a second or two; this was not timed in a browser.
 
-1. The old server writes what it knows of each room when told to stop (settings, the verifier's hash, bans, who is in it and the hash of each resume secret) and closes the sockets with a code that means "come straight back".
-2. The new server adopts that and holds each place for the seconds it takes a browser to return with its secret; the browser's existing resume path seats it again and media is negotiated anew.
-3. The two containers overlap on alternating media ports, so the new one is healthy before the old one lets go.
+The key that turns a visitor's address into an origin is kept in `/state` instead of being drawn at each start, so a ban holds through a deploy. This narrows ADR 0011: the key no longer dies with the process, and someone with the host's disk could test addresses against a ban. They would already hold the host.
 
-That leaves a pause of a second or two in sound and picture, not a dropped call. A deploy with no pause at all would need the media to live in a process that deploys do not replace, which is a larger change than this product has earned yet.
+## What it does not cover
+
+- A room created on the new server, in the second or two of overlap, with the name of a room still on the old one: the old room is not adopted and its people are dropped. Narrow, and accepted.
+- A server that dies without being told to stop hands nothing over.
+- The chat a person had on screen stays in their tab; the whiteboard lives in the browsers and survives as long as one of them does.
+- No pause at all would need the media in a process that deploys do not replace. Not built.

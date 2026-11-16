@@ -26,17 +26,17 @@ deploy/web.sh
 
 It builds the client and lays it over the running server (ADR 0014). People already on the site keep the page they have until they reload.
 
-**The server changed (anything under `server/`, the `Dockerfile` or `config/deploy.yml`):** calls drop for about thirty seconds while the new container starts. Do it when the rooms are empty.
+**The server changed (anything under `server/`, the `Dockerfile` or `config/deploy.yml`):** the call blinks for a second or two and comes back by itself.
 
 ```sh
 deploy/server.sh
 ```
 
-It shows the maintenance pages in `deploy/errors` meanwhile. `kamal app stop` is never used: it takes the app out of the proxy, which then answers with its own stock page.
+The new container starts beside the old one on the other media port, the old one hands its rooms over, and every browser returns to its place (ADR 0014). `kamal app stop` and `kamal app maintenance` are not part of a deploy.
 
 ## Media
 
-Audio and video do not pass through the Cloudflare Tunnel. The container publishes UDP 40000 on the server's own address (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP` in `config/deploy.yml`), and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room, and two containers cannot hold that port at once, which is why a server deploy stops the old one first.
+Audio and video do not pass through the Cloudflare Tunnel. The container publishes one UDP port on the server's own address, 40000 or 40001 by turns (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP`), and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room.
 
 ## Check a deploy
 

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -33,13 +34,13 @@ type Config struct {
 	CountryHeader string
 	AddressHeader string
 	// Salt keys the opaque origin of each visitor; given, it stays the same across restarts so that bans hold through a deploy.
-	Salt []byte
-	HelloTimeout  time.Duration
-	ReadLimit     int64
-	FramesPerSec  float64
-	FrameBurst    float64
-	MaxPending    int64
-	MaxConns      int64
+	Salt         []byte
+	HelloTimeout time.Duration
+	ReadLimit    int64
+	FramesPerSec float64
+	FrameBurst   float64
+	MaxPending   int64
+	MaxConns     int64
 }
 
 // DefaultConfig returns the limits of lv.1 for the given allowed origins.
@@ -130,6 +131,7 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 func (s *Server) OnClose(raw gnet.Conn, _ error) gnet.Action {
 	s.conns.Add(-1)
 	if c, ok := raw.Context().(*conn); ok {
+		s.open.Delete(c)
 		c.closed()
 	}
 	return gnet.None
