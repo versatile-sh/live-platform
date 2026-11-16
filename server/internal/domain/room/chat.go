@@ -14,6 +14,7 @@ const chatMaxRunes = 500
 // ChatMessage is one line a participant said to the room; the server relays it and keeps nothing.
 type ChatMessage struct {
 	From PID
+	To   PID
 	Name string
 	Text string
 	At   time.Time
@@ -34,11 +35,11 @@ func NewChatText(raw string) (string, error) {
 	return text, nil
 }
 
-// Say stamps a message from a participant who is in the room, or reports false for anyone else.
-func (r *Room) Say(now time.Time, from PID, text string) (ChatMessage, bool) {
+// Say stamps a message from a participant who is in the room, to everyone or to one other participant who is in it too; anything else reports false.
+func (r *Room) Say(now time.Time, from, to PID, text string) (ChatMessage, bool) {
 	p := r.find(from)
-	if p == nil {
+	if p == nil || to == from || (to != 0 && r.find(to) == nil) {
 		return ChatMessage{}, false
 	}
-	return ChatMessage{From: p.ID, Name: p.Name, Text: text, At: now}, true
+	return ChatMessage{From: p.ID, To: to, Name: p.Name, Text: text, At: now}, true
 }

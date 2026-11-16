@@ -271,7 +271,7 @@ func (c *conn) dispatch(f clientFrame) {
 			c.send(textFrame(encodeError(err)))
 			return
 		}
-		p.Chat(c.slug, c.seat.PID, c.seat.Gen, text)
+		p.Chat(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.To), text)
 	case "leave":
 		c.mu.Lock()
 		c.left = true
