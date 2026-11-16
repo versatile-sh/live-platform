@@ -11,6 +11,7 @@ import { Icon, type IconName } from "../ui/icons";
 import { Segmented } from "../ui/Segmented";
 import { Wordmark } from "../ui/Wordmark";
 import { ChatPanel } from "./ChatPanel";
+import { ConnectionCard } from "./ConnectionCard";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { EndedPanel } from "./EndedPanel";
 import { OwnerPanel } from "./OwnerPanel";
@@ -120,7 +121,8 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
   const [side, setSide] = useState<Side | undefined>("chat");
   const [shown, setShown] = useState<Side>("chat");
   const [menu, setMenu] = useState<"microphone" | "camera" | "more" | undefined>();
-  const [sheet, setSheet] = useState<"connection" | "shortcuts" | undefined>();
+  const [sheet, setSheet] = useState<"shortcuts" | undefined>();
+  const [stats, setStats] = useState(false);
   const [seen, setSeen] = useState(0);
   if (side && side !== shown) setShown(side);
   useEffect(() => () => media.dispose(), [media]);
@@ -306,32 +308,27 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
         </aside>
       </div>
 
+      {stats ? <ConnectionCard snapshot={snapshot} onClose={() => setStats(false)} /> : null}
+
       {sheet ? (
         <>
           <button type="button" aria-label={t("more.close")} className="fixed inset-0 z-30 cursor-default bg-ink/60" onClick={() => setSheet(undefined)} />
-          <section role="dialog" aria-label={t(sheet === "connection" ? "more.connection" : "more.shortcuts")} className="swap-in bubble fixed top-1/2 left-1/2 z-40 w-[min(26rem,calc(100vw-2rem))] -translate-1/2 border border-line-strong bg-card p-5">
+          <section role="dialog" aria-label={t("more.shortcuts")} className="swap-in bubble fixed top-1/2 left-1/2 z-40 w-[min(26rem,calc(100vw-2rem))] -translate-1/2 border border-line-strong bg-card p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="font-display text-xl font-bold tracking-[-0.03em]">{t(sheet === "connection" ? "more.connection" : "more.shortcuts")}</h2>
+              <h2 className="font-display text-xl font-bold tracking-[-0.03em]">{t("more.shortcuts")}</h2>
               <button type="button" aria-label={t("more.close")} className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg" onClick={() => setSheet(undefined)}>
                 <Icon name="close" className="size-4" />
               </button>
             </div>
             <dl className="flex flex-col gap-2.5 text-sm">
-              {(sheet === "connection"
-                ? [
-                    [t("connection.rtt"), snapshot.rtt === undefined ? t("connection.measuring") : t("connection.ms", { ms: snapshot.rtt })],
-                    [t("connection.state"), t(connection.phase === "joined" ? "connection.joined" : "connection.reconnecting")],
-                    [t("connection.mediaState"), t("connection.mediaLocal")],
-                  ]
-                : [
-                    [t("shortcut.mic"), "Ctrl+D"],
-                    [t("shortcut.camera"), "Ctrl+E"],
-                    [t("shortcut.screen"), "Ctrl+Shift+E"],
-                    [t("shortcut.hand"), "Ctrl+Alt+H"],
-                    [t("shortcut.chat"), "Ctrl+Alt+C"],
-                    [t("shortcut.people"), "Ctrl+Alt+P"],
-                  ]
-              ).map(([term, value]) => (
+              {[
+                [t("shortcut.mic"), "Ctrl+D"],
+                [t("shortcut.camera"), "Ctrl+E"],
+                [t("shortcut.screen"), "Ctrl+Shift+E"],
+                [t("shortcut.hand"), "Ctrl+Alt+H"],
+                [t("shortcut.chat"), "Ctrl+Alt+C"],
+                [t("shortcut.people"), "Ctrl+Alt+P"],
+              ].map(([term, value]) => (
                 <div key={term} className="flex items-baseline justify-between gap-4">
                   <dt className="text-muted">{term}</dt>
                   <dd className="text-right font-mono text-[0.8125rem]">{value}</dd>
@@ -366,7 +363,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
                   {(
                     [
                       ...(iAmOwner ? [["more.access", "settings", undefined, () => setSide("settings")] as const] : []),
-                      ["more.connection", "people", undefined, () => setSheet("connection")] as const,
+                      ["more.connection", "people", undefined, () => setStats((shown) => !shown)] as const,
                       ["more.shortcuts", "chat", "Ctrl+/", () => setSheet("shortcuts")] as const,
                     ] as const
                   ).map(([label, icon, keys, run]) => (
