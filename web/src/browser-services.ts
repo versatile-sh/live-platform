@@ -1,5 +1,4 @@
 import { formatLook, parseLook, randomLook } from "./domain/look";
-import { applyCameraEffect } from "./media/camera-effect";
 import { parseSettings } from "./media/settings";
 import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
@@ -83,7 +82,7 @@ export function createBrowserServices(): Services {
         }
       : undefined,
     voiceCleaner: typeof AudioWorkletNode === "undefined" || typeof WebAssembly === "undefined" ? undefined : async (raw, chain) => (await import("./media/voice-cleaner")).cleanVoice(raw, chain),
-    cameraEffects: typeof HTMLCanvasElement !== "undefined" && "captureStream" in HTMLCanvasElement.prototype ? applyCameraEffect : undefined,
+    cameraEffects: typeof HTMLCanvasElement !== "undefined" && "captureStream" in HTMLCanvasElement.prototype && typeof WebAssembly !== "undefined" ? async (raw, effect) => (await import("./media/camera-effect")).blurBackground(raw, effect) : undefined,
     entryIntent: createEntryIntent(),
     faceMemory: {
       read: () => local?.getItem(FACE_KEY) ?? "",
