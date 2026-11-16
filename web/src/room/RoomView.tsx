@@ -169,9 +169,6 @@ function Options({
                   ...(voiceCleaner ? [{ value: "strong" as const, text: t("menu.filterStrong") }] : []),
                 ]}
               />
-              <p className="mt-2 text-[0.8125rem] leading-snug text-muted">
-                {t(local.voiceFilter === "strong" ? "menu.filterHintStrong" : local.voiceFilter === "off" ? "menu.filterHintOff" : "menu.filterHint")}
-              </p>
             </div>
           </>
         ) : (
@@ -1014,7 +1011,7 @@ export function RoomView({
 
       {sheet === "media" ? (
         <Sheet title={t("more.media")} closeLabel={t("more.close")} onClose={() => setSheet(undefined)} wide>
-          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} effectsAvailable={cameraEffects !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
+          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
         </Sheet>
       ) : null}
       {sheet === "shortcuts" ? (
