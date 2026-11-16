@@ -25,8 +25,9 @@ describe("LobbyPage", () => {
     test("says so over the map and offers to create one", async () => {
       renderWithApp(<LobbyPage />);
       await userEvent.click(screen.getByRole("button", { name: "Map" }));
-      expect(screen.getByText("No open rooms right now.")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Create a room" })).toBeInTheDocument();
+      const map = within(screen.getByRole("group", { name: "Map" }));
+      expect(map.getByText("No open rooms right now.")).toBeInTheDocument();
+      expect(map.getByRole("link", { name: "Create a room" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Larger map" })).not.toBeInTheDocument();
     });
   });
@@ -64,12 +65,13 @@ describe("LobbyPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "Map" }));
       const brazil = await screen.findByRole("button", { name: "Brazil, 1 open rooms" });
       expect(screen.getByRole("button", { name: "Japan, 1 open rooms" })).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Enter room standup" })).not.toBeInTheDocument();
+      const map = within(screen.getByRole("group", { name: "Map" }));
+      expect(map.queryByRole("link", { name: "Enter room standup" })).not.toBeInTheDocument();
       await userEvent.click(brazil);
       expect(brazil).toHaveAttribute("aria-pressed", "true");
       const country = screen.getByRole("dialog", { name: "Open rooms in Brazil." });
       expect(within(country).getByRole("link", { name: "Enter room standup" })).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Enter room tokyo" })).not.toBeInTheDocument();
+      expect(map.queryByRole("link", { name: "Enter room tokyo" })).not.toBeInTheDocument();
       await userEvent.click(within(country).getByRole("button", { name: "Close this country" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -80,7 +82,7 @@ describe("LobbyPage", () => {
       const japan = await screen.findByRole("button", { name: "Japan, 1 open rooms" });
       japan.focus();
       await userEvent.keyboard("{Enter}");
-      expect(screen.getByRole("link", { name: "Enter room tokyo" })).toBeInTheDocument();
+      expect(within(screen.getByRole("group", { name: "Map" })).getByRole("link", { name: "Enter room tokyo" })).toBeInTheDocument();
     });
   });
 });

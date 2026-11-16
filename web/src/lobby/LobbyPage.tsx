@@ -42,6 +42,7 @@ export function LobbyPage() {
   const state = useSyncExternalStore(lobby.subscribe, lobby.getSnapshot);
   const rooms = state.status === "loading" ? [] : state.rooms;
   const [view, setView] = useState<"list" | "map">("list");
+  const [seenMap, setSeenMap] = useState(false);
   const [country, setCountry] = useState<string | undefined>();
   const [dialog, setDialog] = useState<"list" | "map" | undefined>();
   const names = new Intl.DisplayNames([useLocale()], { type: "region" });
@@ -74,7 +75,10 @@ export function LobbyPage() {
           label={t("lobby.viewLabel")}
           tone="ink"
           value={view}
-          onChange={setView}
+          onChange={(next) => {
+            setView(next);
+            if (next === "map") setSeenMap(true);
+          }}
           options={[
             { value: "list", text: t("lobby.viewList") },
             { value: "map", text: t("lobby.viewMap") },
@@ -85,42 +89,9 @@ export function LobbyPage() {
         {note}
       </p>
 
-      {view === "map" ? (
-        <div key="map" className="swap-from-right mt-4">
-          <div className="relative aspect-2/1 w-full">
-            <Suspense fallback={null}>
-              <WorldMap counts={counts} selected={picked} onSelect={setCountry} />
-            </Suspense>
-            {state.status === "ready" && rooms.length === 0 ? <Nobody className="arrive absolute inset-x-0 top-1/2 mx-auto w-full max-w-md -translate-y-1/2" /> : null}
-            {picked ? (
-              <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-paper p-3 text-ink">
-                <div className="flex items-center justify-between gap-3 px-2 pb-2">
-                  <p className="font-display text-lg font-bold tracking-[-0.03em]">{names.of(picked) ?? picked}</p>
-                  <button type="button" aria-label={t("lobby.mapClose")} className="grid size-8 place-items-center rounded-full transition-colors duration-200 hover:bg-ink/10" onClick={() => setCountry(undefined)}>
-                    <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M4 4l8 8M12 4l-8 8" />
-                    </svg>
-                  </button>
-                </div>
-                <ul className="flex flex-col gap-2 overflow-y-auto">
-                  {rooms
-                    .filter((room) => room.country === picked)
-                    .map((room) => (
-                      <RoomRow key={room.slug} room={room} />
-                    ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-          {rooms.length > 0 ? (
-            <button type="button" className={`${MORE} mt-4`} onClick={() => setDialog("map")}>
-              <Expand />
-              {t("lobby.expandMap")}
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        <div key="list" className="swap-from-left mt-6">
+      <div className="-mx-1 mt-5 overflow-hidden px-1">
+        <div data-view={view} className="flex w-[200%] items-start transition-transform duration-500 ease-(--ease-glide) data-[view=map]:-translate-x-1/2">
+          <div role="group" aria-label={t("lobby.viewList")} inert={view !== "list"} className="w-1/2 pr-4 transition-opacity duration-300 inert:opacity-0">
           {state.status === "ready" && rooms.length === 0 ? (
             <Nobody />
           ) : (
@@ -138,8 +109,46 @@ export function LobbyPage() {
               ) : null}
             </>
           )}
+          </div>
+          <div role="group" aria-label={t("lobby.viewMap")} inert={view !== "map"} className="w-1/2 pl-4 transition-opacity duration-300 inert:opacity-0">
+            {seenMap ? (
+              <>
+              <div className="relative aspect-2/1 w-full">
+                <Suspense fallback={null}>
+                  <WorldMap counts={counts} selected={picked} onSelect={setCountry} />
+                </Suspense>
+                {state.status === "ready" && rooms.length === 0 ? <Nobody className="arrive absolute inset-x-0 top-1/2 mx-auto w-full max-w-md -translate-y-1/2" /> : null}
+                {picked ? (
+                  <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-paper p-3 text-ink">
+                    <div className="flex items-center justify-between gap-3 px-2 pb-2">
+                      <p className="font-display text-lg font-bold tracking-[-0.03em]">{names.of(picked) ?? picked}</p>
+                      <button type="button" aria-label={t("lobby.mapClose")} className="grid size-8 place-items-center rounded-full transition-colors duration-200 hover:bg-ink/10" onClick={() => setCountry(undefined)}>
+                        <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <path d="M4 4l8 8M12 4l-8 8" />
+                        </svg>
+                      </button>
+                    </div>
+                    <ul className="flex flex-col gap-2 overflow-y-auto">
+                      {rooms
+                        .filter((room) => room.country === picked)
+                        .map((room) => (
+                          <RoomRow key={room.slug} room={room} />
+                        ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+              {rooms.length > 0 ? (
+                <button type="button" className={`${MORE} mt-4`} onClick={() => setDialog("map")}>
+                  <Expand />
+                  {t("lobby.expandMap")}
+                </button>
+              ) : null}
+              </>
+            ) : null}
+          </div>
         </div>
-      )}
+      </div>
 
       {dialog ? <RoomsDialog rooms={rooms} start={dialog} onClose={() => setDialog(undefined)} /> : null}
     </section>
