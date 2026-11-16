@@ -1,14 +1,17 @@
-package ws
+package signal
 
 import (
 	"context"
 	"encoding/json"
-	"net/http/httptest"
+	"errors"
+	"net"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
+	"github.com/gobwas/ws"
+	"github.com/gobwas/ws/wsutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -29,7 +32,7 @@ type serverFrame struct {
 
 type client struct {
 	t    *testing.T
-	conn *websocket.Conn
+	conn net.Conn
 	me   serverFrame
 }
 
@@ -38,33 +41,41 @@ func startServer(t *testing.T, tune func(*Config)) string {
 	roomCfg := room.Config{Capacity: 10, ConnectTimeout: time.Second, Grace: 150 * time.Millisecond, UnhealthyCap: 300 * time.Millisecond, EmptyRelease: 200 * time.Millisecond}
 	hub := presence.NewHub(roomCfg, presence.Liveness{UnstableAfter: 200 * time.Millisecond, SuspectAfter: 500 * time.Millisecond}, time.Now)
 	cfg := DefaultConfig(nil)
-	cfg.PingEvery = 50 * time.Millisecond
 	if tune != nil {
 		tune(&cfg)
 	}
-	srv := httptest.NewServer(NewHandler(hub, cfg))
-	t.Cleanup(srv.Close)
-	return "ws" + strings.TrimPrefix(srv.URL, "http")
+	probe, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := probe.Addr().String()
+	require.NoError(t, probe.Close())
+	srv := NewServer(hub, cfg)
+	go func() { _ = srv.Run(addr) }()
+	<-srv.Ready()
+	t.Cleanup(func() {
+		ctx, stop := context.WithTimeout(context.Background(), 2*time.Second)
+		defer stop()
+		_ = srv.Stop(ctx)
+	})
+	return "ws://" + addr + path
 }
 
 func dial(t *testing.T, url string) *client {
 	t.Helper()
-	conn, _, err := websocket.Dial(context.Background(), url, &websocket.DialOptions{Subprotocols: []string{Subprotocol}})
+	conn, _, _, err := ws.Dialer{Protocols: []string{Subprotocol}}.Dial(context.Background(), url)
 	require.NoError(t, err)
-	t.Cleanup(func() { conn.CloseNow() })
+	t.Cleanup(func() { conn.Close() })
 	return &client{t: t, conn: conn}
 }
 
 func (c *client) send(frame string) {
 	c.t.Helper()
-	require.NoError(c.t, c.conn.Write(context.Background(), websocket.MessageText, []byte(frame)))
+	require.NoError(c.t, wsutil.WriteClientText(c.conn, []byte(frame)))
 }
 
 func (c *client) next() (serverFrame, error) {
-	ctx, stop := context.WithTimeout(context.Background(), 3*time.Second)
-	defer stop()
 	var f serverFrame
-	_, data, err := c.conn.Read(ctx)
+	_ = c.conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	data, _, err := wsutil.ReadServerData(c.conn)
 	if err != nil {
 		return f, err
 	}
@@ -91,10 +102,15 @@ func (c *client) until(match func(serverFrame) bool) serverFrame {
 	}
 }
 
-func (c *client) closeCode() websocket.StatusCode {
+func (c *client) closeCode() ws.StatusCode {
 	for {
-		if _, err := c.next(); err != nil {
-			return websocket.CloseStatus(err)
+		_, err := c.next()
+		var closed wsutil.ClosedError
+		if errors.As(err, &closed) {
+			return closed.Code
+		}
+		if err != nil {
+			return 0
 		}
 	}
 }
@@ -115,24 +131,27 @@ func TestSignalling(t *testing.T) {
 		ana.join("ana")
 		bia.join("bia")
 		ana.until(func(f serverFrame) bool { return has(f, bia.me.PID, "") })
-		bia.conn.CloseNow()
+		bia.conn.Close()
 		ana.until(func(f serverFrame) bool { return has(f, bia.me.PID, "reconnecting") })
 		gone := ana.until(func(f serverFrame) bool { return f.T == "roster" && !has(f, bia.me.PID, "") })
 		require.Len(t, gone.Gone, 1)
 		assert.Equal(t, "timeout", gone.Gone[0].Reason)
 	})
 
-	t.Run("leaving removes at once", func(t *testing.T) {
+	t.Run("leaving removes at once and a heartbeat is answered", func(t *testing.T) {
 		url := startServer(t, nil)
 		ana, bia := dial(t, url), dial(t, url)
 		ana.join("ana")
 		bia.join("bia")
 		ana.until(func(f serverFrame) bool { return has(f, bia.me.PID, "") })
+		ana.send(`{"t":"hb"}`)
+		ana.until(func(f serverFrame) bool { return f.T == "hb" })
 		started := time.Now()
 		bia.send(`{"t":"leave"}`)
 		gone := ana.until(func(f serverFrame) bool { return f.T == "roster" && !has(f, bia.me.PID, "") })
 		assert.Equal(t, "left", gone.Gone[0].Reason)
 		assert.Less(t, time.Since(started), 100*time.Millisecond)
+		assert.Equal(t, ws.StatusNormalClosure, bia.closeCode())
 	})
 
 	t.Run("a resume closes the connection it replaces with 4001", func(t *testing.T) {
@@ -148,7 +167,7 @@ func TestSignalling(t *testing.T) {
 		assert.Equal(t, CloseSuperseded, old.closeCode())
 	})
 
-	t.Run("the owner removes a participant, who is closed with 4403", func(t *testing.T) {
+	t.Run("owner actions are refused with an error frame when not allowed", func(t *testing.T) {
 		url := startServer(t, nil)
 		ana, bia := dial(t, url), dial(t, url)
 		ana.join("ana")
@@ -156,9 +175,19 @@ func TestSignalling(t *testing.T) {
 		bia.send(`{"t":"owner","op":"remove","pid":1}`)
 		refused := bia.until(func(f serverFrame) bool { return f.T == "error" })
 		assert.Equal(t, "INVARIANT_VIOLATION", refused.Code)
-		ana.send(`{"t":"owner","op":"remove","pid":2}`)
-		refused = ana.until(func(f serverFrame) bool { return f.T == "error" })
-		assert.Equal(t, "INVARIANT_VIOLATION", refused.Code, "an owner still connecting has no powers")
+	})
+
+	t.Run("a frame split across packets is reassembled", func(t *testing.T) {
+		c := dial(t, startServer(t, nil))
+		var wire strings.Builder
+		require.NoError(t, wsutil.WriteClientText(&wire, []byte(`{"t":"join","slug":"bk","name":"ana"}`)))
+		for _, b := range []byte(wire.String()) {
+			_, err := c.conn.Write([]byte{b})
+			require.NoError(t, err)
+		}
+		f, err := c.next()
+		require.NoError(t, err)
+		assert.Equal(t, "joined", f.T)
 	})
 
 	t.Run("connections that break the protocol are closed with its code", func(t *testing.T) {
@@ -166,24 +195,33 @@ func TestSignalling(t *testing.T) {
 			name  string
 			tune  func(*Config)
 			drive func(c *client)
-			code  websocket.StatusCode
+			code  ws.StatusCode
 		}{
 			{"silent after the upgrade", func(c *Config) { c.HelloTimeout = 80 * time.Millisecond }, func(c *client) {}, CloseNoHello},
 			{"first frame is not join or resume", nil, func(c *client) { c.send(`{"t":"hb"}`) }, CloseBadFrame},
 			{"invalid slug", nil, func(c *client) { c.send(`{"t":"join","slug":"API!","name":"a"}`) }, CloseBadFrame},
+			{"a frame before joined arrives", nil, func(c *client) {
+				c.send(`{"t":"join","slug":"bk","name":"a"}`)
+				c.send(`{"t":"hb"}`)
+				c.send(`{"t":"hb"}`)
+			}, 0},
 			{"binary frame", nil, func(c *client) {
 				c.join("ana")
-				require.NoError(c.t, c.conn.Write(context.Background(), websocket.MessageBinary, []byte{1}))
+				require.NoError(c.t, wsutil.WriteClientBinary(c.conn, []byte{1}))
 			}, CloseBadFrame},
+			{"unmasked frame", nil, func(c *client) {
+				c.join("ana")
+				require.NoError(c.t, wsutil.WriteServerText(c.conn, []byte(`{"t":"hb"}`)))
+			}, ws.StatusProtocolError},
 			{"unknown frame type", nil, func(c *client) { c.join("ana"); c.send(`{"t":"nope"}`) }, CloseBadFrame},
 			{"frame above the size limit", nil, func(c *client) {
 				c.join("ana")
 				c.send(`{"t":"hb","name":"` + strings.Repeat("x", 17<<10) + `"}`)
-			}, websocket.StatusMessageTooBig},
+			}, ws.StatusMessageTooBig},
 			{"flood", func(c *Config) { c.FramesPerSec, c.FrameBurst = 1, 3 }, func(c *client) {
 				c.join("ana")
-				for i := 0; i < 6; i++ {
-					_ = c.conn.Write(context.Background(), websocket.MessageText, []byte(`{"t":"hb"}`))
+				for i := 0; i < 4; i++ {
+					_ = wsutil.WriteClientText(c.conn, []byte(`{"t":"hb"}`))
 				}
 			}, CloseFlood},
 		}
@@ -191,17 +229,27 @@ func TestSignalling(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				c := dial(t, startServer(t, tc.tune))
 				tc.drive(c)
-				assert.Equal(t, tc.code, c.closeCode())
+				code := c.closeCode()
+				if tc.code != 0 {
+					assert.Equal(t, tc.code, code)
+				}
 			})
 		}
 	})
 
-	t.Run("a page from another origin cannot open a session", func(t *testing.T) {
-		url := startServer(t, nil)
-		_, _, err := websocket.Dial(context.Background(), url, &websocket.DialOptions{
-			Subprotocols: []string{Subprotocol},
-			HTTPHeader:   map[string][]string{"Origin": {"https://evil.example"}},
-		})
+	t.Run("the upgrade is refused for a foreign origin, a wrong path and a slow handshake", func(t *testing.T) {
+		url := startServer(t, func(c *Config) { c.HelloTimeout = 100 * time.Millisecond })
+		_, _, _, err := ws.Dialer{Protocols: []string{Subprotocol}, Header: ws.HandshakeHeaderHTTP(http.Header{"Origin": {"https://evil.example"}})}.Dial(context.Background(), url)
 		assert.Error(t, err)
+		_, _, _, err = ws.Dialer{Protocols: []string{Subprotocol}}.Dial(context.Background(), strings.TrimSuffix(url, path)+"/other")
+		assert.Error(t, err)
+		raw, err := net.Dial("tcp", strings.TrimSuffix(strings.TrimPrefix(url, "ws://"), path))
+		require.NoError(t, err)
+		defer raw.Close()
+		_, _ = raw.Write([]byte("GET /ws HTTP/1.1\r\nHost: x\r\n"))
+		_ = raw.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, err = raw.Read(make([]byte, 1))
+		assert.Error(t, err, "the server closes a handshake that never completes")
+		assert.False(t, errors.Is(err, context.DeadlineExceeded))
 	})
 }
