@@ -14,14 +14,9 @@ export type Params = Record<string, string | number>;
 /** Looks up a message and fills its placeholders. */
 export type Translate = (key: MessageKey, params?: Params) => string;
 
-/** Picks the first language in the browser's preference list that the interface speaks, falling back to English. */
-export function detectLocale(languages: readonly string[]): Locale {
-  for (const language of languages) {
-    const base = language.toLowerCase().split("-")[0];
-    if (base === "pt") return "pt-BR";
-    if (base === "en") return "en";
-  }
-  return "en";
+/** The interface is in English unless the visitor chose another language it speaks. */
+export function chosenLocale(saved: string | null | undefined): Locale {
+  return saved === "pt-BR" ? "pt-BR" : "en";
 }
 
 /** Builds the translate function of a locale. */

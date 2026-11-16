@@ -25,7 +25,8 @@ func (d fakeDirectory) Lobby() []room.Summary {
 
 func TestAPI(t *testing.T) {
 	mux := http.NewServeMux()
-	Register(mux, fakeDirectory{"bk": {Slug: "bk", Listed: true, Country: "BR", Count: 2, Capacity: 10}})
+	known := false
+	Register(mux, fakeDirectory{"bk": {Slug: "bk", Listed: true, Country: "BR", Count: 2, Capacity: 10}}, func() (int, bool) { return 42, known })
 	cases := []struct {
 		path   string
 		status int
@@ -34,6 +35,7 @@ func TestAPI(t *testing.T) {
 		{"/api/rooms/bk", 200, `{"slug":"bk","exists":true,"private":false,"listed":true,"country":"BR","count":2,"capacity":10}`},
 		{"/api/rooms/free", 200, `{"slug":"free","exists":false,"private":false,"listed":false,"count":0,"capacity":10}`},
 		{"/api/rooms/API!", 400, `{"error":"invalid slug"}`},
+		{"/api/project", 200, `{"stars":null}`},
 		{"/api/lobby", 200, `{"rooms":[{"slug":"bk","exists":true,"private":false,"listed":true,"country":"BR","count":2,"capacity":10}]}`},
 	}
 	for _, c := range cases {
@@ -43,7 +45,11 @@ func TestAPI(t *testing.T) {
 		assert.JSONEq(t, c.body, rec.Body.String(), c.path)
 		assert.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
 	}
+	known = true
 	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/project", nil))
+	assert.JSONEq(t, `{"stars":42}`, rec.Body.String())
+	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/lobby", nil))
 	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 }

@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/versatile-sh/live/server/internal/adapters/github"
 	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
 	"github.com/versatile-sh/live/server/internal/adapters/page"
 	"github.com/versatile-sh/live/server/internal/adapters/signal"
@@ -24,7 +25,14 @@ func main() {
 	hub := presence.NewHub(room.DefaultConfig(), presence.DefaultLiveness(), time.Now)
 
 	mux := http.NewServeMux()
-	httpapi.Register(mux, hub)
+	ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	var starCount func() (int, bool)
+	if stars, ok := github.NewStars(os.Getenv("GITHUB_REPO"), &http.Client{Timeout: 10 * time.Second}); ok {
+		go stars.Run(ctx, 30*time.Minute)
+		starCount = stars.Count
+	}
+	httpapi.Register(mux, hub, starCount)
 	if dir := os.Getenv("WEB_DIR"); dir != "" {
 		web, err := page.Handler(os.DirFS(dir))
 		if err != nil {
@@ -46,8 +54,6 @@ func main() {
 	signalling := signal.NewServer(presence.WithoutMedia{Hub: hub}, signalCfg)
 	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
 
-	ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 	failed := make(chan error, 2)
 	go func() { failed <- signalling.Run(signalAddr) }()
 	go func() { failed <- server.ListenAndServe() }()

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { DICTIONARIES, createTranslate, detectLocale } from "./index";
+import { DICTIONARIES, chosenLocale, createTranslate } from "./index";
 import { en } from "./en";
 
 const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
@@ -29,16 +29,16 @@ describe("dictionaries", () => {
   });
 });
 
-describe("detectLocale", () => {
+describe("chosenLocale", () => {
   test.each([
-    [["pt-BR", "en"], "pt-BR"],
-    [["pt-PT"], "pt-BR"],
-    [["en-US", "pt-BR"], "en"],
-    [["fr-FR", "pt"], "pt-BR"],
-    [["fr", "de"], "en"],
-    [[], "en"],
-  ] as const)("reads %j as %s", (languages, locale) => {
-    expect(detectLocale(languages)).toBe(locale);
+    [null, "en"],
+    [undefined, "en"],
+    ["", "en"],
+    ["en", "en"],
+    ["pt-BR", "pt-BR"],
+    ["fr", "en"],
+  ] as const)("reads a saved %j as %s", (saved, locale) => {
+    expect(chosenLocale(saved)).toBe(locale);
   });
 });
 

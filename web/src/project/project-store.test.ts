@@ -18,11 +18,11 @@ describe("project store", () => {
     expect(store.getSnapshot().stars).toBe(1234);
   });
 
-  test("keeps the links and shows no count when the server has none", async () => {
+  test("keeps the links and a count of zero when the server has none", async () => {
     const store = createProjectStore(async () => undefined);
     store.subscribe(() => undefined);
     await Promise.resolve();
-    expect(store.getSnapshot()).toEqual({ repo: "https://github.com/versatile-sh/call-platform", x: "https://x.com/versatile_sh" });
+    expect(store.getSnapshot()).toEqual({ repo: "https://github.com/versatile-sh/call-platform", x: "https://x.com/versatile_sh", stars: 0 });
   });
 });
 

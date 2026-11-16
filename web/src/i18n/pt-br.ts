@@ -9,10 +9,10 @@ export const ptBR: Record<MessageKey, string> = {
   "app.rooms": "Salas abertas",
 
   "social.label": "O projeto em outros lugares",
-  "social.github": "O código-fonte no GitHub",
-  "social.githubStars": "O código-fonte no GitHub, {count} estrelas",
+  "social.githubStars": "Dê uma estrela ao projeto no GitHub, {count} até agora",
   "social.x": "Seguir a versatile.sh no X",
-  "social.follow": "Seguir",
+  "social.follow": "Siga a gente",
+  "social.language": "Idioma",
 
   "home.line1": "Sua tela,",
   "home.line2": "para quem tiver o link.",
