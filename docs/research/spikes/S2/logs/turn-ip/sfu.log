@@ -1,0 +1,12 @@
+turn listening 172.31.0.1:3478 mode ip
+sfu listening 172.31.0.1 scenario relay1 turn ip
+turn permission client=192.168.18.31:49060 peer=127.0.0.1 allow=false
+turn permission client=192.168.18.31:49060 peer=127.0.0.1 allow=false
+turn permission client=192.168.18.31:49060 peer=10.0.0.1 allow=false
+turn permission client=192.168.18.31:49060 peer=172.31.0.99 allow=false
+turn permission client=192.168.18.31:49060 peer=172.31.0.1 allow=true
+turn permission client=192.168.18.31:49060 peer=172.31.0.1 allow=true
+turn permission client=192.168.18.31:49060 peer=172.31.0.1 allow=true
+turn permission client=192.168.18.31:54944 peer=172.31.0.1 allow=true
+turn permission client=192.168.18.31:54944 peer=172.31.0.1 allow=true
+sfu pc 0 selected pair: local=host/172.31.0.1:7882 remote=prflx/192.168.18.31:49180 state=succeeded

@@ -1,0 +1,11 @@
+ config.go              |  12 +++-
+ conn.go                | 127 +++++++++++++++++++++++++++++++++---
+ conn_test.go           | 161 ++++++++++++++++++++++++++++++++++++++++++++-
+ errors.go              |   8 +++
+ flight1handler_test.go |  13 ++--
+ flight4handler_test.go |  13 ++--
+ handshaker.go          |   4 +-
+ handshaker_test.go     |   2 +-
+ options.go             | 172 +++++++++++++++++++++++++++++--------------------
+ options_test.go        |  16 +++++
+ 10 files changed, 432 insertions(+), 96 deletions(-)

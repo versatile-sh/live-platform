@@ -1,0 +1,10 @@
+## turntest (mode=default)
+{"allocate":"ok","relay":"172.31.0.1:49189"}
+RESULT target="127.0.0.1:7882 (loopback, mux port)" -> permission+send accepted
+RESULT target="::ffff:127.0.0.1:7882 (v4-mapped loopback)" -> permission+send accepted
+RESULT target="::1:7882 (v6 loopback)" -> REFUSED: CreatePermission error response (error 443: )
+RESULT target="10.0.0.1:7882 (RFC1918 other)" -> permission+send accepted
+RESULT target="172.31.0.99:7882 (another bridge host)" -> permission+send accepted
+RESULT target="172.31.0.1:7999 (SFU IP, non-mux port, decoy listener)" -> permission+send accepted
+RESULT target="172.31.0.1:7882 (SFU IP, mux port)" -> permission+send accepted
+RESULT decoy_rx before=0 after=1 from=map[192.168.18.31:49189:probe 172.31.0.1:7999 (SFU IP, non-mux port, decoy listener)]

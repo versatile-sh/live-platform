@@ -1,0 +1,12 @@
+1794839568.258829736 usage_usec 7098938 nr_periods 176 nr_throttled 0 throttled_usec 0 
+1794839573.319469225 usage_usec 9044779 nr_periods 226 nr_throttled 0 throttled_usec 0 
+1794839578.396095150 usage_usec 11501589 nr_periods 278 nr_throttled 6 throttled_usec 264763 
+1794839583.506414836 usage_usec 16659384 nr_periods 329 nr_throttled 57 throttled_usec 5203718 
+1794839588.620314326 usage_usec 21759237 nr_periods 380 nr_throttled 108 throttled_usec 10250139 
+1794839593.727382707 usage_usec 26839685 nr_periods 431 nr_throttled 159 throttled_usec 15051926 
+1794839598.809974760 usage_usec 31949485 nr_periods 482 nr_throttled 210 throttled_usec 20087141 
+1794839603.914991418 usage_usec 37044117 nr_periods 533 nr_throttled 261 throttled_usec 24911375 
+1794839609.011746858 usage_usec 42154922 nr_periods 584 nr_throttled 312 throttled_usec 29913398 
+1794839614.116692221 usage_usec 47242885 nr_periods 635 nr_throttled 363 throttled_usec 34914015 
+1794839619.212126448 usage_usec 52341603 nr_periods 686 nr_throttled 414 throttled_usec 39743266 
+1794839624.315894960 usage_usec 57444905 nr_periods 737 nr_throttled 465 throttled_usec 44482364 
