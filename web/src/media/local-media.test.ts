@@ -98,20 +98,39 @@ describe("settings", () => {
 });
 
 describe("camera effects", () => {
-  test("an effect sends the redrawn picture and lets the camera go when turned off; none sends the camera as it is", async () => {
+  test("the background blur comes on, changes strength and goes off without asking for the camera again", async () => {
     const { raw, user, devices } = setup();
     const changed = fakeStream();
     const release = vi.fn();
-    const effects = vi.fn((_raw: MediaStream, _effect: string) => ({ stream: changed, release }));
+    const set = vi.fn();
+    const effects = vi.fn(async (_raw: MediaStream, _effect: string) => ({ stream: changed, set, release }));
     const media = createLocalMedia(devices, () => undefined, undefined, undefined, effects);
     await media.toggle("camera");
     expect(media.getSnapshot().camera).toBe(raw);
-    await media.setSettings({ cameraEffect: "noir" });
-    expect(user).toHaveBeenCalledTimes(2);
-    expect(effects).toHaveBeenCalledWith(raw, "noir");
+    await media.setSettings({ cameraEffect: "blur" });
+    expect(effects).toHaveBeenCalledWith(raw, "blur");
+    expect(media.getSnapshot().camera).toBe(changed);
+    await media.setSettings({ cameraEffect: "blurStrong" });
+    expect(set).toHaveBeenCalledWith("blurStrong");
+    expect(media.getSnapshot().camera).toBe(changed);
+    await media.setSettings({ cameraEffect: "none" });
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(media.getSnapshot().camera).toBe(raw);
+    expect(raw.track.stop).not.toHaveBeenCalled();
+    expect(user).toHaveBeenCalledTimes(1);
+  });
+
+  test("a camera turned on with the blur chosen starts blurred, and turning it off lets everything go", async () => {
+    const { raw, devices } = setup();
+    const changed = fakeStream();
+    const release = vi.fn();
+    const media = createLocalMedia(devices, () => undefined, undefined, undefined, async () => ({ stream: changed, set: vi.fn(), release }));
+    await media.setSettings({ cameraEffect: "blur" });
+    await media.toggle("camera");
     expect(media.getSnapshot().camera).toBe(changed);
     await media.toggle("camera");
     expect(release).toHaveBeenCalledTimes(1);
+    expect(raw.track.stop).toHaveBeenCalled();
   });
 
   test("a muted room takes the microphone away and gives it back without turning it on", async () => {

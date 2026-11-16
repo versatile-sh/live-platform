@@ -5,7 +5,7 @@ export type TalkKey = (typeof TALK_KEYS)[number];
 export const CAMERA_QUALITIES = ["360", "720", "1080"] as const;
 export type CameraQuality = (typeof CAMERA_QUALITIES)[number];
 
-export const CAMERA_EFFECTS = ["none", "soft", "warm", "cool", "vivid", "mono", "noir"] as const;
+export const CAMERA_EFFECTS = ["none", "blur", "blurStrong"] as const;
 export type CameraEffect = (typeof CAMERA_EFFECTS)[number];
 
 export const SCREEN_QUALITIES = ["720p30", "1080p30", "1080p60", "1440p60"] as const;
