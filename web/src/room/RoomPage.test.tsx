@@ -122,7 +122,7 @@ describe("RoomPage", () => {
       await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia", { state: "reconnecting" })], gone: [] });
       const tile = screen.getByText("Bia").closest("li")!;
       await waitFor(() => expect(within(tile).getByText("reconnecting")).toBeInTheDocument());
-      expect(tile.className).toContain("opacity-60");
+      expect(tile).toHaveAttribute("data-tone", "dim");
     });
 
     test("labels an unstable person", async () => {

@@ -18,7 +18,7 @@ type EntryFormProps = {
   onEnter: (entry: JoinEntry) => void;
 };
 
-const ACCESS_CHOICE = "bubble flex min-h-20 cursor-pointer flex-col gap-1 border border-line-strong p-3 transition-colors has-checked:border-accent has-checked:bg-accent/12 has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-fg/55";
+const ACCESS_CHOICE = "bubble flex min-h-20 cursor-pointer flex-col gap-1 border border-muted-light p-3 transition-colors has-checked:border-accent has-checked:bg-accent/12 has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-fg/55";
 
 /** Asks what a visitor must tell the room before entering: a name, and for a new room its access and password. */
 export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormProps) {
