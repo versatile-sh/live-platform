@@ -11,6 +11,9 @@ import (
 	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
+// pictureEvery is the least time between two pictures one participant may send to the chat.
+const pictureEvery = 2 * time.Second
+
 type seat struct {
 	session  outbound.Session
 	gen      uint32
@@ -19,14 +22,15 @@ type seat struct {
 }
 
 type actor struct {
-	hub    *Hub
-	room   *room.Room
-	seats  map[room.PID]*seat
-	inbox  chan func(*actor)
-	gone   []room.Departure
-	shots  map[room.PID][]byte
-	wires  chan func()
-	silent map[room.PID]bool
+	hub      *Hub
+	room     *room.Room
+	seats    map[room.PID]*seat
+	inbox    chan func(*actor)
+	gone     []room.Departure
+	shots    map[room.PID][]byte
+	wires    chan func()
+	silent   map[room.PID]bool
+	pictured map[room.PID]time.Time
 
 	summary atomic.Pointer[room.Summary]
 }
@@ -234,11 +238,20 @@ func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
 	return err
 }
 
-func (a *actor) chat(pid room.PID, gen uint32, to room.PID, text string) {
+func (a *actor) chat(pid room.PID, gen uint32, to room.PID, text string, image []byte) {
 	if !a.holds(pid, gen) {
 		return
 	}
-	message, ok := a.room.Say(a.now(), pid, to, text)
+	if len(image) > 0 {
+		if room.CheckPhoto(image) != nil || a.now().Sub(a.pictured[pid]) < pictureEvery {
+			return
+		}
+		if a.pictured == nil {
+			a.pictured = map[room.PID]time.Time{}
+		}
+		a.pictured[pid] = a.now()
+	}
+	message, ok := a.room.Say(a.now(), pid, to, text, image)
 	if !ok {
 		return
 	}
@@ -359,7 +372,7 @@ func (a *actor) apply(events []room.Event) {
 
 func (a *actor) broadcast() {
 	a.hush()
-	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone, Quiet: a.room.Hushed()}
+	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone, Quiet: a.room.Hushed(), Locked: a.room.Locked()}
 	a.gone = nil
 	var slow []room.PID
 	for pid, s := range a.seats {

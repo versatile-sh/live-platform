@@ -50,11 +50,11 @@ describe("createBoardSync", () => {
     sync.local([el("a", 3)]);
     sync.remote(2, { k: "els", els: [el("a", 2), el("b", 1), { id: 5 }, null] }, 1, [2]);
     expect(sync.getSnapshot()).toEqual([el("a", 3), el("b", 1)]);
-    expect(heard).toHaveBeenCalledTimes(1);
+    expect(heard).toHaveBeenCalledTimes(2);
     sync.remote(2, { k: "els", els: [el("a", 2)] }, 1, [2]);
     sync.remote(2, "nonsense", 1, [2]);
     sync.remote(2, { k: "els", els: "no" }, 1, [2]);
-    expect(heard).toHaveBeenCalledTimes(1);
+    expect(heard).toHaveBeenCalledTimes(2);
     vi.advanceTimersByTime(1000);
     expect(sent).toHaveLength(1);
   });

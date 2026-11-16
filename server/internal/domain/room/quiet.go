@@ -6,7 +6,7 @@ import (
 	"github.com/versatile-sh/live/server/internal/domain/shared"
 )
 
-// QuietOp names what the owner does about microphones.
+// QuietOp names what the owner decides about who may speak and who may draw.
 type QuietOp string
 
 // The ways the owner mutes and gives the microphone back.
@@ -15,6 +15,10 @@ const (
 	QuietNone  QuietOp = "unmute-all"
 	QuietOne   QuietOp = "mute"
 	QuietAllow QuietOp = "allow"
+	DrawLock   QuietOp = "lock-board"
+	DrawFree   QuietOp = "unlock-board"
+	DrawDeny   QuietOp = "draw-deny"
+	DrawAllow  QuietOp = "draw-allow"
 )
 
 // Quiet applies one of the owner's microphone decisions.
@@ -28,6 +32,10 @@ func (r *Room) Quiet(op QuietOp, by, target PID) ([]Event, error) {
 		return r.Mute(by, target)
 	case QuietAllow:
 		return r.Allow(by, target)
+	case DrawLock, DrawFree:
+		return r.lockBoard(by, op == DrawLock)
+	case DrawDeny, DrawAllow:
+		return r.letDraw(by, target, op == DrawAllow)
 	}
 	return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "unknown microphone decision", nil)
 }
@@ -84,6 +92,40 @@ func (r *Room) hush(quiet bool, by PID, events []Event) []Event {
 	}
 	r.quiet = quiet
 	return events
+}
+
+// Locked reports whether the owner kept the whiteboard to themselves and to those they let draw.
+func (r *Room) Locked() bool { return r.locked }
+
+func (r *Room) lockBoard(by PID, locked bool) ([]Event, error) {
+	if err := r.ownerOnly(by); err != nil {
+		return nil, err
+	}
+	events := r.each(func(p *Participant) Flags {
+		if locked && !p.Flags.Has(FlagOwner) {
+			return p.Flags | FlagNoDraw
+		}
+		return p.Flags &^ FlagNoDraw
+	})
+	if r.locked != locked && len(events) == 0 {
+		events = append(events, r.emit(EventChanged, by, ""))
+	}
+	r.locked = locked
+	return events, nil
+}
+
+func (r *Room) letDraw(by, target PID, allowed bool) ([]Event, error) {
+	owner, p, err := r.ownerAnd(by, target)
+	if err != nil {
+		return nil, err
+	}
+	if owner == p {
+		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "the owner always draws", nil)
+	}
+	if allowed {
+		return r.reflag(p, p.Flags&^FlagNoDraw), nil
+	}
+	return r.reflag(p, p.Flags|FlagNoDraw), nil
 }
 
 // Silenced lists the participants whose microphone the room does not carry.

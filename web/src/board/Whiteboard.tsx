@@ -14,8 +14,8 @@ function clean(elements: readonly BoardElement[]): NonNullable<SceneElements> {
   return restoreElements(elements as never, null);
 }
 
-/** The room's shared whiteboard: what I draw goes to the others, and what they draw is merged into mine without entering my undo history. */
-export default function Whiteboard({ sync, langCode }: { sync: BoardSync; langCode: string }) {
+/** The room's shared whiteboard: what I draw goes to the others, and what they draw is merged into mine without entering my undo history. Read only, it shows and takes nothing from me. */
+export default function Whiteboard({ sync, langCode, readOnly = false }: { sync: BoardSync; langCode: string; readOnly?: boolean }) {
   const [api, setApi] = useState<Api | undefined>();
 
   useEffect(() => {
@@ -38,8 +38,9 @@ export default function Whiteboard({ sync, langCode }: { sync: BoardSync; langCo
       initialData={{ elements: clean(sync.getSnapshot()), appState: { viewBackgroundColor: "#0e1116" } }}
       theme="dark"
       langCode={langCode}
+      viewModeEnabled={readOnly}
       UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, toggleTheme: false, export: false } }}
-      onChange={(elements) => sync.local(elements as unknown as readonly BoardElement[])}
+      onChange={(elements) => (readOnly ? undefined : sync.local(elements as unknown as readonly BoardElement[]))}
     />
   );
 }

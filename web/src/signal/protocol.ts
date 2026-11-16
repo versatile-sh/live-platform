@@ -16,9 +16,9 @@ export type Departure = { pid: number; reason: GoneReason };
 
 export type ServerFrame =
   | { t: "joined"; pid: number; gen: number; secret: string }
-  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean }
+  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean; locked?: boolean }
   | { t: "error"; code: ErrorCode; message: string }
-  | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number }
+  | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number; img?: string }
   | { t: "photo"; pid: number; data: string }
   | ({ t: "rtc" } & RtcSignal)
   | { t: "board"; pid: number; data: unknown }
@@ -38,11 +38,15 @@ export type OwnerOp =
   | { op: "unmute-all" }
   | { op: "mute"; pid: number }
   | { op: "allow"; pid: number }
+  | { op: "lock-board" }
+  | { op: "unlock-board" }
+  | { op: "draw-deny"; pid: number }
+  | { op: "draw-allow"; pid: number }
   | { op: "transfer"; pid: number }
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number } | { t: "board"; board: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number; data?: string } | { t: "board"; board: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "banned-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -93,7 +97,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       const people = parseList(raw.people, parsePerson);
       const gone = parseList(raw.gone, parseDeparture);
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
-      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}) };
+      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}), ...(raw.locked === true ? { locked: true } : {}) };
     }
     case "board":
       return typeof raw.pid === "number" ? { t: "board", pid: raw.pid, data: raw.data } : undefined;
@@ -105,7 +109,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       return { t: "photo", pid: raw.pid, data: raw.data };
     case "chat":
       if (typeof raw.pid !== "number" || typeof raw.name !== "string" || typeof raw.text !== "string" || typeof raw.at !== "number") return undefined;
-      return { t: "chat", pid: raw.pid, name: raw.name, text: raw.text, at: raw.at, ...(typeof raw.to === "number" && raw.to > 0 ? { to: raw.to } : {}) };
+      return { t: "chat", pid: raw.pid, name: raw.name, text: raw.text, at: raw.at, ...(typeof raw.to === "number" && raw.to > 0 ? { to: raw.to } : {}), ...(typeof raw.img === "string" && raw.img !== "" ? { img: raw.img } : {}) };
     case "error": {
       if (typeof raw.code !== "string" || typeof raw.message !== "string") return undefined;
       const code = ERROR_CODES.includes(raw.code) ? (raw.code as ErrorCode) : "INTERNAL";

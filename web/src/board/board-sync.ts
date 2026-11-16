@@ -83,7 +83,7 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
       const changed = elements.filter((element) => wins(element, known.get(element.id)));
       if (changed.length === 0) return;
       for (const element of changed) known.set(element.id, element);
-      snapshot = [...known.values()];
+      publish();
       post(changed);
     },
     remote(from, message, me, others) {

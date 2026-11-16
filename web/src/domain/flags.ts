@@ -9,6 +9,7 @@ export const FLAG = {
   unstable: 64,
   board: 128,
   muted: 256,
+  noDraw: 512,
 } as const;
 
 export type FlagName = keyof typeof FLAG;

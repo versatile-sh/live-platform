@@ -3,6 +3,7 @@ package signal
 import (
 	"encoding/base64"
 	"encoding/json"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -282,12 +283,25 @@ func (c *conn) dispatch(f clientFrame) {
 		}
 		p.SetPhoto(c.slug, c.seat.PID, c.seat.Gen, photo)
 	case "chat":
-		text, err := room.NewChatText(f.Text)
-		if err != nil {
-			c.send(textFrame(encodeError(err)))
-			return
+		var image []byte
+		if f.Data != "" {
+			decoded, err := base64.StdEncoding.DecodeString(f.Data)
+			if err != nil || len(decoded) == 0 || room.CheckPhoto(decoded) != nil {
+				c.send(textFrame(encodeError(room.CheckPhoto([]byte{0}))))
+				return
+			}
+			image = decoded
 		}
-		p.Chat(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.To), text)
+		text := ""
+		if len(image) == 0 || strings.TrimSpace(f.Text) != "" {
+			checked, err := room.NewChatText(f.Text)
+			if err != nil {
+				c.send(textFrame(encodeError(err)))
+				return
+			}
+			text = checked
+		}
+		p.Chat(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.To), text, image)
 	case "board":
 		data, err := room.NewBoardData(f.Board)
 		if err != nil {
@@ -315,7 +329,7 @@ func (c *conn) owner(f clientFrame) {
 		err = c.server.presence.Remove(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
 	case "ban":
 		err = c.server.presence.Ban(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
-	case "mute-all", "unmute-all", "mute", "allow":
+	case "mute-all", "unmute-all", "mute", "allow", "lock-board", "unlock-board", "draw-deny", "draw-allow":
 		err = c.server.presence.Quiet(c.slug, c.seat.PID, c.seat.Gen, room.QuietOp(f.Op), room.PID(f.PID))
 	case "transfer":
 		err = c.server.presence.Transfer(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
