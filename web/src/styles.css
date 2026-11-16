@@ -154,14 +154,12 @@ body {
 @keyframes words-out {
   to {
     opacity: 0;
-    filter: blur(6px);
   }
 }
 
 @keyframes words-in {
   from {
     opacity: 0;
-    filter: blur(6px);
   }
 }
 
