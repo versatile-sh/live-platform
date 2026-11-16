@@ -77,6 +77,7 @@ type chatFrame struct {
 	To   uint32 `json:"to,omitempty"`
 	Name string `json:"name"`
 	Text string `json:"text"`
+	Img  string `json:"img,omitempty"`
 	At   int64  `json:"at"`
 }
 
@@ -141,7 +142,7 @@ func encodeBoard(u room.BoardUpdate) []byte {
 }
 
 func encodeChat(m room.ChatMessage) []byte {
-	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, At: m.At.UnixMilli()})
+	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, Img: base64.StdEncoding.EncodeToString(m.Image), At: m.At.UnixMilli()})
 }
 
 func encodeJoined(seat room.Seat) []byte {

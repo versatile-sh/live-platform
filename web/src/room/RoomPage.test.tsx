@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../media/settings";
 
-vi.mock("../board/Whiteboard", () => ({ default: () => "the drawing surface" }));
+vi.mock("../board/Whiteboard", () => ({ default: ({ readOnly }: { readOnly?: boolean }) => (readOnly ? "the drawing surface, to look at" : "the drawing surface") }));
+vi.mock("../board/BoardPreview", () => ({ default: () => "a small picture of the board" }));
 
 import type { RoomSummary, StatusResult } from "../api/rooms";
 import { writeSeat } from "../session/seat";
@@ -553,6 +554,34 @@ describe("RoomPage", () => {
       expect(screen.getByText("The owner let you speak. Your microphone is still off.")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Not now" }));
       expect(screen.queryByText(/The owner let you speak/)).not.toBeInTheDocument();
+    });
+
+    test("the owner keeps the whiteboard to those they let draw, and the others see it read only", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "Whiteboard" }));
+      await userEvent.click(screen.getByRole("button", { name: "Only who I let draws" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "lock-board" });
+      await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 32 | 128, state: "active" }), person(2, "Bia", { flags: 512, state: "active" })], gone: [], locked: true });
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.click(screen.getByRole("button", { name: "Let Bia draw" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "draw-allow", pid: 2 });
+    });
+
+    test("whoever may not draw sees the whiteboard read only and is told so", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 512, state: "active" }), person(2, "Bia", { flags: 32 | 128, state: "active" })], gone: [], locked: true });
+      const frame = screen.getByRole("listitem", { name: "Whiteboard" });
+      expect(await within(frame).findByText("the drawing surface, to look at")).toBeInTheDocument();
+      expect(within(frame).getByText("view only")).toBeInTheDocument();
+      expect(within(frame).queryByRole("button", { name: "Only who I let draws" })).not.toBeInTheDocument();
+    });
+
+    test("a muted participant always sees why, and the whiteboard shows as a small picture when it is not in front", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 256, state: "active" }), person(2, "Bia", { flags: 32 | 128, state: "active" })], gone: [], quiet: true });
+      expect(screen.getByText("The owner muted everyone. Raise your hand to ask to speak.")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("listitem", { name: /Bia, connected/ }));
+      expect(await within(screen.getByRole("listitem", { name: "Whiteboard" })).findByText("a small picture of the board")).toBeInTheDocument();
     });
 
     test("a right click on a person offers what can be done about them, starting with a private message", async () => {

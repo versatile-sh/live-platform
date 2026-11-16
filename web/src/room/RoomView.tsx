@@ -10,6 +10,7 @@ import {
 import { shareLink } from "../domain/share-link";
 import { createBoardSync } from "../board/board-sync";
 import { chime } from "../media/chime";
+import { createSpeaking } from "../media/speaking";
 import { CAMERA_EFFECTS, cameraShape, screenShape } from "../media/settings";
 import { Choice } from "../ui/Choice";
 import { MediaSettings } from "./MediaSettings";
@@ -46,6 +47,7 @@ import { Tile } from "./Tile";
 import { CHIP, DOCK, ICON_BUTTON, button } from "../ui/styles";
 
 const Whiteboard = lazy(() => import("../board/Whiteboard"));
+const BoardPreview = lazy(() => import("../board/BoardPreview"));
 
 type RoomViewProps = {
   slug: string;
@@ -252,6 +254,7 @@ export function RoomView({
     roomMedia.getSnapshot,
   );
   const [board] = useState(() => createBoardSync((message, to) => session.sendBoard(message, to)));
+  const drawn = useSyncExternalStore(board.subscribe, board.getSnapshot);
   const [boardGone, setBoardGone] = useState(false);
   const [pinned, setPinned] = useState<string | null | undefined>();
   useEffect(() => {
@@ -283,6 +286,16 @@ export function RoomView({
     add("screenAudio", local.screen?.getAudioTracks()[0]);
     roomMedia.publish(tracks);
   }, [roomMedia, local.microphone, local.camera, local.screen]);
+  const [speaking] = useState(createSpeaking);
+  const talkers = useSyncExternalStore(speaking.subscribe, speaking.getSnapshot);
+  useEffect(() => () => speaking.dispose(), [speaking]);
+  const myNumber = snapshot.connection.phase === "joined" || snapshot.connection.phase === "reconnecting" ? snapshot.connection.me : undefined;
+  useEffect(() => {
+    const heard = new Map<number, MediaStream>();
+    for (const [pid, sources] of Object.entries(remote)) if (sources.microphone && Number(pid) !== myNumber) heard.set(Number(pid), sources.microphone);
+    if (local.microphone && myNumber !== undefined) heard.set(myNumber, local.microphone);
+    speaking.watch(heard);
+  }, [speaking, remote, local.microphone, myNumber]);
   const { cameraQuality, screenQuality, pushToTalk, talkKey, sounds } = local.settings;
   useEffect(() => {
     roomMedia.limit({ camera: cameraShape(cameraQuality).bitrate, screen: screenShape(screenQuality).bitrate });
@@ -401,6 +414,8 @@ export function RoomView({
       sees(person.pid).screen,
   );
   const roomQuiet = inRoom && connection.roster.quiet === true;
+  const boardLocked = inRoom && connection.roster.locked === true;
+  const iMayDraw = me === undefined || !hasFlag(me.flags, "noDraw");
   const iAmMuted = me !== undefined && hasFlag(me.flags, "muted");
   const [wasMuted, setWasMuted] = useState(iAmMuted);
   const [prompt, setPrompt] = useState<"may-speak" | "camera-hidden" | undefined>();
@@ -448,20 +463,31 @@ export function RoomView({
                 {mode === "front" ? (
                   <>
                     <div className="flex h-11 w-full shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-24">
-                      <h2 className="truncate text-sm font-semibold">{presenter && presenter.pid !== myPid ? t("board.of", { name: presenter.name }) : t("board.label")}</h2>
+                      <h2 className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold">
+                        <span className="truncate">{presenter && presenter.pid !== myPid ? t("board.of", { name: presenter.name }) : t("board.label")}</span>
+                        {iMayDraw ? null : <span className="bubble-word shrink-0 border border-line-strong px-2 py-0.5 font-mono text-xs font-normal text-muted">{t("board.viewOnly")}</span>}
+                      </h2>
+                      {iAmOwner ? (
+                        <button type="button" aria-pressed={boardLocked} className={`${CHIP} ml-auto`} onClick={() => void session.owner({ op: boardLocked ? "unlock-board" : "lock-board" })}>
+                          {t("board.lock")}
+                        </button>
+                      ) : null}
                       <button type="button" aria-label={t("board.close")} title={t("board.close")} className={ICON_BUTTON} onClick={toggleBoard}>
                         <Icon name="close" className="size-4" />
                       </button>
                     </div>
                     <div className="min-h-0 w-full flex-1">
                       <Suspense fallback={<p role="status" className="grid h-full place-items-center text-muted">{t("board.loading")}</p>}>
-                        <Whiteboard sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} />
+                        <Whiteboard key={iMayDraw ? "draw" : "view"} sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} readOnly={!iMayDraw} />
                       </Suspense>
                     </div>
                   </>
                 ) : (
                   <>
                     <Icon name="board" className="size-10 text-accent" />
+                    <Suspense fallback={null}>
+                      <BoardPreview elements={drawn} />
+                    </Suspense>
                     <span className={TAG}>{t("board.label")}</span>
                   </>
                 )}
@@ -504,6 +530,7 @@ export function RoomView({
           video={!sees(person.pid).camera ? undefined : person.pid === myPid ? local.camera : remote[person.pid]?.camera}
           photo={snapshot.photos[person.pid]}
           mode={mode}
+          speaking={talkers.has(person.pid)}
           onFront={() => bring(`person-${person.pid}`)}
           onMenu={(at) => setPersonMenu({ pid: person.pid, ...at })}
         />
@@ -685,6 +712,12 @@ export function RoomView({
                   <NoticeLine key={notice.id} notice={notice} />
                 ))
               : null}
+            {iAmMuted ? (
+              <li className="swap-in bubble pointer-events-auto flex items-center gap-2.5 border border-line-strong bg-card px-4 py-2.5 text-sm">
+                <Icon name="micOff" className="size-4 shrink-0 text-accent" />
+                <span>{t(roomQuiet ? "quiet.youRoom" : "quiet.youOne")}</span>
+              </li>
+            ) : null}
             {prompt ? (
               <li className="swap-in bubble pointer-events-auto flex flex-col gap-2.5 border border-bubble bg-card px-4 py-3 text-sm">
                 <span>{t(prompt === "may-speak" ? "quiet.maySpeak" : "prompt.cameraHidden")}</span>
@@ -761,6 +794,8 @@ export function RoomView({
                   me={myPid}
                   canModerate={iAmOwner}
                   quiet={roomQuiet}
+                  locked={boardLocked}
+                  onDraw={(pid, op) => session.owner({ op, pid })}
                   onRemove={(pid) => session.owner({ op: "remove", pid })}
                   onBan={(pid) => session.owner({ op: "ban", pid })}
                   onQuiet={(op) => session.owner({ op })}
