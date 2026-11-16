@@ -1,4 +1,4 @@
-import { Suspense, use, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { StatusResult } from "../api/rooms";
 import { useT } from "../i18n/I18nProvider";
@@ -13,11 +13,10 @@ import { SURFACE, button } from "../ui/styles";
 import { EntryForm } from "./EntryForm";
 import { RoomView } from "./RoomView";
 
-type GateProps = { promise: Promise<StatusResult>; slug: string; onRetry: () => void; refusal?: Parameters<typeof EntryForm>[0]["refusal"]; expired?: boolean; onEnter: (entry: JoinEntry) => void };
+type GateProps = { result: StatusResult; slug: string; onRetry: () => void; refusal?: Parameters<typeof EntryForm>[0]["refusal"]; expired?: boolean; onEnter: (entry: JoinEntry) => void };
 
-function Gate({ promise, slug, onRetry, refusal, expired, onEnter }: GateProps) {
+function Gate({ result, slug, onRetry, refusal, expired, onEnter }: GateProps) {
   const t = useT();
-  const result = use(promise);
   if (result.kind === "invalid") return <NotFoundPage kind="invalid-room" />;
   if (result.kind === "unreachable") {
     return (
@@ -59,6 +58,18 @@ export function useRoomGate(slug: string | undefined): RoomGate | undefined {
   }
   const { session, status } = held;
   const snapshot = useSession(session);
+  const [answer, setAnswer] = useState<{ to: Promise<StatusResult>; result: StatusResult } | undefined>();
+  useEffect(() => {
+    if (!status) return;
+    let current = true;
+    void status.then((result) => {
+      if (current) setAnswer({ to: status, result });
+    });
+    return () => {
+      current = false;
+    };
+  }, [status]);
+  const result = answer && answer.to === status ? answer.result : undefined;
 
   useEffect(() => {
     if (!session || slug === undefined) return;
@@ -104,10 +115,10 @@ export function useRoomGate(slug: string | undefined): RoomGate | undefined {
         {title}
         {session && connection.phase === "idle" ? (
           waiting(t("connection.joining"))
+        ) : result ? (
+          <Gate result={result} slug={slug} onRetry={retry} {...(refused ? { refusal: refused } : {})} {...(expired ? { expired } : {})} onEnter={enter} />
         ) : (
-          <Suspense fallback={waiting(t("entry.checking"))}>
-            <Gate promise={status} slug={slug} onRetry={retry} {...(refused ? { refusal: refused } : {})} {...(expired ? { expired } : {})} onEnter={enter} />
-          </Suspense>
+          waiting(t("entry.checking"))
         )}
       </>
     ),

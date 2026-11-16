@@ -66,13 +66,6 @@ describe("RoomPage", () => {
       expect(screen.getByRole("status", { name: "Connection" })).toHaveTextContent("Connected");
     });
 
-    test("tells the visitor that what they capture stays on their device for now", async () => {
-      const { services } = await setup();
-      await submitName("Ana");
-      await joinAs(await socketOf(services));
-      expect(await screen.findByText(/stay on this device for now/)).toBeInTheDocument();
-    });
-
     test("lists people in slot order", async () => {
       const { services } = await setup();
       await submitName("Ana");
@@ -404,6 +397,7 @@ describe("RoomPage", () => {
       const { socket } = await inCall();
       await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active", look: 34, face: "^_^" }), person(2, "Bia", { state: "active" })], gone: [] });
       await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.click(screen.getByRole("button", { name: "Edit" }));
       await userEvent.click(screen.getByRole("radio", { name: "Colour 1" }));
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: 0, face: "^_^" });
       await userEvent.click(screen.getByRole("button", { name: "(•‿•)" }));
@@ -414,7 +408,8 @@ describe("RoomPage", () => {
 
     test("a photo is shrunk, sent to the room, shown when the room echoes it, and can be removed", async () => {
       const { socket } = await inCall();
-      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /How you appear/ }));
       await userEvent.upload(screen.getByLabelText("Photo"), new File(["x"], "me.png", { type: "image/png" }));
       await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "photo", data: "/9j/4AAQ" }));
       await send(socket, { t: "photo", pid: 1, data: "/9j/4AAQ" });
@@ -447,6 +442,25 @@ describe("RoomPage", () => {
       expect(within(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).getByText("Ctrl+Alt+H")).toBeInTheDocument();
       await userEvent.keyboard("{Control>}{Alt>}h{/Alt}{/Control}");
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 16 });
+    });
+
+    test("visibility options hide a person from my screen only, and say so when nobody is left", async () => {
+      const { socket } = await inCall();
+      const sentBefore = socket.sent.length;
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Visibility options/ }));
+      const options = within(screen.getByRole("dialog", { name: "Visibility options" }));
+      await userEvent.click(options.getByRole("switch", { name: /Bia/ }));
+      expect(screen.queryByRole("listitem", { name: /Bia, connected/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("listitem", { name: /Ana, connected/ })).toBeInTheDocument();
+      await userEvent.click(options.getByRole("switch", { name: /Ana/ }));
+      expect(screen.getByText(/You hid everyone/)).toBeInTheDocument();
+      expect(socket.sent.length).toBe(sentBefore);
+    });
+
+    test("the people button always shows how many are in the call", async () => {
+      await inCall();
+      expect(screen.getByRole("button", { name: "People" })).toHaveTextContent("2");
     });
 
     test("the side panel closes and reopens, and switches between the chat and the people", async () => {

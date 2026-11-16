@@ -44,7 +44,7 @@ export function LookPicker({ look, face, name, photo, onChange, onPhoto }: LookP
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
+      <div className="bubble flex items-center gap-3 border border-line-strong bg-canvas p-3">
         <Avatar look={look} face={face} name={name} photo={photo} className="text-[4rem]" />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-center gap-1.5">
@@ -89,7 +89,7 @@ export function LookPicker({ look, face, name, photo, onChange, onPhoto }: LookP
       </div>
       <p className="min-h-5 text-[0.8125rem] leading-snug text-muted">{failed ? t("look.photoFailed") : t("look.photoHint")}</p>
 
-      <div>
+      <div className="bubble border border-line-strong bg-canvas p-3">
         <label htmlFor={id} className="text-sm font-semibold">
           {t("look.face")}
         </label>
@@ -103,8 +103,7 @@ export function LookPicker({ look, face, name, photo, onChange, onPhoto }: LookP
           className="mt-1.5 h-11 w-full rounded-xl border border-muted-light bg-canvas px-3.5 font-mono text-fg transition-colors duration-200 placeholder:text-muted-light focus:border-fg/50 focus-visible:outline-none"
           onChange={(event) => onChange(packLook(current), cleanFace(event.target.value))}
         />
-      </div>
-      <div role="group" aria-label={t("look.presets")} className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label={t("look.presets")} className="mt-3 flex flex-wrap gap-1.5">
         {FACE_PRESETS.map((preset) => (
           <button
             key={preset}
@@ -116,6 +115,7 @@ export function LookPicker({ look, face, name, photo, onChange, onPhoto }: LookP
             {preset}
           </button>
         ))}
+        </div>
       </div>
     </div>
   );
