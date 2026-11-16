@@ -1,4 +1,5 @@
 import type { RtcSignal } from "../signal/protocol";
+import type { StatEntry } from "./stats";
 
 /** What a participant can send: its microphone, its camera, its screen, and the sound of its screen. */
 export type Source = "microphone" | "camera" | "screen" | "screenAudio";
@@ -20,6 +21,10 @@ export type RoomMedia = {
   publish(tracks: Partial<Record<Source, MediaStreamTrack>>): void;
   /** Starts over, because the server gave me new connections; what I was publishing is offered again. */
   restart(): void;
+  /** Sets the most bits per second each source may send; a source left out is not limited. */
+  limit(ceilings: Partial<Record<Source, number>>): void;
+  /** Reads what both connections report about themselves right now. */
+  report(): Promise<{ sending: StatEntry[]; receiving: StatEntry[] }>;
   dispose(): void;
 };
 
@@ -34,6 +39,25 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
   let again = false;
   let early: { role: "pub" | "sub"; init: RTCIceCandidateInit }[] = [];
   const senders = new Map<Source, RTCRtpSender>();
+  let ceilings: Partial<Record<Source, number>> = {};
+
+  function cap(source: Source) {
+    const sender = senders.get(source);
+    const max = ceilings[source];
+    if (!sender || typeof sender.getParameters !== "function") return;
+    const parameters = sender.getParameters();
+    if (!parameters.encodings || parameters.encodings.length === 0) parameters.encodings = [{}];
+    if (max === undefined) delete parameters.encodings[0]!.maxBitrate;
+    else parameters.encodings[0]!.maxBitrate = max;
+    void sender.setParameters(parameters).catch(() => undefined);
+  }
+
+  async function entries(pc: RTCPeerConnection | undefined): Promise<StatEntry[]> {
+    if (!pc || typeof pc.getStats !== "function") return [];
+    const out: StatEntry[] = [];
+    (await pc.getStats()).forEach((entry: StatEntry) => out.push(entry));
+    return out;
+  }
 
   function emit() {
     listeners.forEach((listener) => listener());
@@ -128,6 +152,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       const sender = senders.get(source);
       if (track && !sender) {
         senders.set(source, pub.addTrack(track, new MediaStream([track])));
+        cap(source);
         changed = true;
       } else if (!track && sender) {
         pub.removeTrack(sender);
@@ -156,6 +181,11 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       return () => void listeners.delete(listener);
     },
     getSnapshot: () => remote,
+    limit(next) {
+      ceilings = next;
+      SOURCES.forEach(cap);
+    },
+    report: async () => ({ sending: await entries(pub), receiving: await entries(sub) }),
     signal(signal) {
       if (signal.kind === "ice") {
         let init: RTCIceCandidateInit;

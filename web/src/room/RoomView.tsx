@@ -10,6 +10,9 @@ import {
 import { hasFlag } from "../domain/flags";
 import { shareLink } from "../domain/share-link";
 import { createBoardSync } from "../board/board-sync";
+import { chime } from "../media/chime";
+import { cameraShape, screenShape } from "../media/settings";
+import { MediaSettings } from "./MediaSettings";
 import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
 import {
@@ -229,9 +232,9 @@ export function RoomView({
   const t = useT();
   const locale = useLocale();
   const navigate = useNavigate();
-  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner } = useServices();
+  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner, settingsMemory } = useServices();
   const [media] = useState(() =>
-    createLocalMedia(mediaDevices, (flags) => session.setMedia(flags), voiceCleaner),
+    createLocalMedia(mediaDevices, (flags) => session.setMedia(flags), voiceCleaner, settingsMemory.read()),
   );
   const local = useSyncExternalStore(media.subscribe, media.getSnapshot);
   const [roomMedia] = useState(() =>
@@ -272,13 +275,50 @@ export function RoomView({
     add("screenAudio", local.screen?.getAudioTracks()[0]);
     roomMedia.publish(tracks);
   }, [roomMedia, local.microphone, local.camera, local.screen]);
+  const { cameraQuality, screenQuality, pushToTalk, talkKey, sounds } = local.settings;
+  useEffect(() => {
+    roomMedia.limit({ camera: cameraShape(cameraQuality).bitrate, screen: screenShape(screenQuality).bitrate });
+  }, [roomMedia, cameraQuality, screenQuality]);
+  useEffect(() => {
+    if (!pushToTalk) return;
+    const typing = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.closest("[data-board]") !== null);
+    const down = (event: KeyboardEvent) => {
+      if (event.code !== talkKey || typing(event.target)) return;
+      event.preventDefault();
+      media.talk(true);
+    };
+    const up = (event: KeyboardEvent) => {
+      if (event.code === talkKey) media.talk(false);
+    };
+    const drop = () => media.talk(false);
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    window.addEventListener("blur", drop);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", drop);
+      media.talk(false);
+    };
+  }, [media, pushToTalk, talkKey]);
+  const headcount = snapshot.connection.phase === "joined" ? snapshot.connection.roster.people.length : undefined;
+  const [counted, setCounted] = useState(headcount);
+  useEffect(() => {
+    if (headcount === counted) return;
+    if (sounds && headcount !== undefined && counted !== undefined) chime(headcount > counted ? "arrive" : "leave");
+    setCounted(headcount);
+  }, [headcount, counted, sounds]);
+  const changeSettings = (change: Partial<typeof local.settings>) => {
+    settingsMemory.write({ ...local.settings, ...change });
+    void media.setSettings(change);
+  };
   const [side, setSide] = useState<Side | undefined>("chat");
   const [shown, setShown] = useState<Side>("chat");
   const [menu, setMenu] = useState<
     "microphone" | "camera" | "more" | undefined
   >();
   const [sheet, setSheet] = useState<
-    "shortcuts" | "look" | "visibility" | undefined
+    "shortcuts" | "look" | "visibility" | "media" | undefined
   >();
   const [seeing, setSeeing] = useState<Readonly<Record<number, Seeing>>>({});
   const [personMenu, setPersonMenu] = useState<
@@ -725,6 +765,7 @@ export function RoomView({
                 ]
               : []),
             { id: "board", group: t("palette.group.room"), label: t("more.board"), run: () => setBoardOpen((open) => !open) },
+            { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
             {
               id: "look",
               group: t("palette.group.room"),
@@ -885,9 +926,14 @@ export function RoomView({
       ) : null}
 
       {stats ? (
-        <ConnectionCard snapshot={snapshot} onClose={() => setStats(false)} />
+        <ConnectionCard snapshot={snapshot} slug={slug} report={roomMedia.report} onClose={() => setStats(false)} />
       ) : null}
 
+      {sheet === "media" ? (
+        <Sheet title={t("more.media")} closeLabel={t("more.close")} onClose={() => setSheet(undefined)} wide>
+          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
+        </Sheet>
+      ) : null}
       {sheet === "shortcuts" ? (
         <Sheet
           title={t("more.shortcuts")}
@@ -1091,6 +1137,7 @@ export function RoomView({
                         undefined,
                         () => setBoardOpen((open) => !open),
                       ] as const,
+                      ["more.media", "settings", undefined, () => setSheet("media")] as const,
                       [
                         "more.visibility",
                         "eye",
