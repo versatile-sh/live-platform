@@ -27,7 +27,7 @@ export function Tile({ person, isMe, video, photo, onMenu }: TileProps) {
         event.preventDefault();
         onMenu?.({ x: event.clientX, y: event.clientY });
       }}
-      className={`arrive relative isolate flex aspect-video min-h-0 items-center justify-center overflow-hidden rounded-2xl border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
+      className={`arrive relative isolate flex aspect-video min-h-0 items-center justify-center overflow-hidden ${isMe ? "bubble-sent" : "bubble"} border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
     >
       {video ? (
         <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full object-cover ${isMe ? "-scale-x-100" : ""}`} />

@@ -485,7 +485,7 @@ export function RoomView({
           className="relative flex min-w-0 flex-1 items-center justify-center"
         >
           {boardOpen ? (
-            <div data-board role="region" aria-label={t("board.label")} className="swap-in absolute inset-0 z-10 flex flex-col overflow-hidden rounded-2xl border border-line-strong bg-card">
+            <div data-board role="region" aria-label={t("board.label")} className="swap-in absolute inset-0 z-10 flex flex-col overflow-hidden bubble border border-line-strong bg-card">
               <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
                 <h2 className="font-display text-base font-bold tracking-[-0.03em]">{t("board.label")}</h2>
                 <button type="button" aria-label={t("board.close")} className={ICON_BUTTON} onClick={() => setBoardOpen(false)}>
@@ -510,7 +510,7 @@ export function RoomView({
               className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(shownPeople.length + (local.screen ? 1 : 0) + screens.length)}`}
             >
               {local.screen ? (
-                <li className="relative isolate flex aspect-video items-center justify-center overflow-hidden rounded-2xl border border-bubble bg-sunken">
+                <li className="relative isolate flex aspect-video items-center justify-center overflow-hidden bubble-sent border border-bubble bg-sunken">
                   <video
                     ref={(element) => {
                       if (element && element.srcObject !== local.screen)
@@ -529,7 +529,7 @@ export function RoomView({
               {screens.map((person) => (
                 <li
                   key={`screen-${person.pid}`}
-                  className="relative isolate flex aspect-video items-center justify-center overflow-hidden rounded-2xl border border-bubble bg-sunken"
+                  className="relative isolate flex aspect-video items-center justify-center overflow-hidden bubble border border-bubble bg-sunken"
                 >
                   <video
                     ref={attach(remote[person.pid]?.screen)}
@@ -601,7 +601,7 @@ export function RoomView({
           inert={!side}
           className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 md:-mt-11 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
         >
-          <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-card max-md:w-full">
+          <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden bubble-sent border border-line bg-card max-md:w-full">
             <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
               <h2
                 key={shown}
