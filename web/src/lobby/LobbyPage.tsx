@@ -76,7 +76,7 @@ export function LobbyPage() {
             : "";
 
   return (
-    <section aria-labelledby="listed" className="w-full max-w-xl text-ink">
+    <section aria-labelledby="listed" className="w-full max-w-2xl text-ink">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 id="listed" className="font-display text-4xl leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl">
           {t("lobby.heading")}
@@ -93,28 +93,40 @@ export function LobbyPage() {
         {note}
       </p>
       {view === "map" ? (
-        <div className="mt-4 aspect-2/1 w-full">
+        <div className="relative mt-4 aspect-2/1 w-full">
           <Suspense fallback={null}>
             <WorldMap counts={counts} selected={picked} onSelect={setCountry} />
           </Suspense>
+          {picked ? (
+            <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-paper p-3 text-ink">
+              <div className="flex items-center justify-between gap-3 px-2 pb-2">
+                <p className="font-display text-lg font-bold tracking-[-0.03em]">{names.of(picked) ?? picked}</p>
+                <button type="button" aria-label={t("lobby.mapClose")} className="grid size-8 place-items-center rounded-full transition-colors duration-200 hover:bg-ink/10" onClick={() => setCountry(undefined)}>
+                  <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+              <ul className="flex flex-col gap-2 overflow-y-auto">
+                {shown.map((room) => (
+                  <RoomRow key={room.slug} room={room} />
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-      {state.status === "ready" && rooms.length === 0 ? (
+      ) : state.status === "ready" && rooms.length === 0 ? (
         <div className="bubble mt-6 bg-ink p-6 text-paper">
           <p className="font-semibold">{t("lobby.emptyTitle")}</p>
           <p className="mt-2 text-paper/70">{t("lobby.emptyBody")}</p>
         </div>
-      ) : view === "list" || picked ? (
-        <ul className={`mt-6 flex flex-col gap-3 overflow-y-auto pr-1 ${view === "map" ? "max-h-40" : "max-h-[26rem]"}`}>
+      ) : (
+        <ul className="mt-6 flex max-h-[26rem] flex-col gap-3 overflow-y-auto pr-1">
           {shown.map((room) => (
             <RoomRow key={room.slug} room={room} />
           ))}
         </ul>
-      ) : null}
-      <AppLink href="/" className="mt-8 inline-flex items-center gap-2 text-sm font-semibold underline decoration-ink/40 underline-offset-4 transition-colors hover:decoration-ink">
-        <Arrow back />
-        {t("lobby.back")}
-      </AppLink>
+      )}
     </section>
   );
 }

@@ -7,6 +7,8 @@ import { useServices } from "../services";
 import { readSeat } from "../session/seat";
 import { createSession, type JoinEntry, type Session } from "../session/session";
 import { useSession } from "../session/useSession";
+import { HomePage } from "../home/HomePage";
+import { Shell } from "../ui/Shell";
 import { SURFACE, button } from "../ui/styles";
 import { EntryForm } from "./EntryForm";
 import { RoomView } from "./RoomView";
@@ -36,13 +38,17 @@ export function RoomPage({ slug }: { slug: string }) {
   const t = useT();
   const services = useServices();
   const [statusPromise, setStatusPromise] = useState(() => services.roomsApi.status(slug));
-  const [session, setSession] = useState<Session | undefined>(() =>
-    readSeat(services.seatStorage, slug) ? createSession({ slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage }) : undefined,
-  );
+  const [session, setSession] = useState<Session | undefined>(() => {
+    const base = { slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage };
+    if (readSeat(services.seatStorage, slug)) return createSession(base);
+    const entry = services.entryIntent.read(slug);
+    return entry ? createSession({ ...base, entry }) : undefined;
+  });
   const snapshot = useSession(session);
 
   useEffect(() => {
     if (!session) return;
+    services.entryIntent.clear(slug);
     const starting = setTimeout(session.start, 0);
     const stopListening = services.pageLifecycle.onPageHide(session.leave);
     return () => {
@@ -50,7 +56,7 @@ export function RoomPage({ slug }: { slug: string }) {
       stopListening();
       session.dispose();
     };
-  }, [session, services.pageLifecycle]);
+  }, [session, slug, services.entryIntent, services.pageLifecycle]);
 
   function enter(entry: JoinEntry) {
     setSession(createSession({ slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage, entry }));
@@ -61,25 +67,34 @@ export function RoomPage({ slug }: { slug: string }) {
   const expired = connection.phase === "ended" && connection.reason.kind === "expired" && !session?.canRejoin();
   const showRoom = session !== undefined && connection.phase !== "idle" && refused === undefined && !expired;
 
+  const waiting = (text: string) => (
+    <p role="status" className={`${SURFACE} inline-block px-4 py-3`}>
+      {text}
+    </p>
+  );
+
   return (
     <>
       <title>{`${slug} · live.versatile.sh`}</title>
       {session && showRoom ? (
-        <RoomView slug={slug} session={session} snapshot={snapshot} onEnterAgain={() => setSession(undefined)} />
-      ) : session && connection.phase === "idle" ? (
-        <p role="status" className={`${SURFACE} mt-6 inline-block px-4 py-3`}>
-          {t("connection.joining")}
-        </p>
+        <Shell>
+          <RoomView slug={slug} session={session} snapshot={snapshot} onEnterAgain={() => setSession(undefined)} />
+        </Shell>
       ) : (
-        <Suspense
-          fallback={
-            <p role="status" className={`${SURFACE} mt-6 inline-block px-4 py-3`}>
-              {t("entry.checking")}
-            </p>
-          }
-        >
-          <Gate promise={statusPromise} slug={slug} onRetry={() => setStatusPromise(services.roomsApi.status(slug))} {...(refused ? { refusal: refused } : {})} {...(expired ? { expired } : {})} onEnter={enter} />
-        </Suspense>
+        <Shell bare>
+          <HomePage
+            view="entry"
+            panel={
+              session && connection.phase === "idle" ? (
+                waiting(t("connection.joining"))
+              ) : (
+                <Suspense fallback={waiting(t("entry.checking"))}>
+                  <Gate promise={statusPromise} slug={slug} onRetry={() => setStatusPromise(services.roomsApi.status(slug))} {...(refused ? { refusal: refused } : {})} {...(expired ? { expired } : {})} onEnter={enter} />
+                </Suspense>
+              )
+            }
+          />
+        </Shell>
       )}
     </>
   );

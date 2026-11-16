@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { assessPassword, derive, generatePassword, toBase64Url } from "./password";
+import { assessPassword, canonicalPassword, derive, generatePassword, toBase64Url } from "./password";
 
 function scripted(values: number[]) {
   let i = 0;
@@ -10,29 +10,47 @@ function scripted(values: number[]) {
 }
 
 describe("generatePassword", () => {
-  test("returns eight characters with no look-alikes", () => {
+  test("returns a room code of two groups of four, capitals and digits with no look-alikes", () => {
     for (let i = 0; i < 200; i++) {
-      const password = generatePassword();
-      expect(password).toMatch(/^[2-9A-HJ-NP-Zabcdefghijkmnopqrstuvwxyz]{8}$/);
+      expect(generatePassword()).toMatch(/^[2-9A-HJ-NP-Z]{4}-[2-9A-HJ-NP-Z]{4}$/);
     }
   });
 
   test("always holds a letter and a digit", () => {
     for (let i = 0; i < 200; i++) {
       const password = generatePassword();
-      expect(password).toMatch(/[A-Za-z]/);
+      expect(password).toMatch(/[A-Z]/);
       expect(password).toMatch(/[0-9]/);
     }
   });
 
-  describe("when the random byte falls in the biased tail", () => {
-    test("rejects it and draws again", () => {
-      expect(generatePassword(scripted([255, 228, 230, 8, 0, 1, 2, 3, 4, 5, 6, 7]))).toBe("A2345678");
-    });
+  test("maps a byte to its alphabet character modulo the alphabet size", () => {
+    expect(generatePassword(scripted([8, 0, 1, 2, 3, 4, 5, 32 + 6]))).toBe("A234-5678");
   });
 
-  test("maps a byte to its alphabet character modulo the alphabet size", () => {
-    expect(generatePassword(scripted([8, 0, 1, 2, 3, 4, 5, 57 + 6]))).toBe("A2345678");
+  test("draws again when a code has only letters or only digits", () => {
+    expect(generatePassword(scripted([0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 1, 2, 3, 4, 5, 6]))).toBe("A234-5678");
+  });
+
+  test("is accepted by the rule a typed password must meet", () => {
+    expect(assessPassword(generatePassword()).rating).toBe("ok");
+  });
+});
+
+describe("canonicalPassword", () => {
+  test.each([
+    ["8abh-23hk", "8ABH-23HK"],
+    [" 8ABH-23HK ", "8ABH-23HK"],
+    ["Kq7mR2xP", "Kq7mR2xP"],
+    ["my-own-password", "my-own-password"],
+    ["8abh-23h", "8abh-23h"],
+  ])("reads %j as %j", (typed, canonical) => {
+    expect(canonicalPassword(typed)).toBe(canonical);
+  });
+
+  test("gives a code typed in lower case the same verifier", async () => {
+    const [typed, drawn] = await Promise.all([derive("8abh-23hk", "demo"), derive("8ABH-23HK", "demo")]);
+    expect(typed.verifier).toBe(drawn.verifier);
   });
 });
 

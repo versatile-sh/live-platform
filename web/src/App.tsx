@@ -8,9 +8,17 @@ import { Shell } from "./ui/Shell";
 /** The pages of the product, chosen by the pathname: the home at `/`, the open rooms at `/lobby` and a room at `/{slug}`. */
 export function App() {
   const route = resolveRoute(usePathname());
+  if (route.kind === "room") return <RoomPage key={route.slug} slug={route.slug} />;
+  if (route.kind === "home" || route.kind === "lobby") {
+    return (
+      <Shell bare>
+        <HomePage view={route.kind} />
+      </Shell>
+    );
+  }
   return (
-    <Shell bare={route.kind === "home" || route.kind === "lobby"}>
-      {route.kind === "home" || route.kind === "lobby" ? <HomePage view={route.kind} /> : route.kind === "room" ? <RoomPage key={route.slug} slug={route.slug} /> : <NotFoundPage kind={route.kind} />}
+    <Shell>
+      <NotFoundPage kind={route.kind} />
     </Shell>
   );
 }

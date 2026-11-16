@@ -4,6 +4,7 @@ import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
 import type { LobbyStore } from "./lobby/lobby-store";
 import type { ProjectStore } from "./project/project-store";
+import type { EntryIntent } from "./session/intent";
 import type { SeatStorage } from "./session/seat";
 import type { SocketFactory } from "./signal/link";
 
@@ -15,6 +16,7 @@ export type Services = {
   socket: SocketFactory;
   signalUrl: string;
   seatStorage: SeatStorage;
+  entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };
   origin: string;
   clipboard: { write(text: string): Promise<boolean> };

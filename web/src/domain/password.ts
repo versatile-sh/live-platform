@@ -1,4 +1,5 @@
-const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+const CODE_SHAPE = /^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/;
 const GENERATED_LENGTH = 8;
 const MIN_LENGTH = 8;
 const PBKDF2_ITERATIONS = 600_000;
@@ -43,13 +44,19 @@ function hasLetterAndDigit(text: string): boolean {
   return /[A-Za-z]/.test(text) && /[0-9]/.test(text);
 }
 
-/** Eight characters of letters and digits without the look-alikes 0 O 1 l I, drawn without modulo bias and always holding both kinds. */
+/** A room code such as `8ABH-23HK`: eight capitals and digits without the look-alikes 0 O 1 I, drawn without modulo bias, always holding both kinds. */
 export function generatePassword(random: RandomBytes = browserRandom): string {
   for (;;) {
     let text = "";
     for (let i = 0; i < GENERATED_LENGTH; i++) text += ALPHABET[drawIndex(random, ALPHABET.length)];
-    if (hasLetterAndDigit(text)) return text;
+    if (hasLetterAndDigit(text)) return `${text.slice(0, 4)}-${text.slice(4)}`;
   }
+}
+
+/** A room code is the same password however its letters were typed; anything else is kept exactly as written. */
+export function canonicalPassword(password: string): string {
+  const trimmed = password.trim();
+  return CODE_SHAPE.test(trimmed) ? trimmed.toUpperCase() : password;
 }
 
 function withoutRuns(password: string): string {
@@ -88,7 +95,7 @@ export function toBase64Url(bytes: Uint8Array): string {
 
 /** PBKDF2-SHA-256, 600000 rounds, salted with the slug: bytes 0-31 are the verifier, bytes 32-63 the media key. */
 export async function derive(password: string, slug: string, subtle: SubtleCrypto = crypto.subtle): Promise<Derived> {
-  const material = await subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const material = await subtle.importKey("raw", new TextEncoder().encode(canonicalPassword(password)), "PBKDF2", false, ["deriveBits"]);
   const salt = new TextEncoder().encode(SALT_PREFIX + slug);
   const bits = await subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITERATIONS }, material, DERIVED_BYTES * 8);
   const bytes = new Uint8Array(bits);

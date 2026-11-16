@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
@@ -57,9 +57,11 @@ describe("LobbyPage", () => {
       expect(screen.queryByRole("link", { name: "Enter room standup" })).not.toBeInTheDocument();
       await userEvent.click(brazil);
       expect(brazil).toHaveAttribute("aria-pressed", "true");
-      expect(screen.getByRole("status")).toHaveTextContent("Open rooms in Brazil.");
-      expect(screen.getByRole("link", { name: "Enter room standup" })).toBeInTheDocument();
+      const country = screen.getByRole("dialog", { name: "Open rooms in Brazil." });
+      expect(within(country).getByRole("link", { name: "Enter room standup" })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Enter room tokyo" })).not.toBeInTheDocument();
+      await userEvent.click(within(country).getByRole("button", { name: "Close this country" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     test("can be worked from the keyboard", async () => {
