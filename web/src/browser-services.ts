@@ -1,3 +1,4 @@
+import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
 import { derive, generatePassword } from "./domain/password";
 import { passwordFromHash } from "./domain/share-link";
@@ -38,6 +39,7 @@ export function createBrowserServices(): Services {
   return {
     roomsApi,
     lobby: createLobbyStore({ load: (signal) => roomsApi.lobby(signal), visibility: documentVisibility() }),
+    project: createProjectStore(() => loadStars()),
     socket: platformSocket(),
     signalUrl: signalUrl(window.location),
     seatStorage: session ?? noStorage,

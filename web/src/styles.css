@@ -5,26 +5,27 @@
 @import "@fontsource/noto-sans/latin-600.css";
 @import "@fontsource/jetbrains-mono/latin-400.css";
 @import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/instrument-serif/latin-400-italic.css";
 
 @theme {
   --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
 
-  --color-canvas: #1a1a1e;
-  --color-card: #212226;
-  --color-sunken: #121214;
-  --color-fg: #f5f5f7;
-  --color-muted: #bebfc7;
-  --color-muted-light: #8e8f99;
-  --color-accent: #a5b4ff;
-  --color-bubble: #a5b4ff;
+  --color-canvas: #0e1116;
+  --color-card: #151a22;
+  --color-sunken: #0a0d11;
+  --color-fg: #f5f5f2;
+  --color-muted: #9aa1ac;
+  --color-muted-light: #646c7a;
+  --color-accent: #c6f432;
+  --color-bubble: #c6f432;
   --color-on-bubble: #0e1116;
-  --color-sky: #5eb6e6;
-  --color-amber: #e8b23a;
-  --color-green: #2fc9a6;
-  --color-line: #36373d;
-  --color-line-strong: #4c4d54;
+  --color-amber: #fbbf24;
+  --color-line: #25282c;
+  --color-line-strong: #383b40;
+  --color-light: #f5f5f2;
 
   --radius-bubble: 1.25rem;
   --radius-tail: 0.3rem;
@@ -34,20 +35,19 @@
 
 @media (prefers-color-scheme: light) {
   :root {
-    --color-canvas: #f6f4f0;
+    --color-canvas: #f5f5f2;
     --color-card: #ffffff;
-    --color-sunken: #eae7e2;
-    --color-fg: #1d1815;
-    --color-muted: #534f4b;
-    --color-muted-light: #7d7873;
-    --color-accent: #3346b8;
-    --color-bubble: #3346b8;
-    --color-on-bubble: #ffffff;
-    --color-sky: #086b99;
+    --color-sunken: #eceae4;
+    --color-fg: #0e1116;
+    --color-muted: #4b5360;
+    --color-muted-light: #7b828d;
+    --color-accent: #4d6a00;
+    --color-bubble: #c6f432;
+    --color-on-bubble: #0e1116;
     --color-amber: #8a5300;
-    --color-green: #0a6e5c;
-    --color-line: #d8d4ce;
-    --color-line-strong: #c6c2bc;
+    --color-line: #e2e1dc;
+    --color-line-strong: #cfcec8;
+    --color-light: #0e1116;
   }
 }
 
@@ -103,6 +103,18 @@ body {
 .bubble-word {
   border-radius: 0.42em;
   border-bottom-left-radius: 0.1em;
+}
+
+.backdrop-grid {
+  background-image:
+    linear-gradient(to right, var(--color-line) 1px, transparent 1px), linear-gradient(to bottom, var(--color-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  background-position: center -1px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 20%, transparent 75%);
+}
+
+.backdrop-beam {
+  background: radial-gradient(ellipse 48% 62% at 50% 0%, color-mix(in srgb, var(--color-light) 13%, transparent), transparent 72%);
 }
 
 .arrive {
