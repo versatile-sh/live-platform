@@ -60,6 +60,7 @@ export const ptBR: Record<MessageKey, string> = {
   "entry.passwordLabel": "Senha",
   "entry.passwordCreateHint": "Sorteamos esta para você. Passe-a às pessoas que convidar.",
   "entry.passwordJoinHint": "A senha fica no seu navegador. Ela só destranca a sala.",
+  "entry.passwordPublic": "Salas públicas não têm senha. Escolha Privada para definir uma.",
   "entry.passwordGenerate": "Nova senha",
   "entry.passwordShow": "Mostrar",
   "entry.passwordHide": "Ocultar",
@@ -172,6 +173,8 @@ export const ptBR: Record<MessageKey, string> = {
   "owner.passwordWarning": "Trocar a senha troca a chave: quem não tiver a senha nova sai da sala.",
   "owner.passwordSave": "Salvar senha",
   "owner.passwordCancel": "Cancelar",
+  "owner.removeShort": "Remover",
+  "owner.transferShort": "Passar o posto",
   "owner.remove": "Remover {name}",
   "owner.transfer": "Passar o posto de dono para {name}",
 };
