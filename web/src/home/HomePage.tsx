@@ -63,7 +63,7 @@ function Pitch() {
 
 const SEGMENT = "relative z-10 h-full flex-1 rounded-full text-sm font-semibold text-muted transition-colors duration-300 hover:text-fg aria-pressed:text-canvas";
 const CHOICE =
-  "bubble flex cursor-pointer flex-col gap-1 border border-line-strong bg-card px-4 py-3.5 text-left transition-colors duration-300 hover:border-fg/40 has-checked:border-transparent has-checked:bg-bubble has-checked:text-on-bubble has-focus-visible:outline-2 has-focus-visible:outline-offset-3 has-focus-visible:outline-fg/55";
+  "relative z-10 flex cursor-pointer flex-col gap-1 rounded-[1.25rem] px-4 py-3.5 text-left text-fg transition-colors duration-300 has-checked:text-on-bubble has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-fg/55";
 
 type Access = "public" | "private";
 
@@ -204,7 +204,8 @@ function EnterRoom() {
           <div inert={pane !== "settings"} className="w-1/2 pl-4 transition-opacity duration-300 inert:opacity-0">
             <fieldset>
               <legend className="mb-1.5 text-sm font-semibold">{t("entry.accessLegend")}</legend>
-              <div className="grid grid-cols-2 gap-3">
+              <div data-access={access} className="group/access relative grid grid-cols-2 rounded-[1.5rem] border border-fg/30 bg-card p-1">
+                <span aria-hidden="true" className="bubble absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] bg-bubble transition-transform duration-500 ease-(--ease-glide) group-data-[access=private]/access:translate-x-full" />
                 {(["public", "private"] as const).map((option) => (
                   <label key={option} className={CHOICE}>
                     <input type="radio" name={`${id}-access`} className="sr-only" checked={access === option} onChange={() => setAccess(option)} />
@@ -215,7 +216,7 @@ function EnterRoom() {
               </div>
             </fieldset>
 
-            <div className="mt-5 flex h-[7.25rem] flex-col justify-start gap-3">
+            <div key={access} className="swap-in mt-5 flex h-[7.25rem] flex-col justify-start gap-3">
               {access === "private" ? (
                 <>
                   <label className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold">
@@ -279,7 +280,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         {view === "entry" ? null : (
           <AppLink
             href={lobby ? "/" : "/lobby"}
-            className="mx-auto inline-flex h-10 w-56 shrink-0 items-center justify-center gap-2 rounded-full border border-line-strong text-sm font-semibold text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg group-data-[view=lobby]:border-ink/35 group-data-[view=lobby]:text-ink group-data-[view=lobby]:hover:border-ink"
+            className="mx-auto inline-flex h-10 w-56 shrink-0 items-center justify-center gap-2 rounded-full border border-line-strong text-sm font-semibold text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg group-data-[view=lobby]:border-ink group-data-[view=lobby]:bg-ink group-data-[view=lobby]:text-paper group-data-[view=lobby]:hover:opacity-85"
           >
             {lobby ? <Arrow back /> : null}
             {t(lobby ? "lobby.back" : "home.seeRooms")}
