@@ -1,5 +1,5 @@
 import { openLink, type Link, type LinkEvent, type SocketFactory } from "../signal/link";
-import type { Hello, OwnerOp, ServerFrame } from "../signal/protocol";
+import type { Hello, OwnerOp, ServerFrame, RtcSignal } from "../signal/protocol";
 import { IDLE, reduceConnection, type Connection, type ConnectionEvent, type DropCause, type EndReason } from "./connection";
 import { clearSeat, readSeat, writeSeat, type SeatStorage } from "./seat";
 
@@ -53,6 +53,10 @@ export type Session = {
   /** Stops the session; a participant who is in the room leaves it. */
   dispose(): void;
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
+  /** Sends a media signal to the server; false when it could not be sent. */
+  sendRtc(signal: RtcSignal): boolean;
+  /** Hears the server's media signals, and each time my place in the room is (re)established, when media must start over. */
+  onRtc(listener: (event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void): () => void;
   /** Changes how I appear to the room: colour and tilt, and the characters of my face. */
   setLook(look: number, face: string): void;
   /** Shows a photo of mine to the room while I am in it (JPEG as base64), or takes it away when empty. */
@@ -98,6 +102,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let generation = 0;
   let leaving = false;
   let resuming = false;
+  const rtcListeners = new Set<(event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void>();
   let mediaFlags = 0;
   let beatAt = 0;
   let nextChatId = 1;
@@ -198,6 +203,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       link?.send({ t: "hb" });
     }, HEARTBEAT_MS);
     if (mediaFlags !== 0) link?.send({ t: "media", flags: mediaFlags });
+    rtcListeners.forEach((listener) => listener({ kind: "seated" }));
   }
 
   function onLinkEvent(event: LinkEvent) {
@@ -207,7 +213,10 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       if (frame.t === "joined") onJoined(frame);
       else if (frame.t === "roster") dispatch({ type: "roster", frame });
       else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at }].slice(-CHAT_KEPT) });
-      else if (frame.t === "photo") {
+      else if (frame.t === "rtc") {
+        const { t: _t, ...signal } = frame;
+        rtcListeners.forEach((listener) => listener({ kind: "signal", signal }));
+      } else if (frame.t === "photo") {
         const { [frame.pid]: _gone, ...others } = snapshot.photos;
         patch({ photos: frame.data === "" ? others : { ...others, [frame.pid]: `data:image/jpeg;base64,${frame.data}` } });
       } else if (frame.t === "hb" && beatAt > 0) {
@@ -340,6 +349,13 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       noticeTimers.clear();
       closeLink();
       if (snapshot.connection.phase !== "ended") clearSeat(storage, slug);
+    },
+    sendRtc(signal) {
+      return link?.send({ t: "rtc", ...signal }) ?? false;
+    },
+    onRtc(listener) {
+      rtcListeners.add(listener);
+      return () => void rtcListeners.delete(listener);
     },
     setLook(look, face) {
       link?.send({ t: "look", look, face });

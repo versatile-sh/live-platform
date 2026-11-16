@@ -20,7 +20,11 @@ export type ServerFrame =
   | { t: "error"; code: ErrorCode; message: string }
   | { t: "chat"; pid: number; name: string; text: string; at: number }
   | { t: "photo"; pid: number; data: string }
+  | ({ t: "rtc" } & RtcSignal)
   | { t: "hb" };
+
+/** One step of setting up media: a session description or a network candidate, for the connection I publish on or the one I am sent the room on. */
+export type RtcSignal = { role: "pub" | "sub"; kind: "offer" | "answer" | "ice"; sdp?: string; candidate?: string; sources?: Record<string, string> };
 
 export type Hello =
   | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean; look?: number; face?: string }
@@ -32,7 +36,7 @@ export type OwnerOp =
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "look"; look: number; face: string } | { t: "photo"; data: string } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "look"; look: number; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -85,6 +89,9 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
       return { t: "roster", v: raw.v, people, gone };
     }
+    case "rtc":
+      if ((raw.role !== "pub" && raw.role !== "sub") || (raw.kind !== "offer" && raw.kind !== "answer" && raw.kind !== "ice")) return undefined;
+      return { t: "rtc", role: raw.role, kind: raw.kind, ...(typeof raw.sdp === "string" ? { sdp: raw.sdp } : {}), ...(typeof raw.candidate === "string" ? { candidate: raw.candidate } : {}) };
     case "photo":
       if (typeof raw.pid !== "number" || typeof raw.data !== "string" || !/^[A-Za-z0-9+/=]*$/.test(raw.data)) return undefined;
       return { t: "photo", pid: raw.pid, data: raw.data };

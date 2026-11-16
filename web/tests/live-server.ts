@@ -35,7 +35,7 @@ export default async function setup(): Promise<() => void> {
   const build = spawnSync("go", ["build", "-o", binary, "./cmd/live"], { cwd: serverDir, encoding: "utf8" });
   if (build.status !== 0) throw new Error(`go build failed: ${build.stderr}`);
   const [http, signal] = [await freePort(), await freePort()];
-  const child: ChildProcess = spawn(binary, [], { cwd: work, env: { ...process.env, PORT: String(http), SIGNAL_PORT: String(signal) }, stdio: "ignore" });
+  const child: ChildProcess = spawn(binary, [], { cwd: work, env: { ...process.env, PORT: String(http), SIGNAL_PORT: String(signal), MEDIA: "off" }, stdio: "ignore" });
   process.env.LIVE_HTTP = `http://127.0.0.1:${http}`;
   process.env.LIVE_SIGNAL = `ws://127.0.0.1:${signal}/ws`;
   await waitUntilUp(`${process.env.LIVE_HTTP}/up`);

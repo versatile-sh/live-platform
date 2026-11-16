@@ -68,6 +68,7 @@ export function createBrowserServices(): Services {
     socket: platformSocket(),
     signalUrl: signalUrl(window.location),
     seatStorage: session ?? noStorage,
+    rtc: typeof RTCPeerConnection === "undefined" ? undefined : () => new RTCPeerConnection(),
     mediaDevices: navigator.mediaDevices
       ? {
           user: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
