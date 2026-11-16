@@ -1,5 +1,5 @@
 import { createContext, use, useMemo, useState, type ReactNode } from "react";
-import { flushSync } from "react-dom";
+import { withMotion } from "../ui/motion";
 
 import { createTranslate, type Locale, type Translate } from "./index";
 
@@ -19,9 +19,7 @@ export function I18nProvider({ locale: initial, onChoose, children }: { locale: 
           setLocale(next);
           onChoose?.(next);
         };
-        const page = document as Document & { startViewTransition?: (update: () => void) => unknown };
-        if (page.startViewTransition) page.startViewTransition(() => flushSync(apply));
-        else apply();
+        withMotion("words", apply);
       },
     }),
     [locale, onChoose],
