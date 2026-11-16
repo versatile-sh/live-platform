@@ -1,0 +1,21 @@
+case clean: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case kill9: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case sigstop: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case hbstop: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case dropall: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case dropudp: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case resume3: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case resume9: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case drop3: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+case drop9: 20/20 active after 1s
+ice ERROR: 2026/11/16 14:38:50 Failed to write packet: io: read/write on closed pipe
+done

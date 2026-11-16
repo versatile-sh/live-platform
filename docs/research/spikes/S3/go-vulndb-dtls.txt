@@ -1,0 +1,2 @@
+{"id":"GO-2026-6165","aliases":["CVE-2026-54908","GHSA-wg4g-wm44-ch5j"],"summary":"Panic while parsing crafted ECDHE_PSK ServerKeyExchange in github.com/pion/dtls/v3","published":"2026-08-18T16:38:10Z","fixed":["3.1.4"]}
+{"id":"GO-2026-4479","aliases":["CVE-2026-26014","GHSA-9f3f-wv7r-qc8r"],"summary":"Usage of random nonce generation with AES GCM ciphers risks leaking the authentication key in github.com/pion/dtls","published":"2026-02-19T17:28:55Z","fixed":["3.0.11","3.1.1"]}

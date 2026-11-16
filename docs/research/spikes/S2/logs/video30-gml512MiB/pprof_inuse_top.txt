@@ -1,0 +1,16 @@
+File: s2
+Build ID: 5fd2615f505b60d6037f19d602da3cc93166a0e1
+Type: inuse_space
+Time: 2026-11-16 11:33:44 -03
+Showing nodes accounting for 401.79MB, 96.12% of 418MB total
+Dropped 77 nodes (cum <= 2.09MB)
+Showing top 8 nodes out of 58
+      flat  flat%   sum%        cum   cum%
+  319.96MB 76.55% 76.55%   319.96MB 76.55%  github.com/pion/interceptor/internal/rtpbuffer.NewPacketFactoryCopy.func2
+   29.50MB  7.06% 83.60%   372.97MB 89.23%  github.com/pion/interceptor/internal/rtpbuffer.(*PacketFactoryCopy).NewPacket
+   23.50MB  5.62% 89.23%    23.50MB  5.62%  github.com/pion/interceptor/internal/rtpbuffer.NewPacketFactoryCopy.func1
+   14.09MB  3.37% 92.60%    14.09MB  3.37%  github.com/pion/transport/v5/packetio.(*Buffer).grow
+    4.55MB  1.09% 93.69%     4.55MB  1.09%  github.com/pion/transport/v5/packetio.(*Buffer).growAttributes
+    4.52MB  1.08% 94.77%     4.52MB  1.08%  github.com/pion/sdp/v3.(*unmarshalCache).cloneMediaAttributes
+    3.14MB  0.75% 95.52%     3.14MB  0.75%  encoding/json/v2.makeString
+    2.52MB   0.6% 96.12%     2.52MB   0.6%  github.com/pion/ice/v4.newBufferHolder

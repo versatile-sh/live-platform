@@ -1,0 +1,15 @@
+# other 2026-10-16 pion/dtls advisories (not in the S3 brief): are their fix files unchanged from pion v3.1.5 in livekit/dtls v3.1.5-warp.3?
+## 979ad79: Process the client cer flight once per handshake
+  flight0handler.go: identical to pion v3.1.5, so the fix is absent
+  flight4handler.go: identical to pion v3.1.5, so the fix is absent
+  state.go: identical to pion v3.1.5, so the fix is absent
+## ce84b97: Save sessions only after client authentication
+  flight4handler.go: identical to pion v3.1.5, so the fix is absent
+## 2b234cd: Bind cached sessions to role and cipher suite
+  flight0handler.go: identical to pion v3.1.5, so the fix is absent
+  flight1handler.go: identical to pion v3.1.5, so the fix is absent
+  flight3handler.go: identical to pion v3.1.5, so the fix is absent
+  flight4handler.go: identical to pion v3.1.5, so the fix is absent
+  flight5handler.go: identical to pion v3.1.5, so the fix is absent
+  session.go: identical to pion v3.1.5, so the fix is absent
+  state.go: identical to pion v3.1.5, so the fix is absent

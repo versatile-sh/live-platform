@@ -1,0 +1,12 @@
+1794840554.018351677 usage_usec 9848911 nr_periods 174 nr_throttled 12 throttled_usec 587704 
+1794840559.072965960 usage_usec 12666243 nr_periods 224 nr_throttled 12 throttled_usec 587704 
+1794840564.129401006 usage_usec 15682694 nr_periods 275 nr_throttled 16 throttled_usec 1041616 
+1794840569.201746398 usage_usec 18521411 nr_periods 326 nr_throttled 16 throttled_usec 1041616 
+1794840574.253398851 usage_usec 21276266 nr_periods 376 nr_throttled 16 throttled_usec 1041616 
+1794840579.303499387 usage_usec 23874782 nr_periods 427 nr_throttled 16 throttled_usec 1041616 
+1794840584.353590899 usage_usec 26355650 nr_periods 477 nr_throttled 16 throttled_usec 1041616 
+1794840589.402280151 usage_usec 28861819 nr_periods 528 nr_throttled 16 throttled_usec 1041616 
+1794840594.449957626 usage_usec 31294914 nr_periods 578 nr_throttled 16 throttled_usec 1041616 
+1794840599.497780635 usage_usec 33971256 nr_periods 629 nr_throttled 17 throttled_usec 1042234 
+1794840604.556206479 usage_usec 36690982 nr_periods 679 nr_throttled 17 throttled_usec 1042234 
+1794840609.613210563 usage_usec 39575231 nr_periods 730 nr_throttled 17 throttled_usec 1042234 

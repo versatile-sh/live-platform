@@ -1,0 +1,8 @@
+Showing nodes accounting for 1636.61MB, 97.09% of 1685.61MB total
+Dropped 121 nodes (cum <= 8.43MB)
+Showing top 4 nodes out of 30
+      flat  flat%   sum%        cum   cum%
+ 1417.04MB 84.07% 84.07%  1417.04MB 84.07%  github.com/pion/interceptor/internal/rtpbuffer.NewPacketFactoryCopy.func2
+  116.51MB  6.91% 90.98%  1626.56MB 96.50%  github.com/pion/interceptor/internal/rtpbuffer.(*PacketFactoryCopy).NewPacket
+   93.01MB  5.52% 96.50%    93.01MB  5.52%  github.com/pion/interceptor/internal/rtpbuffer.NewPacketFactoryCopy.func1
+   10.05MB   0.6% 97.09%    10.05MB   0.6%  github.com/pion/sdp/v3.(*unmarshalCache).cloneMediaAttributes

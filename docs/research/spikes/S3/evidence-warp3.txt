@@ -1,0 +1,66 @@
+# livekit/dtls@v3.1.5-warp.3 (commit b42fe0a)
+99:func generateKeySignature(
+136:func verifyKeySignature(
+248:func verifyCertificateVerify(
+377:func verifyServerCert(
+-- fix markers searched in warp.3 (expect none):
+0
+func verifyKeySignature(
+	message, remoteKeySignature []byte,
+	hashAlgorithm hash.Algorithm,
+	signatureAlgorithm signature.Algorithm,
+	rawCertificates [][]byte,
+) error {
+	if len(rawCertificates) == 0 {
+		return errLengthMismatch
+	}
+	certificate, err := x509.ParseCertificate(rawCertificates[0])
+	if err != nil {
+		return err
+	}
+
+	// Validate that the signature algorithm matches the certificate's OID
+	if err := validateSignatureAlgOID(certificate, signatureAlgorithm); err != nil {
+		return err
+	}
+
+	switch pubKey := certificate.PublicKey.(type) {
+	case ed25519.PublicKey:
+		if ok := ed25519.Verify(pubKey, message, remoteKeySignature); !ok {
+			return errKeySignatureMismatch
+		}
+
+		return nil
+	case *ecdsa.PublicKey:
+		ecdsaSig := &ecdsaSignature{}
+		if _, err := asn1.Unmarshal(remoteKeySignature, ecdsaSig); err != nil {
+			return err
+		}
+		if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
+			return errInvalidECDSASignature
+		}
+		hashed := hashAlgorithm.Digest(message)
+		if !ecdsa.Verify(pubKey, hashed, ecdsaSig.R, ecdsaSig.S) {
+			return errKeySignatureMismatch
+		}
+
+		return nil
+
+# pion/dtls@v3.1.13 (commit da75e4d)
+errors.go:156:	errHandshakeCacheOverflow = &InternalError{Err: errors.New("handshake cache overflow")}
+crypto.go:30:const maxPeerRSAKeyBits = 8192
+crypto.go:37:	if key, ok := cert.PublicKey.(*rsa.PublicKey); ok && key.N.BitLen() > maxPeerRSAKeyBits {
+crypto.go:109:// validateHandshakeSignatureScheme binds the wire scheme to the key and hash.
+crypto.go:111:func validateHandshakeSignatureScheme(
+crypto.go:155:	if err := validateHandshakeSignatureScheme(signer.Public(), hashAlgorithm, signatureAlgorithm); err != nil {
+crypto.go:206:	if err := validateHandshakeSignatureScheme(certificate.PublicKey, hashAlgorithm, signatureAlgorithm); err != nil {
+crypto.go:272:	if err := validateHandshakeSignatureScheme(signer.Public(), hashAlgorithm, signatureAlgorithm); err != nil {
+crypto.go:325:	if err := validateHandshakeSignatureScheme(certificate.PublicKey, hashAlgorithm, signatureAlgorithm); err != nil {
+handshake_cache.go:64:		return errHandshakeCacheOverflow
+
+# livekit/dtls@v3.1.5-warp.3 validateSignatureAlgOID returns nil for every non-PSS scheme (no key/hash binding):
+crypto.go:53:func validateSignatureAlgOID(cert *x509.Certificate, sigAlg signature.Algorithm) error {
+crypto.go-54-	if !sigAlg.IsPSS() {
+crypto.go-55-		return nil
+crypto.go-56-	}
+crypto.go-57-

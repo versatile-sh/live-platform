@@ -1,0 +1,12 @@
+crypto.go warp.3 vs v3.1.5: identical
+crypto.go warp.3 vs v3.1.12: identical
+crypto.go warp.3 vs v3.1.13: differs (3	64)
+handshake_cache.go warp.3 vs v3.1.5: identical
+handshake_cache.go warp.3 vs v3.1.12: differs (2	89)
+handshake_cache.go warp.3 vs v3.1.13: differs (4	123)
+errors.go warp.3 vs v3.1.5: differs (8	0)
+errors.go warp.3 vs v3.1.12: differs (8	0)
+errors.go warp.3 vs v3.1.13: differs (8	10)
+cb56053 added lines (unique): 24, missing in warp.3: 13
+f444d08 added lines (unique): 33, missing in warp.3: 20
+fa6e8d3 added lines (unique): 12, missing in warp.3: 8
