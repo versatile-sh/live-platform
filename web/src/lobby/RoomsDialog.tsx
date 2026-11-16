@@ -4,12 +4,12 @@ import type { RoomSummary } from "../api/rooms";
 import { useLocale, useT } from "../i18n/I18nProvider";
 import { Segmented } from "../ui/Segmented";
 import { RoomRow } from "./RoomRow";
+import { CHIP_ON_INK, ICON_BUTTON_PLAIN } from "../ui/styles";
 
 const WorldMap = lazy(() => import("../map/WorldMap"));
 
 type RoomsDialogProps = { rooms: readonly RoomSummary[]; start: "list" | "map"; onClose(): void };
 
-const CHIP = "h-8 rounded-full border border-paper/30 px-3.5 text-sm font-semibold text-paper/70 transition-colors duration-200 hover:text-paper aria-pressed:border-paper aria-pressed:bg-paper aria-pressed:text-ink";
 
 /** Every open room in one window split the opposite way of the page behind it: lime on the left, ink on the right, with a search, and the map beside the rooms of the country picked on it. */
 export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
@@ -81,7 +81,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
                 onChange={(event) => setQuery(event.target.value)}
               />
             </div>
-            <button type="button" aria-label={t("lobby.close")} className="grid size-11 shrink-0 place-items-center rounded-full border border-paper/30 transition-colors duration-200 hover:border-paper/70" onClick={onClose}>
+            <button type="button" aria-label={t("lobby.close")} className={ICON_BUTTON_PLAIN} onClick={onClose}>
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M4 4l8 8M12 4l-8 8" />
               </svg>
@@ -112,11 +112,11 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
             </div>
             <div className="flex min-h-0 flex-col px-6 pb-6 lg:px-8 lg:pb-8">
               <div className="mb-4 flex shrink-0 flex-wrap gap-2">
-                <button type="button" aria-pressed={!picked} className={CHIP} onClick={() => setCountry(undefined)}>
+                <button type="button" aria-pressed={!picked} className={CHIP_ON_INK} onClick={() => setCountry(undefined)}>
                   {t("lobby.all")}
                 </button>
                 {[...counts.keys()].sort().map((code) => (
-                  <button key={code} type="button" aria-pressed={picked === code} className={CHIP} onClick={() => setCountry(code)}>
+                  <button key={code} type="button" aria-pressed={picked === code} className={CHIP_ON_INK} onClick={() => setCountry(code)}>
                     {names.of(code) ?? code}
                   </button>
                 ))}

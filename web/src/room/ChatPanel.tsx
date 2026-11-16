@@ -6,6 +6,7 @@ import type { Person } from "../signal/protocol";
 import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { Segmented } from "../ui/Segmented";
+import { ICON_BUTTON, ICON_BUTTON_SOLID } from "../ui/styles";
 
 type ChatPanelProps = {
   lines: readonly ChatLine[];
@@ -101,7 +102,7 @@ export function ChatPanel({
             <button
               type="button"
               aria-label={t("chat.others")}
-              className="bubble-word grid size-9 shrink-0 place-items-center border border-line-strong text-muted transition-colors duration-200 hover:border-fg/50 hover:text-fg"
+              className={ICON_BUTTON}
               onClick={() => onPeer(undefined)}
             >
               <Icon name="back" className="size-4" />
@@ -235,7 +236,7 @@ export function ChatPanel({
                 type="submit"
                 disabled={!ready || draft.trim() === ""}
                 aria-label={t("chat.send")}
-                className="grid size-9 shrink-0 place-items-center rounded-full bg-fg text-canvas transition-opacity duration-200 hover:opacity-85 disabled:opacity-30"
+                className={ICON_BUTTON_SOLID}
               >
                 <Icon name="send" className="size-4" />
               </button>
