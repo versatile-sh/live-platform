@@ -51,7 +51,7 @@ export function Tile({ person, isMe, video, photo }: TileProps) {
           {person.name}
         </span>
         {isMe ? <span className="bubble-word shrink-0 bg-bubble px-2 py-0.5 font-mono text-xs text-on-bubble">{t("room.you")}</span> : null}
-        {view.isOwner ? <span className="bubble-word shrink-0 border border-line-strong bg-canvas/70 px-2 py-0.5 font-mono text-xs text-muted">{t("room.owner")}</span> : null}
+        {view.isOwner ? <span className="bubble-word shrink-0 border border-accent/40 bg-canvas/70 px-2 py-0.5 font-mono text-xs text-accent">{t("room.owner")}</span> : null}
         {view.trouble || view.tone === "dashed" ? (
           <span className={`bubble-word flex shrink-0 items-center gap-1.5 px-2 py-0.5 font-mono text-xs ${view.trouble ? "border border-fg/40 bg-canvas/80 text-fg" : "bg-canvas/70 text-muted"}`}>
             {view.tone === "dashed" ? <span aria-hidden="true" className="pulse inline-block size-1.5 rounded-full bg-accent" /> : null}
