@@ -363,7 +363,8 @@ func TestFaceAndPhoto(t *testing.T) {
 		assert.Error(t, err, "%q", raw)
 	}
 	assert.NoError(t, CheckPhoto(nil))
-	assert.NoError(t, CheckPhoto([]byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2}))
+	assert.NoError(t, CheckPhoto([]byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 0xFF, 0xD9}))
+	assert.Error(t, CheckPhoto([]byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2}), "a JPEG that does not end as one")
 	assert.Error(t, CheckPhoto([]byte("<svg onload=alert(1)>")))
 	assert.Error(t, CheckPhoto(append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 10<<10)...)))
 }

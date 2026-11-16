@@ -381,7 +381,7 @@ func TestHub(t *testing.T) {
 
 	t.Run("a photo is shown to the room, to whoever arrives later, and goes with its owner", func(t *testing.T) {
 		h := newCalmHub()
-		jpeg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3}
+		jpeg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 0xFF, 0xD9}
 		ana, _ := enter(t, h, "ana")
 		_, biaSession := enter(t, h, "bia")
 		h.SetPhoto("bk", ana.PID, ana.Gen, []byte("<svg/>"))

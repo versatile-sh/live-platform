@@ -40,10 +40,10 @@ func DefaultConfig(origins []string) Config {
 	return Config{
 		Origins:      origins,
 		HelloTimeout: 5 * time.Second,
-		ReadLimit:    64 << 10,
+		ReadLimit:    128 << 10,
 		FramesPerSec: 20,
 		FrameBurst:   80,
-		MaxPending:   1 << 20,
+		MaxPending:   2 << 20,
 		MaxConns:     20000,
 	}
 }
