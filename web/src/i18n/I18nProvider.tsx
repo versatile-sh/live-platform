@@ -1,14 +1,25 @@
-import { createContext, use, useMemo, type ReactNode } from "react";
+import { createContext, use, useMemo, useState, type ReactNode } from "react";
 
 import { createTranslate, type Locale, type Translate } from "./index";
 
-type I18n = { locale: Locale; t: Translate };
+type I18n = { locale: Locale; t: Translate; choose(locale: Locale): void };
 
 const I18nContext = createContext<I18n | undefined>(undefined);
 
-/** Makes `useT` available below it, in the given locale. */
-export function I18nProvider({ locale, children }: { locale: Locale; children: ReactNode }) {
-  const value = useMemo(() => ({ locale, t: createTranslate(locale) }), [locale]);
+/** Makes `useT` available below it, starting in the given locale; `onChoose` hears the visitor's choice so it can be kept. */
+export function I18nProvider({ locale: initial, onChoose, children }: { locale: Locale; onChoose?: (locale: Locale) => void; children: ReactNode }) {
+  const [locale, setLocale] = useState(initial);
+  const value = useMemo(
+    () => ({
+      locale,
+      t: createTranslate(locale),
+      choose(next: Locale) {
+        setLocale(next);
+        onChoose?.(next);
+      },
+    }),
+    [locale, onChoose],
+  );
   return <I18nContext value={value}>{children}</I18nContext>;
 }
 
@@ -26,4 +37,9 @@ export function useT(): Translate {
 /** The current locale, for number and date formatting. */
 export function useLocale(): Locale {
   return useI18n().locale;
+}
+
+/** Changes the language of the interface. */
+export function useChooseLocale(): (locale: Locale) => void {
+  return useI18n().choose;
 }

@@ -19,8 +19,17 @@ type roomView struct {
 	Capacity int    `json:"capacity"`
 }
 
-// Register adds the room status and lobby routes to mux.
-func Register(mux *http.ServeMux, directory inbound.Directory) {
+// Register adds the room status, lobby and project routes to mux; stars may be nil when no count is kept.
+func Register(mux *http.ServeMux, directory inbound.Directory, stars func() (int, bool)) {
+	mux.HandleFunc("GET /api/project", func(w http.ResponseWriter, _ *http.Request) {
+		view := map[string]*int{"stars": nil}
+		if stars != nil {
+			if n, known := stars(); known {
+				view["stars"] = &n
+			}
+		}
+		write(w, http.StatusOK, view)
+	})
 	mux.HandleFunc("GET /api/rooms/{slug}", func(w http.ResponseWriter, r *http.Request) {
 		slug, err := room.NewSlug(r.PathValue("slug"))
 		if err != nil {

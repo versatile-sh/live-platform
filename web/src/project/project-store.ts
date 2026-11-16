@@ -1,5 +1,5 @@
-/** Where the project lives in public, and how many people starred it; the count is absent until the server knows it. */
-export type Project = { repo: string; x: string; stars?: number };
+/** Where the project lives in public, and how many people starred it; the count is zero until the server knows better. */
+export type Project = { repo: string; x: string; stars: number };
 
 export type ProjectStore = {
   subscribe(listener: () => void): () => void;
@@ -7,7 +7,7 @@ export type ProjectStore = {
 };
 
 /** The addresses the page links to when the server says nothing else. */
-export const PROJECT_LINKS: Project = { repo: "https://github.com/versatile-sh/call-platform", x: "https://x.com/versatile_sh" };
+export const PROJECT_LINKS: Project = { repo: "https://github.com/versatile-sh/call-platform", x: "https://x.com/versatile_sh", stars: 0 };
 
 /** The star count, asked of our own server once, the first time something on the page shows it. */
 export function createProjectStore(load: () => Promise<number | undefined>): ProjectStore {

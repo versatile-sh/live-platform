@@ -7,10 +7,10 @@ export const en = {
   "app.rooms": "Open rooms",
 
   "social.label": "The project elsewhere",
-  "social.github": "The source code on GitHub",
-  "social.githubStars": "The source code on GitHub, {count} stars",
+  "social.githubStars": "Star the project on GitHub, {count} stars so far",
   "social.x": "Follow versatile.sh on X",
-  "social.follow": "Follow",
+  "social.follow": "Follow us",
+  "social.language": "Language",
 
   "home.line1": "Your screen,",
   "home.line2": "for whoever has the link.",
