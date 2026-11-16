@@ -1,10 +1,14 @@
-import { useSyncExternalStore } from "react";
+import { Suspense, lazy, useState, useSyncExternalStore } from "react";
 
 import type { RoomSummary } from "../api/rooms";
-import { useT } from "../i18n/I18nProvider";
+import { useLocale, useT } from "../i18n/I18nProvider";
 import { AppLink } from "../routing/Navigation";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
+
+const WorldMap = lazy(() => import("../map/WorldMap"));
+
+const TOGGLE = "h-full rounded-full px-3.5 text-ink/70 transition-colors duration-200 hover:text-ink aria-pressed:bg-ink aria-pressed:text-paper";
 
 function Presence({ count, capacity }: { count: number; capacity: number }) {
   return (
@@ -48,27 +52,65 @@ export function LobbyPage() {
   const { lobby } = useServices();
   const state = useSyncExternalStore(lobby.subscribe, lobby.getSnapshot);
   const rooms = state.status === "loading" ? [] : state.rooms;
+  const [view, setView] = useState<"list" | "map">("list");
+  const [country, setCountry] = useState<string | undefined>();
+  const names = new Intl.DisplayNames([useLocale()], { type: "region" });
+
+  const counts = new Map<string, number>();
+  for (const room of rooms) if (room.country) counts.set(room.country, (counts.get(room.country) ?? 0) + 1);
+  const picked = country && counts.has(country) ? country : undefined;
+  const shown = view === "map" && picked ? rooms.filter((room) => room.country === picked) : rooms;
+  const note =
+    state.status === "loading"
+      ? t("lobby.loading")
+      : state.status === "failed"
+        ? t("lobby.error")
+        : view === "map"
+          ? picked
+            ? t("lobby.mapPicked", { country: names.of(picked) ?? picked })
+            : counts.size > 0
+              ? t("lobby.mapHint")
+              : t("lobby.mapNone")
+          : rooms.length > 0
+            ? t("lobby.intro")
+            : "";
 
   return (
     <section aria-labelledby="listed" className="w-full max-w-xl text-ink">
-      <h2 id="listed" className="font-display text-4xl leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl">
-        {t("lobby.heading")}
-      </h2>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <h2 id="listed" className="font-display text-4xl leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl">
+          {t("lobby.heading")}
+        </h2>
+        <div role="group" aria-label={t("lobby.viewLabel")} className="flex h-9 items-center rounded-full border border-ink/35 p-0.5 text-sm font-semibold">
+          {(["list", "map"] as const).map((option) => (
+            <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)} className={TOGGLE}>
+              {t(option === "list" ? "lobby.viewList" : "lobby.viewMap")}
+            </button>
+          ))}
+        </div>
+      </div>
       <p role="status" className="mt-3 min-h-6 text-sm text-ink/75">
-        {state.status === "loading" ? t("lobby.loading") : state.status === "failed" ? t("lobby.error") : rooms.length > 0 ? t("lobby.intro") : ""}
+        {note}
       </p>
+      {view === "map" ? (
+        <div className="mt-4 aspect-2/1 w-full">
+          <Suspense fallback={null}>
+            <WorldMap counts={counts} selected={picked} onSelect={setCountry} />
+          </Suspense>
+        </div>
+      ) : null}
       {state.status === "ready" && rooms.length === 0 ? (
         <div className="bubble mt-6 bg-ink p-6 text-paper">
           <p className="font-semibold">{t("lobby.emptyTitle")}</p>
           <p className="mt-2 text-paper/70">{t("lobby.emptyBody")}</p>
         </div>
-      ) : (
-        <ul className="mt-6 flex max-h-[26rem] flex-col gap-3 overflow-y-auto pr-1">
-          {rooms.map((room) => (
+      ) : view === "list" || picked ? (
+        <ul className={`mt-6 flex flex-col gap-3 overflow-y-auto pr-1 ${view === "map" ? "max-h-40" : "max-h-[26rem]"}`}>
+          {shown.map((room) => (
             <RoomRow key={room.slug} room={room} />
           ))}
         </ul>
-      )}
+      ) : null}
       <AppLink href="/" className="mt-8 inline-flex items-center gap-2 text-sm font-semibold underline decoration-ink/40 underline-offset-4 transition-colors hover:decoration-ink">
         <Arrow back />
         {t("lobby.back")}
