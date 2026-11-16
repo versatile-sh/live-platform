@@ -18,6 +18,7 @@ export type ServerFrame =
   | { t: "joined"; pid: number; gen: number; secret: string }
   | { t: "roster"; v: number; people: Person[]; gone: Departure[] }
   | { t: "error"; code: ErrorCode; message: string }
+  | { t: "chat"; pid: number; name: string; text: string; at: number }
   | { t: "hb" };
 
 export type Hello =
@@ -30,7 +31,7 @@ export type OwnerOp =
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -83,6 +84,9 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
       return { t: "roster", v: raw.v, people, gone };
     }
+    case "chat":
+      if (typeof raw.pid !== "number" || typeof raw.name !== "string" || typeof raw.text !== "string" || typeof raw.at !== "number") return undefined;
+      return { t: "chat", pid: raw.pid, name: raw.name, text: raw.text, at: raw.at };
     case "error": {
       if (typeof raw.code !== "string" || typeof raw.message !== "string") return undefined;
       const code = ERROR_CODES.includes(raw.code) ? (raw.code as ErrorCode) : "INTERNAL";
