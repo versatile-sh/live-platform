@@ -492,6 +492,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
               session.setLook(look, face);
               setSheet(undefined);
             }}
+            onCancel={() => setSheet(undefined)}
             onPhoto={session.setPhoto}
           />
         </Sheet>

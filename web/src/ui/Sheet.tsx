@@ -10,7 +10,7 @@ export function Sheet({ title, closeLabel, onClose, children, wide = false }: { 
       <section
         role="dialog"
         aria-label={title}
-        className={`swap-in fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100dvh-2rem)] -translate-1/2 flex-col rounded-[1.5rem] rounded-br-[0.4rem] border border-line-strong bg-card ${wide ? "w-[min(34rem,calc(100vw-2rem))]" : "w-[min(26rem,calc(100vw-2rem))]"}`}
+        className={`swap-in fixed top-1/2 left-1/2 z-40 flex max-h-[calc(100dvh-2rem)] -translate-1/2 flex-col rounded-[1.5rem] rounded-br-[0.4rem] border border-line-strong bg-card ${wide ? "w-[min(58rem,calc(100vw-2rem))]" : "w-[min(26rem,calc(100vw-2rem))]"}`}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 py-3 pr-3 pl-5">
           <h2 className="font-display text-xl font-bold tracking-[-0.03em]">{title}</h2>

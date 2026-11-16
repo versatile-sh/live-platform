@@ -401,7 +401,6 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "People" }));
       await userEvent.click(screen.getByRole("button", { name: "Edit" }));
       const sentBefore = socket.sent.length;
-      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
       await userEvent.click(within(screen.getByRole("radiogroup", { name: "Disc colour" })).getByRole("radio", { name: "#c6f432" }));
       await userEvent.click(within(screen.getByRole("radiogroup", { name: "Face colour" })).getByRole("radio", { name: "#f5f5f2" }));
       await userEvent.click(screen.getByRole("button", { name: "Tilt to the left" }));
@@ -411,6 +410,11 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "Save" }));
       expect(socket.sent.length).toBe(sentBefore + 1);
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: "c6f432-f5f5f2-345", face: "(•‿•)!" });
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+      await userEvent.click(screen.getByRole("button", { name: ":D" }));
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(socket.sent.length).toBe(sentBefore + 1);
       expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     });
 
