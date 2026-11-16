@@ -2,7 +2,9 @@ import { useState, type FormEvent } from "react";
 
 import type { RoomSummary } from "../api/rooms";
 import { checkName } from "../domain/name";
+import { checkSlug, normalizeSlug } from "../domain/slug";
 import { useT } from "../i18n/I18nProvider";
+import { useNavigate } from "../routing/Navigation";
 import { useServices } from "../services";
 import type { ErrorCode } from "../signal/protocol";
 import type { JoinEntry } from "../session/session";
@@ -19,16 +21,18 @@ type EntryFormProps = {
   onEnter: (entry: JoinEntry) => void;
 };
 
-/** A room's doorway: a name, then either the settings of a room about to be created or the code of a private one that exists. */
+/** A room's doorway: a name, then either the settings of a room about to be created or the code of a private one that exists. A room about to be created shows its name filled in from the address; changing it opens the room of the name typed. */
 export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormProps) {
   const t = useT();
   const services = useServices();
+  const navigate = useNavigate();
   const creating = !room.exists;
+  const [roomName, setRoomName] = useState(slug);
   const [name, setName] = useState(() => services.nameMemory.read());
   const [access, setAccess] = useState<Access>("public");
   const [listed, setListed] = useState(true);
   const [code, setCode] = useState(() => (creating ? services.generatePassword() : services.readPasswordHash()));
-  const [problems, setProblems] = useState<{ name?: string; code?: string }>({});
+  const [problems, setProblems] = useState<{ name?: string; code?: string; room?: string }>({});
   const [working, setWorking] = useState(false);
   const needsCode = creating ? access === "private" : room.private;
   const full = room.exists && room.count >= room.capacity;
@@ -37,15 +41,21 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     event.preventDefault();
     const who = checkName(name);
     const missingCode = needsCode && code.trim() === "";
-    if (!who.ok || missingCode) {
-      setProblems({ ...(who.ok ? {} : { name: t(`entry.name.${who.problem}`) }), ...(missingCode ? { code: t("password.required") } : {}) });
+    const where = creating ? checkSlug(normalizeSlug(roomName)) : ({ ok: true, slug } as const);
+    if (!who.ok || missingCode || !where.ok) {
+      setProblems({ ...(who.ok ? {} : { name: t(`entry.name.${who.problem}`) }), ...(missingCode ? { code: t("password.required") } : {}), ...(where.ok ? {} : { room: t(`slug.${where.problem}`) }) });
       return;
     }
     setWorking(true);
     services.nameMemory.write(who.name);
-    const derived = needsCode ? await services.derive(code.trim(), slug) : undefined;
+    const derived = needsCode ? await services.derive(code.trim(), where.slug) : undefined;
     services.forgetHash();
-    onEnter({
+    const enter = (entry: JoinEntry) => {
+      if (where.slug === slug) return onEnter(entry);
+      services.entryIntent.put(where.slug, entry);
+      navigate(`/${where.slug}`);
+    };
+    enter({
       name: who.name,
       look: services.lookMemory.read(),
       face: services.faceMemory.read(),
@@ -61,13 +71,36 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
         <span className="block truncate" translate="no">
           {creating ? t("entry.createTitle") : t("entry.joinTitle")}{" "}
           <span className="bubble-word inline-block max-w-full truncate bg-bubble px-3 py-0.5 align-bottom font-mono text-[0.8em] tracking-normal text-on-bubble" translate="no">
-            {slug}
+            {creating ? normalizeSlug(roomName) || slug : slug}
           </span>
         </span>
       </h2>
       <p className="mt-2 mb-6 text-muted">{creating ? t("entry.createIntro") : full ? t("entry.joinFull", { count: room.count, capacity: room.capacity }) : t("entry.joinPeople", { count: room.count, capacity: room.capacity })}</p>
       {expired ? <p className="bubble mb-5 border border-line-strong bg-card p-4 text-sm">{t("ended.expired.body")}</p> : null}
 
+      {creating ? (
+        <Field
+          label={t("lobby.goLabel")}
+          hint={t("entry.roomHint")}
+          error={problems.room}
+          mono
+          className="mb-5"
+          prefix={
+            <>
+              <span className="hidden min-[26rem]:inline">{new URL(services.origin).host}</span>/
+            </>
+          }
+          value={roomName}
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          maxLength={40}
+          onChange={(event) => {
+            setRoomName(event.target.value);
+            setProblems(({ room: _gone, ...kept }) => kept);
+          }}
+        />
+      ) : null}
       <Field
         label={t("entry.nameLabel")}
         hint={t("home.nameHint")}

@@ -90,6 +90,7 @@ export const ptBR: Record<MessageKey, string> = {
   "entry.unreachableBody": "Confira sua conexão e tente de novo.",
   "entry.retry": "Tentar de novo",
   "entry.createTitle": "Criar",
+  "entry.roomHint": "Veio do endereço. Mude e a sala aberta será a do nome que você digitar.",
   "entry.createIntro": "Este nome está livre. A sala é sua enquanto houver alguém nela.",
   "entry.joinTitle": "Entrar em",
   "entry.joinPeople": "Há {count}/{capacity} pessoas nela.",
