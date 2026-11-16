@@ -12,9 +12,10 @@ import (
 
 func TestHandler(t *testing.T) {
 	h, err := Handler(fstest.MapFS{
-		"index.html":    {Data: []byte("<!doctype html>page")},
-		"assets/app.js": {Data: []byte("console.log(1)")},
-		"secret.txt":    {Data: []byte("not served by name")},
+		"index.html":             {Data: []byte("<!doctype html>page")},
+		"assets/app-Ab3dE_9z.js": {Data: []byte("console.log(1)")},
+		"assets/og.png":          {Data: []byte("png")},
+		"secret.txt":             {Data: []byte("not served by name")},
 	})
 	require.NoError(t, err)
 	cases := []struct {
@@ -25,7 +26,8 @@ func TestHandler(t *testing.T) {
 		{"/bk", "<!doctype html>page", "no-cache", 200},
 		{"/a/b/c", "<!doctype html>page", "no-cache", 200},
 		{"/secret.txt", "<!doctype html>page", "no-cache", 200},
-		{"/assets/app.js", "console.log(1)", "public, max-age=31536000, immutable", 200},
+		{"/assets/app-Ab3dE_9z.js", "console.log(1)", "public, max-age=31536000, immutable", 200},
+		{"/assets/og.png", "png", "public, max-age=3600", 200},
 		{"/assets/missing.js", "404 page not found\n", "", 404},
 		{"/assets/../secret.txt", "404 page not found\n", "", 404},
 	}
