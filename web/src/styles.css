@@ -143,6 +143,10 @@ body {
   }
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
 .swap-in {
   animation: swap-in 0.45s var(--ease-settle) both;
 }

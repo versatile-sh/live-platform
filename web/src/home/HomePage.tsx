@@ -34,7 +34,7 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className={`relative flex flex-col bg-bubble px-6 py-8 text-ink group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:w-1/2 lg:bg-transparent lg:px-14 lg:py-12 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
+    <section className={`no-scrollbar relative flex flex-col bg-bubble px-6 py-8 text-ink lg:min-h-0 lg:overflow-y-auto group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:w-1/2 lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
       <AppLink href="/" aria-label={t("app.home")} className="self-start">
         <Wordmark onAccent className="text-lg" />
       </AppLink>
@@ -248,7 +248,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   const t = useT();
   const lobby = view === "lobby";
   return (
-    <div data-view={view} className="group relative isolate flex flex-1 flex-col overflow-hidden bg-canvas lg:flex-row">
+    <div data-view={view} className="group relative isolate flex flex-1 flex-col overflow-hidden bg-canvas lg:min-h-0 lg:flex-row">
       <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[150%] transition-transform duration-700 ease-(--ease-glide) group-data-[view=lobby]:-translate-x-1/3 lg:flex">
         <div className="relative w-1/3 bg-bubble">
           <div className="backdrop-glow absolute inset-0" />
@@ -261,9 +261,9 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         </div>
       </div>
       <Pitch />
-      <div className={`relative flex flex-1 flex-col px-6 py-8 group-data-[view=lobby]:bg-bubble sm:px-10 lg:py-12 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
+      <div className={`no-scrollbar relative flex flex-1 flex-col px-6 py-8 group-data-[view=lobby]:bg-bubble sm:px-10 lg:min-h-0 lg:overflow-y-auto lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
         <Social className="justify-end" />
-        <div className="relative flex flex-1 items-center justify-center py-10">
+        <div className="relative flex flex-1 items-center justify-center py-8">
           {view === "entry" ? (
             <div className="arrive flex w-full justify-center">{panel}</div>
           ) : (
@@ -272,7 +272,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
             </div>
           )}
           {lobby ? (
-            <div className="ride-in flex w-full justify-center lg:absolute lg:inset-0 lg:items-center">
+            <div className="ride-in flex w-full justify-center lg:absolute lg:inset-0 lg:items-start lg:pt-[6vh]">
               <LobbyPage />
             </div>
           ) : null}
