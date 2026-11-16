@@ -1,4 +1,5 @@
 import { FLAG } from "../domain/flags";
+import { DEFAULT_SETTINGS, cameraShape, screenShape, type MediaSettings } from "./settings";
 
 /** The capture calls of the browser, so tests can hand the store fakes. */
 export type MediaDevicesPort = {
@@ -16,8 +17,11 @@ export type VoiceFilter = "off" | "standard" | "strong";
 /** A microphone after a noise remover, and the way to let the remover go. */
 export type CleanedVoice = { stream: MediaStream; release(): void };
 
-/** Cleans a microphone's voice in this browser; absent where the browser cannot. */
-export type VoiceCleaner = (raw: MediaStream) => Promise<CleanedVoice>;
+/** What the voice passes through on its way out: the neural noise remover and how much of it, the balancing, and the gate. */
+export type VoiceChain = { denoise: boolean; strength: number; balanced: boolean; gate: boolean; gateDb: number };
+
+/** Passes a microphone's voice through a chain in this browser; absent where the browser cannot. */
+export type VoiceCleaner = (raw: MediaStream, chain: VoiceChain) => Promise<CleanedVoice>;
 
 export type MediaKind = "microphone" | "camera" | "screen";
 
@@ -32,6 +36,9 @@ export type LocalMediaSnapshot = {
   microphoneId: string | undefined;
   cameraId: string | undefined;
   voiceFilter: VoiceFilter;
+  settings: MediaSettings;
+  /** With push to talk on, whether the key is held. */
+  talking: boolean;
   busy: MediaKind | undefined;
   problem: { kind: MediaKind; why: "denied" | "unavailable" } | undefined;
 };
@@ -47,6 +54,10 @@ export type LocalMedia = {
   choose(kind: "microphone" | "camera", id: string): Promise<void>;
   /** Changes the voice filter, restarting the microphone when it is on. */
   setVoiceFilter(filter: VoiceFilter): Promise<void>;
+  /** Changes how this device captures and sends; what is being captured follows at once. */
+  setSettings(change: Partial<MediaSettings>): Promise<void>;
+  /** Holds or lets go of the talk key. */
+  talk(held: boolean): void;
   dispose(): void;
 };
 
@@ -60,6 +71,8 @@ const OFF: LocalMediaSnapshot = {
   microphoneId: undefined,
   cameraId: undefined,
   voiceFilter: "standard",
+  settings: DEFAULT_SETTINGS,
+  talking: false,
   busy: undefined,
   problem: undefined,
 };
@@ -80,10 +93,10 @@ function stop(stream: MediaStream | undefined) {
 }
 
 /** Microphone, camera, screen and the raised hand of this device, as a store: each is asked of the browser when turned on and released when turned off. */
-export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags: (flags: number) => void, cleaner?: VoiceCleaner): LocalMedia {
+export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags: (flags: number) => void, cleaner?: VoiceCleaner, initial: MediaSettings = DEFAULT_SETTINGS): LocalMedia {
   const releases = new WeakMap<MediaStream, () => void>();
   const listeners = new Set<() => void>();
-  let snapshot = OFF;
+  let snapshot: LocalMediaSnapshot = { ...OFF, settings: initial };
   let disposed = false;
 
   function patch(next: Partial<LocalMediaSnapshot>) {
@@ -94,18 +107,28 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
 
   function capture(kind: MediaKind): Promise<MediaStream> {
     if (!devices) return Promise.reject(new DOMException("no capture on this device", "NotFoundError"));
-    if (kind === "screen") return devices.display({ video: true, audio: true });
-    if (kind === "camera") return devices.user({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
+    if (kind === "screen") {
+      const { width, height, frameRate } = screenShape(snapshot.settings.screenQuality);
+      return devices.display({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } }, audio: snapshot.settings.screenAudio });
+    }
+    if (kind === "camera") {
+      const { width, height, frameRate } = cameraShape(snapshot.settings.cameraQuality);
+      return devices.user({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
+    }
     return microphone(devices);
   }
 
   async function microphone(from: MediaDevicesPort): Promise<MediaStream> {
     const filter = snapshot.voiceFilter;
-    const strong = filter === "strong" && cleaner !== undefined;
-    const raw = await from.user({ audio: { echoCancellation: filter !== "off", noiseSuppression: filter !== "off" && !strong, autoGainControl: filter !== "off", ...(snapshot.microphoneId ? { deviceId: { exact: snapshot.microphoneId } } : {}) } });
-    if (!strong) return raw;
+    const { echo, gain, strength, balanced, gate, gateDb } = snapshot.settings;
+    const denoise = filter === "strong";
+    const chained = cleaner !== undefined && (denoise || balanced || gate);
+    const raw = await from.user({
+      audio: { echoCancellation: filter !== "off" && echo, noiseSuppression: filter === "standard" || (denoise && !chained), autoGainControl: filter !== "off" && gain, ...(snapshot.microphoneId ? { deviceId: { exact: snapshot.microphoneId } } : {}) },
+    });
+    if (!chained) return raw;
     try {
-      const cleaned = await cleaner(raw);
+      const cleaned = await cleaner(raw, { denoise, strength, balanced, gate, gateDb });
       releases.set(cleaned.stream, () => {
         cleaned.release();
         stop(raw);
@@ -115,6 +138,13 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     } catch {
       return raw;
     }
+  }
+
+  function gateKey() {
+    const open = !snapshot.settings.pushToTalk || snapshot.talking;
+    snapshot.microphone?.getAudioTracks().forEach((track) => {
+      track.enabled = open;
+    });
   }
 
   function end(stream: MediaStream | undefined) {
@@ -168,6 +198,8 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
           }),
         );
         patch({ [kind]: stream, busy: undefined });
+        if (kind === "microphone") gateKey();
+        if (kind === "screen") stream.getVideoTracks().forEach((track) => void (track.contentHint = "detail"));
         if (kind !== "screen") void refreshDevices();
       } catch (error) {
         const denied = error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError");
@@ -186,6 +218,24 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     async setVoiceFilter(filter) {
       patch({ voiceFilter: filter });
       await restart("microphone");
+    },
+    async setSettings(change) {
+      const before = snapshot.settings;
+      const settings = { ...before, ...change };
+      patch({ settings });
+      const differs = (...keys: (keyof MediaSettings)[]) => keys.some((key) => before[key] !== settings[key]);
+      if (differs("pushToTalk")) gateKey();
+      if (differs("echo", "gain", "strength", "balanced", "gate", "gateDb")) await restart("microphone");
+      if (differs("cameraQuality")) await restart("camera");
+      if (differs("screenQuality")) {
+        const { width, height, frameRate } = screenShape(settings.screenQuality);
+        await Promise.all((snapshot.screen?.getVideoTracks() ?? []).map((track) => track.applyConstraints({ width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } }).catch(() => undefined)));
+      }
+    },
+    talk(held) {
+      if (snapshot.talking === held) return;
+      patch({ talking: held });
+      gateKey();
     },
     dispose() {
       disposed = true;

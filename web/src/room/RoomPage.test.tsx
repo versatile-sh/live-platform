@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
+import { DEFAULT_SETTINGS } from "../media/settings";
 
 import type { RoomSummary, StatusResult } from "../api/rooms";
 import { writeSeat } from "../session/seat";
@@ -440,7 +441,8 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: /Connection quality/ }));
       const card = screen.getByRole("group", { name: "Connection quality" });
-      expect(within(card).getByText("measuring")).toBeInTheDocument();
+      expect(within(card).getAllByText("measuring").length).toBeGreaterThan(0);
+      for (const figure of ["Route", "Ping", "Loss", "Jitter", "Receiving", "Sending", "Video codec", "Audio codec"]) expect(within(card).getByText(figure)).toBeInTheDocument();
       expect(screen.getByLabelText("Message to the room")).toBeInTheDocument();
       const before = card.style.left;
       card.focus();
@@ -448,6 +450,21 @@ describe("RoomPage", () => {
       expect(card.style.left).not.toBe(before);
       await userEvent.click(within(card).getByRole("button", { name: "Put the connection card away" }));
       expect(screen.queryByRole("group", { name: "Connection quality" })).not.toBeInTheDocument();
+    });
+
+    test("sound and video settings open from more options and each choice is kept", async () => {
+      const written: object[] = [];
+      await inCall({ settingsMemory: { read: () => DEFAULT_SETTINGS, write: (settings: object) => void written.push(settings) } });
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Sound and video settings/ }));
+      const sheet = within(screen.getByRole("dialog", { name: "Sound and video settings" }));
+      await userEvent.click(sheet.getByRole("switch", { name: /Push to talk/ }));
+      await userEvent.click(sheet.getByRole("radio", { name: "Left Alt" }));
+      await userEvent.click(sheet.getByRole("radio", { name: "1440p · 60 fps" }));
+      await userEvent.click(sheet.getByRole("switch", { name: /Noise gate/ }));
+      expect(written.at(-1)).toMatchObject({ pushToTalk: true, talkKey: "AltLeft", screenQuality: "1440p60", gate: true });
+      expect(sheet.getByRole("radio", { name: "1440p · 60 fps" })).toHaveAttribute("aria-checked", "true");
+      expect(sheet.getByRole("slider", { name: "Gate opens at" })).toBeEnabled();
     });
 
     test("the keyboard shortcuts are listed and work", async () => {

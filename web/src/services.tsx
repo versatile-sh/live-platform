@@ -4,6 +4,7 @@ import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
 import type { LobbyStore } from "./lobby/lobby-store";
 import type { MediaDevicesPort, VoiceCleaner } from "./media/local-media";
+import type { MediaSettings } from "./media/settings";
 import type { RtcPort } from "./media/room-media";
 import type { ProjectStore } from "./project/project-store";
 import type { EntryIntent } from "./session/intent";
@@ -20,6 +21,7 @@ export type Services = {
   seatStorage: SeatStorage;
   mediaDevices: MediaDevicesPort | undefined;
   voiceCleaner: VoiceCleaner | undefined;
+  settingsMemory: { read(): MediaSettings; write(settings: MediaSettings): void };
   rtc: RtcPort;
   entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };
