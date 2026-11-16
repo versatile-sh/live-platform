@@ -13,19 +13,29 @@ The name a person chooses for a room, which is also its address. A slug is free 
 _Avoid_: room id, room code
 
 **Public room**:
-A room anyone may enter without a password. Its media is encrypted in transit only.
+A room anyone with the link may enter. Its media is encrypted in transit only.
 _Avoid_: open room
 
 **Private room**:
-A room entered with a password. Its media is end-to-end encrypted with a key derived from that password in the browser. Never listed.
+A room that asks for its room code. Its media is end-to-end encrypted with a key derived from that code in the browser.
 _Avoid_: locked room, secret room
 
-**Listed room**:
-A public room whose owner chose to show it in the lobby.
+**Room code**:
+The password of a private room: eight capitals and digits in two groups, drawn in the browser.
+_Avoid_: password, PIN
 
-**Lobby**:
-The list of listed rooms, each with the country detected for its owner.
-_Avoid_: waiting room (that is the admission queue)
+**Listed room**:
+A room whose owner chose to show it in the open rooms, public or private.
+
+**Open rooms**:
+The list and the map of listed rooms, each with the country detected for its owner.
+_Avoid_: lobby (the word in code and URLs), waiting room
+
+**Doorway**:
+What a room asks before letting someone in: a name, and the room code if it is private.
+
+**Look**:
+How a participant appears when no camera shows them: the characters of a face, a colour, a tilt, or a photo kept only while they are in the room.
 
 **Release**:
 The moment a room that stayed empty ceases to exist and its slug becomes free.
