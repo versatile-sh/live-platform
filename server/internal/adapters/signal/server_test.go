@@ -204,6 +204,21 @@ func TestSignalling(t *testing.T) {
 		assert.Equal(t, "joined", f.T)
 	})
 
+	t.Run("a look chosen on entry and changed later reaches the room", func(t *testing.T) {
+		url := startServer(t, nil)
+		ana, bia := dial(t, url), dial(t, url)
+		ana.send(`{"t":"join","slug":"bk","name":"ana","look":35}`)
+		_, err := ana.next()
+		require.NoError(t, err)
+		bia.join("bia")
+		seen := bia.until(func(f serverFrame) bool { return has(f, 1, "") })
+		assert.Equal(t, uint16(35), seen.People[0].Look)
+		ana.send(`{"t":"look","look":49}`)
+		bia.until(func(f serverFrame) bool { return f.T == "roster" && len(f.People) > 0 && f.People[0].Look == 49 })
+		ana.send(`{"t":"look","look":65535}`)
+		bia.until(func(f serverFrame) bool { return f.T == "roster" && len(f.People) > 0 && f.People[0].Look == 0 })
+	})
+
 	t.Run("a chat line reaches the room with its author, and a bad one is refused to its sender only", func(t *testing.T) {
 		url := startServer(t, nil)
 		ana, bia := dial(t, url), dial(t, url)

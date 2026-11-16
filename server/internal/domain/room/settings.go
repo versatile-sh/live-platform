@@ -39,6 +39,7 @@ func (s Settings) validate() error {
 // Entry is what a person presents to enter a room, and what they ask for if the slug turns out to be free.
 type Entry struct {
 	Name    string
+	Look    Look
 	Proof   *Verifier
 	Listed  bool
 	Country string

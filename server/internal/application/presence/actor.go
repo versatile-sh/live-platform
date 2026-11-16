@@ -105,7 +105,7 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 	if err != nil {
 		return room.Seat{}, err
 	}
-	p, events, err := a.room.Join(a.now(), entry.Name, sha256.Sum256(secret[:]), a.room.Count() == 0)
+	p, events, err := a.room.Join(a.now(), entry.Name, entry.Look, sha256.Sum256(secret[:]), a.room.Count() == 0)
 	if err != nil {
 		return room.Seat{}, err
 	}
