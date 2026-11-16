@@ -86,28 +86,28 @@ func (a *actor) untilNextWake() time.Duration {
 	return max(wake.Sub(now), time.Millisecond)
 }
 
-func (a *actor) join(name string, session outbound.Session) (Seat, error) {
+func (a *actor) join(name string, session outbound.Session) (room.Seat, error) {
 	secret, err := newSecret()
 	if err != nil {
-		return Seat{}, err
+		return room.Seat{}, err
 	}
 	p, events, err := a.room.Join(a.now(), name, sha256.Sum256(secret[:]), a.room.Count() == 0)
 	if err != nil {
-		return Seat{}, err
+		return room.Seat{}, err
 	}
 	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
-	return Seat{PID: p.ID, Gen: p.Gen, Secret: secret}, nil
+	return room.Seat{PID: p.ID, Gen: p.Gen, Secret: secret}, nil
 }
 
-func (a *actor) resume(pid room.PID, secret [32]byte, session outbound.Session) (Seat, error) {
+func (a *actor) resume(pid room.PID, secret [32]byte, session outbound.Session) (room.Seat, error) {
 	next, err := newSecret()
 	if err != nil {
-		return Seat{}, err
+		return room.Seat{}, err
 	}
 	p, events, err := a.room.Resume(a.now(), pid, sha256.Sum256(secret[:]), sha256.Sum256(next[:]))
 	if err != nil {
-		return Seat{}, err
+		return room.Seat{}, err
 	}
 	s := a.seats[pid]
 	if s.online {
@@ -115,7 +115,7 @@ func (a *actor) resume(pid room.PID, secret [32]byte, session outbound.Session) 
 	}
 	*s = seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
-	return Seat{PID: p.ID, Gen: p.Gen, Secret: next}, nil
+	return room.Seat{PID: p.ID, Gen: p.Gen, Secret: next}, nil
 }
 
 func (a *actor) touch(pid room.PID, gen uint32) {
