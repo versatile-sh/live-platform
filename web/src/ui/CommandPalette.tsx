@@ -57,7 +57,7 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
   return (
     <>
       <button type="button" aria-label={t("palette.close")} tabIndex={-1} className="fixed inset-0 z-40 cursor-default bg-ink/60" onClick={onClose} />
-      <section role="dialog" aria-label={t("palette.label")} className="swap-in fixed top-[12vh] left-1/2 z-50 flex max-h-[min(34rem,76vh)] w-[min(38rem,calc(100vw-2rem))] -translate-x-1/2 flex-col rounded-[1.5rem] rounded-br-[0.4rem] border border-line-strong bg-card">
+      <section role="dialog" aria-label={t("palette.label")} className="swap-in fixed top-[12vh] left-1/2 z-50 flex max-h-[min(34rem,76vh)] w-[min(38rem,calc(100vw-2rem))] -translate-x-1/2 flex-col bubble-sent border border-line-strong bg-card">
         <div className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-5">
           <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 shrink-0 text-accent" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
             <circle cx="7" cy="7" r="4.5" />
@@ -103,7 +103,7 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
                         role="option"
                         aria-selected={selected}
                         ref={selected ? intoView : undefined}
-                        className="flex h-11 cursor-pointer items-center justify-between gap-3 rounded-[1rem] rounded-bl-[0.3rem] px-3.5 text-sm transition-colors duration-150 aria-selected:bg-bubble aria-selected:font-semibold aria-selected:text-on-bubble"
+                        className="flex h-11 cursor-pointer items-center justify-between gap-3 bubble px-3.5 text-sm transition-colors duration-150 aria-selected:bg-bubble aria-selected:font-semibold aria-selected:text-on-bubble"
                         onPointerMove={() => setActive(found.indexOf(command))}
                         onClick={() => run(command)}
                       >

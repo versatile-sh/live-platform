@@ -92,7 +92,7 @@ function DeviceList({
             return (
               <label
                 key={device.id}
-                className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-2.5 text-sm transition-colors duration-200 hover:bg-fg/8 has-checked:bg-fg/10 has-focus-visible:outline-2 has-focus-visible:outline-fg/55"
+                className="flex min-h-10 cursor-pointer items-center gap-3 bubble px-2.5 text-sm transition-colors duration-200 hover:bg-fg/8 has-checked:bg-fg/10 has-focus-visible:outline-2 has-focus-visible:outline-fg/55"
               >
                 <input
                   type="radio"
@@ -495,7 +495,7 @@ export function RoomView({
                     playsInline
                     className="absolute inset-0 -z-10 size-full object-contain"
                   />
-                  <span className="absolute bottom-2.5 left-2.5 rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold">
+                  <span className="absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold">
                     {t("room.yourScreen")}
                   </span>
                 </li>
@@ -513,7 +513,7 @@ export function RoomView({
                     className="absolute inset-0 -z-10 size-full object-contain"
                   />
                   <span
-                    className="absolute bottom-2.5 left-2.5 rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold"
+                    className="absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold"
                     translate="no"
                   >
                     {t("room.screenOf", { name: person.name })}
@@ -841,7 +841,7 @@ export function RoomView({
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors duration-200 hover:bg-fg/8"
+                  className="flex h-10 w-full items-center bubble px-3 text-left text-sm transition-colors duration-200 hover:bg-fg/8"
                   onClick={() => {
                     setPersonMenu(undefined);
                     run();
@@ -1077,7 +1077,7 @@ export function RoomView({
                       <button
                         type="button"
                         role="menuitem"
-                        className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
+                        className="flex h-11 w-full items-center gap-3 bubble px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
                         onClick={() => {
                           setMenu(undefined);
                           run();

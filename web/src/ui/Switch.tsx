@@ -11,7 +11,7 @@ export function Switch({ checked, onChange, children, hint }: { checked: boolean
       <input type="checkbox" role="switch" checked={checked} onChange={(event) => onChange(event.target.checked)} className="peer sr-only" />
       <span
         aria-hidden="true"
-        className="relative h-6 w-11 shrink-0 rounded-full bg-line-strong transition-colors duration-300 peer-checked:bg-bubble peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-fg/55 after:absolute after:top-0.5 after:left-0.5 after:size-5 after:rounded-full after:bg-paper after:transition-transform after:duration-300 peer-checked:after:translate-x-5 peer-checked:after:bg-ink"
+        className="bubble-word relative h-6 w-11 shrink-0 bg-line-strong transition-colors duration-300 peer-checked:bg-bubble peer-focus-visible:outline-2 peer-focus-visible:outline-offset-3 peer-focus-visible:outline-fg/55 after:absolute after:top-0.5 after:left-0.5 after:size-5 after:[border-radius:inherit] after:bg-paper after:transition-transform after:duration-300 peer-checked:after:translate-x-5 peer-checked:after:bg-ink"
       />
     </label>
   );

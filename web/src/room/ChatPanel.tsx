@@ -199,8 +199,8 @@ export function ChatPanel({
                     <span
                       className={`max-w-[85%] px-3.5 py-2 text-[0.9375rem] leading-snug break-words whitespace-pre-wrap ${
                         mine
-                          ? "rounded-[1.1rem] rounded-br-[0.3rem] bg-bubble text-on-bubble"
-                          : "rounded-[1.1rem] rounded-bl-[0.3rem] border border-line-strong bg-canvas"
+                          ? "bubble-sent bg-bubble text-on-bubble"
+                          : "bubble border border-line-strong bg-canvas"
                       }`}
                     >
                       {line.text}

@@ -35,7 +35,16 @@ A colour that is not a token does not exist. `src/ui/tokens.test.ts` checks cont
 
 Type: Space Grotesk (display, bold, tracking -0.04em), Noto Sans (body), JetBrains Mono (the wordmark, addresses, room codes, counts). All served from our origin.
 
-Shape: `.bubble` (1.25rem corners, 0.3rem tail at the bottom left) for cards that speak; `.bubble-word` for a few words; full pills for buttons and switches; 2xl corners for call tiles and panels, which are screens, not speech.
+Shape. One family of speech bubbles, and nothing else has a tail:
+
+| Class | Corners | Use it for |
+| --- | --- | --- |
+| `.bubble` | 1.25rem, 0.3rem tail bottom left | anything the site says or holds: cards, fields, menus, rows, messages from others |
+| `.bubble-sent` | same, tail bottom right | what is mine or what I opened: my messages, sheets, dialogs, the command search |
+| `.bubble-word` | 0.9em, 0.2em tail bottom left | one line of words: badges, chips, small buttons, labels over video, the switch and the two-way selector (their thumbs inherit the shape) |
+| `.bubble-word-sent` | same, tail bottom right | one line of words on the sending side: the wordmark plate |
+
+Outside the family only three shapes exist: `rounded-full` for round things (avatars, icon buttons, dots, colour swatches), `rounded-2xl` for screens (call tiles and side panels, which show and do not speak), and `rounded-md` for keycaps. No arbitrary radius (`rounded-[…]`) in components; `src/ui/shape.test.ts` fails when one appears.
 
 Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and thumbs, 500 to 700 ms); `--ease-settle` for things that arrive. Classes: `ride-in`, `swap-in`, `arrive`. Reduced motion turns all of it off.
 
