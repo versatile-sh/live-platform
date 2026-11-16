@@ -4,13 +4,6 @@ export const SURFACE = "bubble border border-line-strong bg-card";
 /** Press feedback for anything clickable that is drawn as a button. */
 export const PRESS = "transition-[background-color,border-color,color,opacity,transform] duration-150 active:scale-[0.97]";
 
-/** Single-line form field. */
-export const FIELD =
-  "block h-11 w-full rounded-xl border border-muted-light bg-canvas px-3.5 text-fg placeholder:text-muted transition-colors duration-200 focus:border-fg/50 aria-invalid:border-amber";
-
-/** Small mono caption for machine facts: slugs, counts, states. */
-export const CAPTION = "font-mono text-xs text-muted";
-
 /** Quiet underlined text link. */
 export const QUIET_LINK = "cursor-pointer underline decoration-line-strong underline-offset-4 transition-colors hover:text-fg hover:decoration-fg";
 
