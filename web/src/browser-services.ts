@@ -1,4 +1,5 @@
 import { formatLook, parseLook, randomLook } from "./domain/look";
+import { parseSettings } from "./media/settings";
 import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
@@ -12,6 +13,7 @@ import type { Services } from "./services";
 const NAME_KEY = "live.name";
 const LOOK_KEY = "live.look";
 const FACE_KEY = "live.face";
+const SETTINGS_KEY = "live.media";
 const PHOTO_SIDE = 128;
 const PHOTO_MAX_BASE64 = 13_000;
 
@@ -79,7 +81,7 @@ export function createBrowserServices(): Services {
           display: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
         }
       : undefined,
-    voiceCleaner: typeof AudioWorkletNode === "undefined" || typeof WebAssembly === "undefined" ? undefined : async (raw) => (await import("./media/voice-cleaner")).cleanVoice(raw),
+    voiceCleaner: typeof AudioWorkletNode === "undefined" || typeof WebAssembly === "undefined" ? undefined : async (raw, chain) => (await import("./media/voice-cleaner")).cleanVoice(raw, chain),
     entryIntent: createEntryIntent(),
     faceMemory: {
       read: () => local?.getItem(FACE_KEY) ?? "",
@@ -92,6 +94,16 @@ export function createBrowserServices(): Services {
       },
     },
     shrinkPhoto,
+    settingsMemory: {
+      read: () => parseSettings(local?.getItem(SETTINGS_KEY)),
+      write(settings) {
+        try {
+          local?.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        } catch {
+          return;
+        }
+      },
+    },
     lookMemory: {
       read() {
         const kept = local?.getItem(LOOK_KEY) ?? "";

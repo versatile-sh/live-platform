@@ -4,6 +4,7 @@ package page
 import (
 	"io/fs"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -11,7 +12,13 @@ const contentSecurityPolicy = "default-src 'none'; script-src 'self' 'wasm-unsaf
 	"img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; " +
 	"base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
-// Handler serves hashed assets as immutable and answers every other path with the page itself, never cached.
+// hashed tells a file the build named after its content, which can be kept forever, from one with a fixed name.
+var hashed = regexp.MustCompile(`-[A-Za-z0-9_-]{8}\.[a-z0-9]+$`)
+
+// previewImage is the one file other sites may show: the picture a shared link is given.
+const previewImage = "/assets/og.png"
+
+// Handler serves assets named after their content as immutable, the others for an hour, and answers every other path with the page itself, never cached.
 func Handler(files fs.FS) (http.Handler, error) {
 	sub, err := fs.Sub(files, "assets")
 	if err != nil {
@@ -25,8 +32,15 @@ func Handler(files fs.FS) (http.Handler, error) {
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Cross-Origin-Opener-Policy", "same-origin")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
+		if r.URL.Path == previewImage {
+			h.Set("Cross-Origin-Resource-Policy", "cross-origin")
+		}
 		if strings.HasPrefix(r.URL.Path, "/assets/") {
-			h.Set("Cache-Control", "public, max-age=31536000, immutable")
+			if hashed.MatchString(r.URL.Path) {
+				h.Set("Cache-Control", "public, max-age=31536000, immutable")
+			} else {
+				h.Set("Cache-Control", "public, max-age=3600")
+			}
 			assets.ServeHTTP(w, r)
 			return
 		}
