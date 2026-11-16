@@ -57,6 +57,7 @@
 }
 
 html {
+  overflow-x: clip;
   background: var(--color-canvas);
   color-scheme: dark light;
   scrollbar-color: var(--color-line-strong) var(--color-canvas);
@@ -100,14 +101,30 @@ body {
   }
 }
 
-.bubble {
+.bubble,
+.bubble-sent {
   border-radius: var(--radius-bubble);
+}
+
+.bubble {
   border-bottom-left-radius: var(--radius-tail);
 }
 
+.bubble-sent {
+  border-bottom-right-radius: var(--radius-tail);
+}
+
+.bubble-word,
+.bubble-word-sent {
+  border-radius: 0.9em;
+}
+
 .bubble-word {
-  border-radius: 0.42em;
-  border-bottom-left-radius: 0.1em;
+  border-bottom-left-radius: 0.2em;
+}
+
+.bubble-word-sent {
+  border-bottom-right-radius: 0.2em;
 }
 
 .backdrop-grid {
@@ -175,8 +192,8 @@ html[data-motion="forward"]::view-transition-new(root) {
 }
 
 .page-forward {
-  animation: page-in 0.55s var(--ease-glide) both;
-  --page-from: 6rem;
+  animation: page-in 0.5s var(--ease-settle) backwards;
+  --page-from: 2.5rem;
 }
 
 @keyframes page-out {

@@ -51,7 +51,7 @@ export function Tile({ person, isMe, video, photo, onMenu }: TileProps) {
       </div>
 
       <div className="absolute inset-x-2.5 bottom-2.5 flex items-center gap-1.5">
-        <span className={`min-w-0 truncate rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold ${view.trouble ? "opacity-70" : ""}`} translate="no">
+        <span className={`min-w-0 truncate bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold ${view.trouble ? "opacity-70" : ""}`} translate="no">
           {person.name}
         </span>
         {isMe ? <span className="bubble-word shrink-0 bg-bubble px-2 py-0.5 font-mono text-xs text-on-bubble">{t("room.you")}</span> : null}
