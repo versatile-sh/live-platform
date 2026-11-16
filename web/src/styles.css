@@ -425,3 +425,19 @@ html[data-motion="forward"]::view-transition-new(root) {
     transition: none !important;
   }
 }
+
+[data-board] .excalidraw,
+[data-board] .excalidraw.theme--dark {
+  --color-primary: var(--color-bubble);
+  --color-primary-darker: #b4e01f;
+  --color-primary-darkest: #a2cc14;
+  --color-primary-hover: #d4f95e;
+  --color-primary-light: #2c3518;
+  --color-primary-light-darker: #37421c;
+  --color-brand-hover: #d4f95e;
+  --color-brand-active: #b4e01f;
+  --color-surface-primary-container: #37421c;
+  --color-on-primary-container: #e9fbb0;
+  --color-selection: var(--color-bubble);
+  --color-logo-text: var(--color-paper);
+}
