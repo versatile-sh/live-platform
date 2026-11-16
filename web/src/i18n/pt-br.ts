@@ -35,6 +35,7 @@ export const ptBR: Record<MessageKey, string> = {
   "home.unlockedHint": "Quem tiver o link entra. Mesmo assim ela nunca aparece nas salas abertas.",
   "home.newCode": "Nova",
   "home.settingsNote": "As configurações valem quando o nome está livre e a sala é nova.",
+  "home.back": "Voltar",
   "home.seeRooms": "Ver salas abertas",
 
   "lobby.back": "Voltar para entrar",
