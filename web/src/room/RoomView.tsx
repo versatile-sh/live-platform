@@ -1,7 +1,8 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { hasFlag } from "../domain/flags";
-import { useT } from "../i18n/I18nProvider";
+import { shareLink } from "../domain/share-link";
+import { useChooseLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
 import { createLocalMedia, type Device, type LocalMedia, type LocalMediaSnapshot, type MediaKind } from "../media/local-media";
 import { useNavigate } from "../routing/Navigation";
@@ -9,6 +10,7 @@ import { useServices } from "../services";
 import type { Notice } from "../session/connection";
 import type { Session, SessionSnapshot } from "../session/session";
 import { Avatar } from "../ui/Avatar";
+import { CommandPalette } from "../ui/CommandPalette";
 import { Icon, type IconName } from "../ui/icons";
 import { Sheet } from "../ui/Sheet";
 import { Segmented } from "../ui/Segmented";
@@ -161,6 +163,9 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
   const [seeing, setSeeing] = useState<Readonly<Record<number, Seeing>>>({});
   const [personMenu, setPersonMenu] = useState<{ pid: number; x: number; y: number } | undefined>();
   const [privately, setPrivately] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const choose = useChooseLocale();
+  const { clipboard, origin } = useServices();
   const [peer, setPeer] = useState<number | undefined>();
   const sees = (pid: number): Seeing => seeing[pid] ?? SEE_ALL;
   const see = (pid: number, change: Partial<Seeing>) => setSeeing({ ...seeing, [pid]: { ...sees(pid), ...change } });
@@ -173,6 +178,9 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
       if (!event.ctrlKey || event.metaKey) return;
       const key = event.key.toLowerCase();
       const act =
+        !event.altKey && !event.shiftKey && key === "k"
+          ? () => setPalette((open) => !open)
+          :
         !event.altKey && !event.shiftKey && key === "d"
           ? () => void media.toggle("microphone")
           : !event.altKey && !event.shiftKey && key === "e"
@@ -368,6 +376,41 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
         </aside>
       </div>
 
+      {palette ? (
+        <CommandPalette
+          onClose={() => setPalette(false)}
+          commands={[
+            { id: "mic", group: t("palette.group.call"), label: t(local.microphone ? "dock.micOff" : "dock.micOn"), keys: "Ctrl+D", run: () => void media.toggle("microphone") },
+            { id: "camera", group: t("palette.group.call"), label: t(local.camera ? "dock.cameraOff" : "dock.cameraOn"), keys: "Ctrl+E", run: () => void media.toggle("camera") },
+            { id: "screen", group: t("palette.group.call"), label: t(local.screen ? "dock.screenOff" : "dock.screenOn"), keys: "Ctrl+Shift+E", run: () => void media.toggle("screen") },
+            { id: "hand", group: t("palette.group.call"), label: t(local.hand ? "dock.handDown" : "dock.handUp"), keys: "Ctrl+Alt+H", run: media.toggleHand },
+            { id: "leave", group: t("palette.group.call"), label: t("room.leave"), run: leave },
+            { id: "chat", group: t("palette.group.panels"), label: t("side.chat"), keys: "Ctrl+Alt+C", run: () => (setPrivately(false), setSide("chat")) },
+            { id: "people", group: t("palette.group.panels"), label: t("side.people"), keys: "Ctrl+Alt+P", run: () => setSide("people") },
+            ...(iAmOwner ? [{ id: "settings", group: t("palette.group.panels"), label: t("side.settings"), run: () => setSide("settings") }] : []),
+            { id: "look", group: t("palette.group.room"), label: t("more.look"), run: () => setSheet("look") },
+            { id: "visibility", group: t("palette.group.room"), label: t("more.visibility"), run: () => setSheet("visibility") },
+            { id: "connection", group: t("palette.group.room"), label: t("more.connection"), run: () => setStats(true) },
+            { id: "shortcuts", group: t("palette.group.room"), label: t("more.shortcuts"), run: () => setSheet("shortcuts") },
+            { id: "link", group: t("palette.group.room"), label: t("palette.copyLink"), run: () => void clipboard.write(shareLink(origin, slug, snapshot.private ? snapshot.password : undefined)) },
+            ...people
+              .filter((person) => person.pid !== myPid)
+              .map((person) => ({
+                id: `dm-${person.pid}`,
+                group: t("palette.group.people"),
+                label: t("palette.dm", { name: person.name }),
+                run: () => {
+                  setPeer(person.pid);
+                  setPrivately(true);
+                  setSide("chat");
+                },
+              })),
+            { id: "en", group: t("palette.group.language"), label: "English", run: () => choose("en") },
+            { id: "pt", group: t("palette.group.language"), label: "Português", run: () => choose("pt-BR") },
+          ]}
+        />
+      ) : null}
+
       {personMenu && people.some((person) => person.pid === personMenu.pid) ? (
         <>
           <button type="button" aria-label={t("menu.close")} className="fixed inset-0 z-30 cursor-default" onClick={() => setPersonMenu(undefined)} onContextMenu={(event) => (event.preventDefault(), setPersonMenu(undefined))} />
@@ -421,6 +464,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
         <Sheet title={t("more.shortcuts")} closeLabel={t("more.close")} onClose={() => setSheet(undefined)}>
           <dl className="flex flex-col gap-2 text-sm">
             {[
+              [t("shortcut.palette"), "Ctrl+K"],
               [t("shortcut.mic"), "Ctrl+D"],
               [t("shortcut.camera"), "Ctrl+E"],
               [t("shortcut.screen"), "Ctrl+Shift+E"],
@@ -496,6 +540,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
                   {(
                     [
                       ...(iAmOwner ? [["more.access", "settings", undefined, () => setSide("settings")] as const] : []),
+                      ["more.palette", "search", "Ctrl+K", () => setPalette(true)] as const,
                       ["more.look", "look", undefined, () => setSheet("look")] as const,
                       ["more.visibility", "eye", undefined, () => setSheet("visibility")] as const,
                       ["more.connection", "people", undefined, () => setStats((shown) => !shown)] as const,
@@ -512,7 +557,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
                           run();
                         }}
                       >
-                        <Icon name={icon === "settings" ? "settings" : icon === "people" ? "signal" : icon === "eye" ? "eye" : icon === "look" ? "face" : "keyboard"} className="size-4 text-accent" />
+                        <Icon name={icon === "settings" ? "settings" : icon === "people" ? "signal" : icon === "eye" ? "eye" : icon === "look" ? "face" : icon === "search" ? "search" : "keyboard"} className="size-4 text-accent" />
                         <span className="flex-1 text-left">{t(label)}</span>
                         {keys ? <kbd className="rounded-md border border-line-strong px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted">{keys}</kbd> : null}
                       </button>
