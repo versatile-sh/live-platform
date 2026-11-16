@@ -67,8 +67,8 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     : undefined;
 
   return (
-    <div className="pt-6">
-      <h1 className="font-display text-3xl font-bold tracking-[-0.044em] sm:text-4xl">
+    <div className="w-full max-w-md">
+      <h1 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
         <span translate="no">{creating ? t("entry.createTitle", { slug }) : t("entry.joinTitle", { slug })}</span>
       </h1>
       <p className="mt-4 mb-6 max-w-xl text-muted">{creating ? t("entry.createIntro") : full ? t("entry.joinFull", { count: room.count, capacity: room.capacity }) : t("entry.joinPeople", { count: room.count, capacity: room.capacity })}</p>
@@ -105,24 +105,23 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
             </label>
             <p className={`${CAPTION} mb-5 pl-8`}>{isPrivate ? t("entry.listedPrivate") : t("entry.listedHint")}</p>
 
-            <PasswordField
-              label={t("entry.passwordLabel")}
-              value={values.password}
-              onChange={(password) => update({ password })}
-              generated
-              disabled={!isPrivate}
-              onGenerate={() => update({ password: services.generatePassword() })}
-              hint={
-                !isPrivate ? (
-                  t("entry.passwordPublic")
-                ) : isWeakChoice(values) && !problems.password ? (
-                  <span className="text-amber">{t("password.weak")}</span>
-                ) : (
-                  t("entry.passwordCreateHint")
-                )
-              }
-              {...(passwordProblem ? { error: passwordProblem } : {})}
-            />
+            {isPrivate ? (
+              <PasswordField
+                label={t("entry.passwordLabel")}
+                value={values.password}
+                onChange={(password) => update({ password })}
+                generated
+                  onGenerate={() => update({ password: services.generatePassword() })}
+                hint={
+                  isWeakChoice(values) && !problems.password ? (
+                    <span className="text-amber">{t("password.weak")}</span>
+                  ) : (
+                    t("entry.passwordCreateHint")
+                  )
+                }
+                {...(passwordProblem ? { error: passwordProblem } : {})}
+              />
+            ) : null}
           </>
         ) : room.private ? (
           <>
