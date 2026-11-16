@@ -1,3 +1,4 @@
+import { PROJECT_LINKS } from "../project/project-store";
 import { act, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 
@@ -51,6 +52,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
   return {
     roomsApi: { status: async () => ({ kind: "unreachable" }), lobby: async () => ({ kind: "unreachable" }) },
     lobby: staticLobby({ status: "ready", rooms: [] }),
+    project: { subscribe: () => () => undefined, getSnapshot: () => PROJECT_LINKS },
     socket: factory,
     signalUrl: "ws://test/ws",
     seatStorage: memoryStorage(),

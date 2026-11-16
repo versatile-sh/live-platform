@@ -161,7 +161,7 @@ describe("RoomPage", () => {
       act(() => socket.serverClose(code));
       expect(await screen.findByRole("heading", { name: title })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Rejoin" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Back to the lobby" })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: "Back to the start" })).toHaveAttribute("href", "/");
     });
 
     test("rejoin enters again with the same name", async () => {

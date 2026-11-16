@@ -1,8 +1,7 @@
 import { screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 
-import { fakePathname, fakeServices, renderWithApp, staticLobby } from "../test-support/render";
+import { fakeServices, renderWithApp, staticLobby } from "../test-support/render";
 import { LobbyPage } from "./LobbyPage";
 
 const room = (over: object) => ({ slug: "standup", exists: true, private: false, count: 3, capacity: 10, ...over });
@@ -12,7 +11,7 @@ describe("LobbyPage", () => {
     test("says how to start one", () => {
       renderWithApp(<LobbyPage />);
       expect(screen.getByText("No listed rooms right now.")).toBeInTheDocument();
-      expect(screen.getByText(/type a name above and go/)).toBeInTheDocument();
+      expect(screen.getByText(/Go back and type a name/)).toBeInTheDocument();
     });
 
     test("speaks Portuguese for a pt-BR visitor", () => {
@@ -43,24 +42,6 @@ describe("LobbyPage", () => {
       renderWithApp(<LobbyPage />, { services: fakeServices({ lobby: staticLobby({ status: "failed", rooms: [room({})] }) }) });
       expect(screen.getByRole("link", { name: "Enter room standup" })).toBeInTheDocument();
       expect(screen.getByRole("status")).toHaveTextContent("Could not reach the server. Trying again.");
-    });
-  });
-
-  describe("the room name field", () => {
-    test("goes to the room for a valid name, normalising case", async () => {
-      const pathname = fakePathname();
-      renderWithApp(<LobbyPage />, { pathname });
-      await userEvent.type(screen.getByLabelText("Room name"), "  Stand-Up{enter}");
-      expect(pathname.visited).toEqual(["/stand-up"]);
-    });
-
-    test("explains an invalid name and does not navigate", async () => {
-      const pathname = fakePathname();
-      renderWithApp(<LobbyPage />, { pathname });
-      await userEvent.type(screen.getByLabelText("Room name"), "api{enter}");
-      expect(screen.getByLabelText("Room name")).toBeInvalid();
-      expect(screen.getByText("The site keeps that name. Pick another one.")).toBeInTheDocument();
-      expect(pathname.visited).toEqual([]);
     });
   });
 });
