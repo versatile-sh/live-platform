@@ -11,7 +11,7 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
   const t = useT();
   if (bare) {
     return (
-      <main id="main" tabIndex={-1} className="flex min-h-dvh flex-col">
+      <main id="main" tabIndex={-1} className="flex min-h-dvh flex-col lg:h-dvh">
         {children}
       </main>
     );
