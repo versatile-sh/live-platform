@@ -85,7 +85,7 @@ function DeviceList({
 }) {
   const t = useT();
   return (
-    <fieldset>
+    <fieldset className="min-w-0">
       <legend className="mb-1.5 text-sm font-semibold">{label}</legend>
       {devices.length === 0 ? (
         <p className="text-sm text-muted">{t("menu.noDevices")}</p>
