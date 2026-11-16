@@ -38,6 +38,14 @@ type clientFrame struct {
 	Listed   bool   `json:"listed"`
 	Text     string `json:"text"`
 	Look     uint16 `json:"look"`
+	Face     string `json:"face"`
+	Data     string `json:"data"`
+}
+
+type photoFrame struct {
+	T    string `json:"t"`
+	PID  uint32 `json:"pid"`
+	Data string `json:"data"`
 }
 
 type chatFrame struct {
@@ -55,6 +63,7 @@ type person struct {
 	State string `json:"state"`
 	Flags uint16 `json:"flags"`
 	Look  uint16 `json:"look"`
+	Face  string `json:"face,omitempty"`
 }
 
 type departure struct {
@@ -85,12 +94,16 @@ type errorFrame struct {
 func encodeRoster(s room.Snapshot) []byte {
 	f := rosterFrame{T: "roster", V: s.Version, People: make([]person, len(s.Participants))}
 	for i, p := range s.Participants {
-		f.People[i] = person{PID: uint32(p.ID), Slot: p.Slot, Name: p.Name, State: p.State.String(), Flags: uint16(p.Flags), Look: uint16(p.Look)}
+		f.People[i] = person{PID: uint32(p.ID), Slot: p.Slot, Name: p.Name, State: p.State.String(), Flags: uint16(p.Flags), Look: uint16(p.Look), Face: p.Face}
 	}
 	for _, d := range s.Gone {
 		f.Gone = append(f.Gone, departure{PID: uint32(d.PID), Reason: string(d.Reason)})
 	}
 	return mustJSON(f)
+}
+
+func encodePhoto(pid room.PID, jpeg []byte) []byte {
+	return mustJSON(photoFrame{T: "photo", PID: uint32(pid), Data: base64.StdEncoding.EncodeToString(jpeg)})
 }
 
 func encodeChat(m room.ChatMessage) []byte {

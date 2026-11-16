@@ -21,6 +21,9 @@ export type Services = {
   entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };
   lookMemory: { read(): number; write(look: number): void };
+  faceMemory: { read(): string; write(face: string): void };
+  /** Shrinks a picture chosen by the person to a small square JPEG as base64, or nothing when it cannot be read. */
+  shrinkPhoto(file: Blob): Promise<string | undefined>;
   origin: string;
   clipboard: { write(text: string): Promise<boolean> };
   readPasswordHash(): string;

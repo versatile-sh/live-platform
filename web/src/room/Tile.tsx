@@ -4,7 +4,7 @@ import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
 
-type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined };
+type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined };
 
 function attach(stream: MediaStream | undefined) {
   return (element: HTMLVideoElement | null) => {
@@ -13,7 +13,7 @@ function attach(stream: MediaStream | undefined) {
 }
 
 /** One participant on the stage: their camera when there is one to show, otherwise their initial; always their name and, in words, any trouble. */
-export function Tile({ person, isMe, video }: TileProps) {
+export function Tile({ person, isMe, video, photo }: TileProps) {
   const t = useT();
   const view = describePerson(person);
     const muted = !view.flags.includes("microphone");
@@ -28,7 +28,7 @@ export function Tile({ person, isMe, video }: TileProps) {
       {video ? (
         <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full object-cover ${isMe ? "-scale-x-100" : ""}`} />
       ) : (
-        <Avatar look={person.look} className={`size-[30%] max-h-32 min-h-14 max-w-32 min-w-14 text-[clamp(1.75rem,5vw,4rem)] ${view.trouble ? "opacity-50" : ""}`} />
+        <Avatar look={person.look} face={person.face} name={person.name} photo={photo} className={`text-[clamp(4.5rem,14vw,9rem)] ${view.trouble ? "opacity-50" : ""}`} />
       )}
 
       <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
