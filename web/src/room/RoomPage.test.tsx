@@ -479,6 +479,7 @@ describe("RoomPage", () => {
     test("the whiteboard is offered in the menu and what the others draw is heard even while it is closed", async () => {
       const { socket } = await inCall();
       await send(socket, { t: "board", pid: 2, data: { k: "els", els: [{ id: "a", version: 1, versionNonce: 1 }] } });
+      expect(screen.getByRole("button", { name: "Whiteboard" })).toHaveAttribute("aria-pressed", "false");
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       expect(screen.getByRole("menuitem", { name: /Whiteboard/ })).toBeInTheDocument();
     });
