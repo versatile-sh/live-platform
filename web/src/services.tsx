@@ -3,7 +3,7 @@ import { createContext, use, type ReactNode } from "react";
 import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
 import type { LobbyStore } from "./lobby/lobby-store";
-import type { MediaDevicesPort } from "./media/local-media";
+import type { MediaDevicesPort, VoiceCleaner } from "./media/local-media";
 import type { RtcPort } from "./media/room-media";
 import type { ProjectStore } from "./project/project-store";
 import type { EntryIntent } from "./session/intent";
@@ -19,6 +19,7 @@ export type Services = {
   signalUrl: string;
   seatStorage: SeatStorage;
   mediaDevices: MediaDevicesPort | undefined;
+  voiceCleaner: VoiceCleaner | undefined;
   rtc: RtcPort;
   entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };

@@ -1,6 +1,6 @@
 type SegmentedProps<T extends string> = {
   label: string;
-  options: readonly [{ value: T; text: string }, { value: T; text: string }];
+  options: readonly { value: T; text: string }[];
   value: T;
   onChange(value: T): void;
   tone?: "fg" | "ink" | "paper";
@@ -13,13 +13,13 @@ const TONE = {
   paper: { frame: "border-paper/30", thumb: "bg-paper", idle: "text-paper/70 hover:text-paper", active: "aria-pressed:text-ink" },
 } as const;
 
-/** A choice between two things as a pill whose thumb slides to the chosen one. */
+/** A choice between a few things as a bubble whose thumb slides to the chosen one. */
 export function Segmented<T extends string>({ label, options, value, onChange, tone = "fg", className = "" }: SegmentedProps<T>) {
   const colours = TONE[tone];
-  const second = value === options[1].value;
+  const at = Math.max(options.findIndex((option) => option.value === value), 0);
   return (
-    <div role="group" aria-label={label} data-second={second} className={`group/seg bubble-word relative flex h-10 border p-1 ${colours.frame} ${className}`}>
-      <span aria-hidden="true" className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] [border-radius:inherit] transition-transform duration-500 ease-(--ease-glide) group-data-[second=true]/seg:translate-x-full ${colours.thumb}`} />
+    <div role="group" aria-label={label} className={`group/seg bubble-word relative flex h-10 border p-1 ${colours.frame} ${className}`}>
+      <span aria-hidden="true" style={{ width: `calc((100% - 0.5rem) / ${options.length})`, translate: `${at * 100}% 0` }} className={`absolute inset-y-1 left-1 [border-radius:inherit] transition-[translate] duration-500 ease-(--ease-glide) ${colours.thumb}`} />
       {options.map((option) => (
         <button
           key={option.value}

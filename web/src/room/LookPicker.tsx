@@ -12,6 +12,7 @@ import {
 import { useT } from "../i18n/I18nProvider";
 import { useServices } from "../services";
 import { Avatar } from "../ui/Avatar";
+import { CHIP, SWATCH, button } from "../ui/styles";
 
 type LookPickerProps = {
   look: string | undefined;
@@ -24,8 +25,7 @@ type LookPickerProps = {
 };
 
 const BOX = "bubble border border-line-strong bg-canvas p-3.5";
-const PILL =
-  "bubble-word inline-flex h-9 items-center justify-center gap-2 border border-line-strong px-3.5 text-sm font-semibold transition-colors duration-200 hover:border-fg/50";
+const PILL = button({ variant: "secondary", size: "sm" });
 const STEP = 15;
 
 function Turn({ back = false }: { back?: boolean }) {
@@ -74,7 +74,7 @@ function Palette({
             aria-checked={value === colour}
             aria-label={`#${colour}`}
             style={{ backgroundColor: `#${colour}` }}
-            className="size-7 rounded-full border border-fg/25 outline-2 outline-offset-2 outline-transparent transition-[scale,outline-color] duration-200 hover:scale-110 aria-checked:outline-fg"
+            className={SWATCH}
             onClick={() => onPick(colour)}
           />
         ))}
@@ -265,7 +265,7 @@ export function LookPicker({
               key={preset}
               type="button"
               aria-pressed={typed === preset}
-              className="bubble-word h-8 border border-line-strong px-2.5 font-mono text-xs whitespace-nowrap transition-colors duration-200 hover:border-fg/50 aria-pressed:border-transparent aria-pressed:bg-bubble aria-pressed:text-on-bubble"
+              className={`${CHIP} font-mono text-fg`}
               onClick={() => onChange(formatLook(current), preset)}
             >
               {preset}
@@ -280,14 +280,14 @@ export function LookPicker({
         </p>
         <button
           type="button"
-          className={`${PILL} h-11 px-6`}
+          className={button({ variant: "secondary" })}
           onClick={onCancel}
         >
           {t("look.cancel")}
         </button>
         <button
           type="button"
-          className="bubble-word h-11 bg-bubble px-6 text-sm font-semibold text-on-bubble transition-[filter] duration-200 hover:brightness-110"
+          className={button({ variant: "accent" })}
           onClick={() => (changed ? onSave(look, face) : onCancel())}
         >
           {t("look.save")}

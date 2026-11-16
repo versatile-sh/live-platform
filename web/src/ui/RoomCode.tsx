@@ -2,8 +2,9 @@ import { useState } from "react";
 
 import { useT } from "../i18n/I18nProvider";
 import { useServices } from "../services";
+import { button } from "./styles";
 
-const SMALL = "h-8 rounded-full border border-paper/25 px-3 text-xs font-semibold transition-colors duration-200 hover:border-paper/60";
+const SMALL = button({ variant: "onInk", size: "xs" });
 
 /** A room code shown large in an ink bubble, to be read aloud or copied, with a way to draw another. */
 export function RoomCode({ code, onRenew }: { code: string; onRenew(): void }) {

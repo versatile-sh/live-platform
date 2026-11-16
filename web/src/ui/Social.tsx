@@ -9,7 +9,7 @@ const GITHUB =
 const X = "M14.234 10.162 22.977 0h-2.072l-7.591 8.824L7.251 0H.258l9.168 13.343L.258 24H2.33l8.016-9.318L16.749 24h6.993zm-2.837 3.299-.929-1.329L3.076 1.56h3.182l5.965 8.532.929 1.329 7.754 11.09h-3.182z";
 
 const ON_LIME = "group-data-[view=lobby]:border-ink group-data-[view=lobby]:bg-ink group-data-[view=lobby]:text-paper group-data-[view=lobby]:hover:text-paper group-data-[view=lobby]:hover:opacity-85";
-const LINK = `inline-flex h-9 items-center gap-2 rounded-full border border-line-strong px-3.5 text-sm text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg ${ON_LIME}`;
+const LINK = `bubble-word inline-flex h-9 items-center gap-2 border border-line-strong px-3.5 text-sm text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg ${ON_LIME}`;
 
 function Mark({ path, large = false }: { path: string; large?: boolean }) {
   return (

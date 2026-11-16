@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { useT } from "../i18n/I18nProvider";
 import type { SessionSnapshot } from "../session/session";
+import { ICON_BUTTON_PLAIN } from "../ui/styles";
 
 type Spot = { x: number; y: number };
 
@@ -71,7 +72,7 @@ export function ConnectionCard({ snapshot, onClose }: { snapshot: SessionSnapsho
           <dd>{t("connection.mediaShort")}</dd>
         </div>
       </dl>
-      <button type="button" aria-label={t("connection.hide")} title={t("connection.hide")} className="grid size-7 shrink-0 place-items-center rounded-full transition-colors duration-200 hover:bg-ink/15" onClick={onClose}>
+      <button type="button" aria-label={t("connection.hide")} title={t("connection.hide")} className={ICON_BUTTON_PLAIN} onClick={onClose}>
         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
           <path d="M4 8h8" />
         </svg>
