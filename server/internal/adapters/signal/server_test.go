@@ -31,6 +31,7 @@ type serverFrame struct {
 	Name   string      `json:"name"`
 	Text   string      `json:"text"`
 	At     int64       `json:"at"`
+	To     uint32      `json:"to"`
 }
 
 type client struct {
@@ -207,16 +208,16 @@ func TestSignalling(t *testing.T) {
 	t.Run("a look chosen on entry and changed later reaches the room", func(t *testing.T) {
 		url := startServer(t, nil)
 		ana, bia := dial(t, url), dial(t, url)
-		ana.send(`{"t":"join","slug":"bk","name":"ana","look":35,"face":"(•‿•)"}`)
+		ana.send(`{"t":"join","slug":"bk","name":"ana","look":"c6f432-0e1116-45","face":"(•‿•)"}`)
 		_, err := ana.next()
 		require.NoError(t, err)
 		bia.join("bia")
 		seen := bia.until(func(f serverFrame) bool { return has(f, 1, "") })
-		assert.Equal(t, uint16(35), seen.People[0].Look)
+		assert.Equal(t, "c6f432-0e1116-45", seen.People[0].Look)
 		assert.Equal(t, "(•‿•)", seen.People[0].Face)
-		ana.send(`{"t":"look","look":49,"face":"^_^"}`)
+		ana.send(`{"t":"look","look":"ffffff-000000-90","face":"^_^"}`)
 		bia.until(func(f serverFrame) bool {
-			return f.T == "roster" && len(f.People) > 0 && f.People[0].Look == 49 && f.People[0].Face == "^_^"
+			return f.T == "roster" && len(f.People) > 0 && f.People[0].Look == "ffffff-000000-90" && f.People[0].Face == "^_^"
 		})
 		ana.send(`{"t":"photo","data":"/9j/4AECAw=="}`)
 		shown := bia.until(func(f serverFrame) bool { return f.T == "photo" })
@@ -238,6 +239,9 @@ func TestSignalling(t *testing.T) {
 		assert.Equal(t, ana.me.PID, heard.PID)
 		assert.NotZero(t, heard.At)
 		ana.until(func(f serverFrame) bool { return f.T == "chat" })
+		ana.send(`{"t":"chat","to":2,"text":"just you"}`)
+		private := bia.until(func(f serverFrame) bool { return f.T == "chat" && f.Text == "just you" })
+		assert.Equal(t, uint32(2), private.To)
 		ana.send(`{"t":"chat","text":"   "}`)
 		refused := ana.until(func(f serverFrame) bool { return f.T == "error" })
 		assert.Equal(t, "INVALID_ARGUMENT", refused.Code)
@@ -282,7 +286,7 @@ func TestSignalling(t *testing.T) {
 			{"unknown frame type", nil, func(c *client) { c.join("ana"); c.send(`{"t":"nope"}`) }, CloseBadFrame},
 			{"frame above the size limit", nil, func(c *client) {
 				c.join("ana")
-				c.send(`{"t":"hb","name":"` + strings.Repeat("x", 17<<10) + `"}`)
+				require.NoError(c.t, ws.WriteHeader(c.conn, ws.Header{Fin: true, OpCode: ws.OpText, Masked: true, Length: 65<<10 + 1}))
 			}, ws.StatusMessageTooBig},
 			{"flood", func(c *Config) { c.FramesPerSec, c.FrameBurst = 1, 3 }, func(c *client) {
 				c.join("ana")

@@ -4,6 +4,7 @@ import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
 import type { LobbyStore } from "./lobby/lobby-store";
 import type { MediaDevicesPort } from "./media/local-media";
+import type { RtcPort } from "./media/room-media";
 import type { ProjectStore } from "./project/project-store";
 import type { EntryIntent } from "./session/intent";
 import type { SeatStorage } from "./session/seat";
@@ -18,9 +19,10 @@ export type Services = {
   signalUrl: string;
   seatStorage: SeatStorage;
   mediaDevices: MediaDevicesPort | undefined;
+  rtc: RtcPort;
   entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };
-  lookMemory: { read(): number; write(look: number): void };
+  lookMemory: { read(): string; write(look: string): void };
   faceMemory: { read(): string; write(face: string): void };
   /** Shrinks a picture chosen by the person to a small square JPEG as base64, or nothing when it cannot be read. */
   shrinkPhoto(file: Blob): Promise<string | undefined>;

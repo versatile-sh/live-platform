@@ -28,7 +28,7 @@ describe("HomePage", () => {
     await userEvent.type(screen.getByLabelText("Room name"), "standup{enter}");
     await waitFor(() => expect(pathname.visited).toEqual(["/standup"]));
     expect(services.nameMemory.read()).toBe("Ana");
-    expect(services.entryIntent.read("standup")).toEqual({ name: "Ana", look: 34, face: "^_^", listed: true });
+    expect(services.entryIntent.read("standup")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true });
   });
 
   test("asks for a name before going anywhere", async () => {
@@ -46,12 +46,12 @@ describe("HomePage", () => {
     await userEvent.type(screen.getByLabelText("Your name"), "Ana");
     await userEvent.type(screen.getByLabelText("Room name"), "secret");
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.queryByLabelText("Room code")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
     await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
     expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
     await userEvent.click(screen.getByRole("button", { name: /Enter/ }));
     await waitFor(() => expect(pathname.visited).toEqual(["/secret"]));
-    expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: 34, face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
+    expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
   });
 
   test("a room can be kept out of the open rooms", async () => {
@@ -64,7 +64,7 @@ describe("HomePage", () => {
     await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
     await userEvent.click(screen.getByRole("button", { name: /Enter/ }));
     await waitFor(() => expect(pathname.visited).toEqual(["/quiet"]));
-    expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", look: 34, face: "^_^", listed: false });
+    expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false });
   });
 
   test("leads to the open rooms without asking the server for them", () => {

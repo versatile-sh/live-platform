@@ -27,19 +27,33 @@ const (
 )
 
 type clientFrame struct {
-	T        string `json:"t"`
-	Slug     string `json:"slug"`
-	Name     string `json:"name"`
-	PID      uint32 `json:"pid"`
-	Secret   string `json:"secret"`
-	Flags    uint16 `json:"flags"`
-	Op       string `json:"op"`
-	Verifier string `json:"verifier"`
-	Listed   bool   `json:"listed"`
-	Text     string `json:"text"`
-	Look     uint16 `json:"look"`
-	Face     string `json:"face"`
-	Data     string `json:"data"`
+	T         string            `json:"t"`
+	Slug      string            `json:"slug"`
+	Name      string            `json:"name"`
+	PID       uint32            `json:"pid"`
+	Secret    string            `json:"secret"`
+	Flags     uint16            `json:"flags"`
+	Op        string            `json:"op"`
+	Verifier  string            `json:"verifier"`
+	Listed    bool              `json:"listed"`
+	Text      string            `json:"text"`
+	Look      string            `json:"look"`
+	To        uint32            `json:"to"`
+	Face      string            `json:"face"`
+	Data      string            `json:"data"`
+	Role      string            `json:"role"`
+	Kind      string            `json:"kind"`
+	SDP       string            `json:"sdp"`
+	Candidate string            `json:"candidate"`
+	Sources   map[string]string `json:"sources"`
+}
+
+type mediaFrame struct {
+	T         string `json:"t"`
+	Role      string `json:"role"`
+	Kind      string `json:"kind"`
+	SDP       string `json:"sdp,omitempty"`
+	Candidate string `json:"candidate,omitempty"`
 }
 
 type photoFrame struct {
@@ -51,6 +65,7 @@ type photoFrame struct {
 type chatFrame struct {
 	T    string `json:"t"`
 	PID  uint32 `json:"pid"`
+	To   uint32 `json:"to,omitempty"`
 	Name string `json:"name"`
 	Text string `json:"text"`
 	At   int64  `json:"at"`
@@ -62,7 +77,7 @@ type person struct {
 	Name  string `json:"name"`
 	State string `json:"state"`
 	Flags uint16 `json:"flags"`
-	Look  uint16 `json:"look"`
+	Look  string `json:"look,omitempty"`
 	Face  string `json:"face,omitempty"`
 }
 
@@ -94,7 +109,7 @@ type errorFrame struct {
 func encodeRoster(s room.Snapshot) []byte {
 	f := rosterFrame{T: "roster", V: s.Version, People: make([]person, len(s.Participants))}
 	for i, p := range s.Participants {
-		f.People[i] = person{PID: uint32(p.ID), Slot: p.Slot, Name: p.Name, State: p.State.String(), Flags: uint16(p.Flags), Look: uint16(p.Look), Face: p.Face}
+		f.People[i] = person{PID: uint32(p.ID), Slot: p.Slot, Name: p.Name, State: p.State.String(), Flags: uint16(p.Flags), Look: string(p.Look), Face: p.Face}
 	}
 	for _, d := range s.Gone {
 		f.Gone = append(f.Gone, departure{PID: uint32(d.PID), Reason: string(d.Reason)})
@@ -102,12 +117,16 @@ func encodeRoster(s room.Snapshot) []byte {
 	return mustJSON(f)
 }
 
+func encodeMedia(s room.MediaSignal) []byte {
+	return mustJSON(mediaFrame{T: "rtc", Role: s.Role, Kind: s.Kind, SDP: s.SDP, Candidate: s.Candidate})
+}
+
 func encodePhoto(pid room.PID, jpeg []byte) []byte {
 	return mustJSON(photoFrame{T: "photo", PID: uint32(pid), Data: base64.StdEncoding.EncodeToString(jpeg)})
 }
 
 func encodeChat(m room.ChatMessage) []byte {
-	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), Name: m.Name, Text: m.Text, At: m.At.UnixMilli()})
+	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, At: m.At.UnixMilli()})
 }
 
 func encodeJoined(seat room.Seat) []byte {

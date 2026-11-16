@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	ossignal "os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -15,9 +16,11 @@ import (
 	"github.com/versatile-sh/live/server/internal/adapters/github"
 	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
 	"github.com/versatile-sh/live/server/internal/adapters/page"
+	"github.com/versatile-sh/live/server/internal/adapters/sfu"
 	"github.com/versatile-sh/live/server/internal/adapters/signal"
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
+	"github.com/versatile-sh/live/server/internal/ports/inbound"
 )
 
 func main() {
@@ -51,7 +54,18 @@ func main() {
 	}
 	signalCfg := signal.DefaultConfig(origins())
 	signalCfg.CountryHeader = os.Getenv("COUNTRY_HEADER")
-	signalling := signal.NewServer(presence.WithoutMedia{Hub: hub}, signalCfg)
+	var rooms inbound.Presence = presence.WithoutMedia{Hub: hub}
+	if os.Getenv("MEDIA") != "off" {
+		udpPort, _ := strconv.Atoi(os.Getenv("MEDIA_UDP_PORT"))
+		engine, err := sfu.New(sfu.Config{UDPPort: udpPort, PublicIP: os.Getenv("MEDIA_PUBLIC_IP")}, hub)
+		if err != nil {
+			log.Error("media plane unusable", "error", err.Error())
+			os.Exit(1)
+		}
+		hub.UseMedia(engine)
+		rooms = hub
+	}
+	signalling := signal.NewServer(rooms, signalCfg)
 	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
 
 	failed := make(chan error, 2)
