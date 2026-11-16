@@ -1,4 +1,5 @@
 import { createContext, use, useMemo, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 
 import { createTranslate, type Locale, type Translate } from "./index";
 
@@ -6,7 +7,7 @@ type I18n = { locale: Locale; t: Translate; choose(locale: Locale): void };
 
 const I18nContext = createContext<I18n | undefined>(undefined);
 
-/** Makes `useT` available below it, starting in the given locale; `onChoose` hears the visitor's choice so it can be kept. */
+/** Makes `useT` available below it, starting in the given locale; `onChoose` hears the visitor's choice so it can be kept. Where the browser can, the old words dissolve into the new ones instead of jumping. */
 export function I18nProvider({ locale: initial, onChoose, children }: { locale: Locale; onChoose?: (locale: Locale) => void; children: ReactNode }) {
   const [locale, setLocale] = useState(initial);
   const value = useMemo(
@@ -14,8 +15,13 @@ export function I18nProvider({ locale: initial, onChoose, children }: { locale: 
       locale,
       t: createTranslate(locale),
       choose(next: Locale) {
-        setLocale(next);
-        onChoose?.(next);
+        const apply = () => {
+          setLocale(next);
+          onChoose?.(next);
+        };
+        const page = document as Document & { startViewTransition?: (update: () => void) => unknown };
+        if (page.startViewTransition) page.startViewTransition(() => flushSync(apply));
+        else apply();
       },
     }),
     [locale, onChoose],
