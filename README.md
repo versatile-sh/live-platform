@@ -9,7 +9,7 @@ Rooms to share a screen, a voice and a camera from a link. No account, nothing t
 - **Rooms by name.** Whoever opens a free name creates the room and owns it. The room is released 30 seconds after the last person leaves. Up to 10 people.
 - **Public or private.** A public room lets in anyone with the link. A private room asks for a room code (`8ABH-23HK`), drawn at random or chosen by the owner. Either kind can be shown in the open rooms, with its country.
 - **Nobody is left behind as a ghost.** A closed tab, a dead socket or a lost network removes the participant. The server decides who is in the room; browsers only report.
-- **In the call.** Microphone, camera, screen with system audio, raised hand, chat, private messages, people list, owner controls (transfer, remove, change access), a shared whiteboard, three voice filters, per-person choice of what to see, a command search on `Ctrl+K`.
+- **In the call.** Microphone, camera, screen with system audio, raised hand, chat, private messages, people list, owner controls (transfer, kick, ban, change access), a shared whiteboard, three voice filters, per-person choice of what to see, a command search on `Ctrl+K`.
 - **English and Portuguese.**
 
 ## How it is built
@@ -96,6 +96,7 @@ cd web && npm ci && npm run dev        # http://localhost:5173
 | `SIGNAL_PORT` | where the signalling socket listens |
 | `PUBLIC_ORIGIN` | origins allowed to open the socket, comma separated |
 | `COUNTRY_HEADER` | request header that carries the visitor's country (`CF-IPCountry` behind Cloudflare) |
+| `ADDRESS_HEADER` | request header that carries the visitor's address, used only to make a ban hold (`CF-Connecting-IP` behind Cloudflare) |
 | `WEB_DIR` | built client to serve; empty serves the API only |
 | `MEDIA` | `off` runs without the SFU |
 | `MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP` | the one UDP port media uses and the address browsers reach it at |

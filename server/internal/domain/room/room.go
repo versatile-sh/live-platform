@@ -236,7 +236,7 @@ func (r *Room) Remove(now time.Time, by, target PID) ([]Event, error) {
 	return r.remove(now, p, ReasonRemoved), nil
 }
 
-// Ban lets the owner remove a participant and keep where they came from out of the room for as long as it exists.
+// Ban lets the owner remove a participant and keep where they came from out of the room for as long as it exists; an origin the owner shares is only removed, so the owner is never locked out.
 func (r *Room) Ban(now time.Time, by, target PID) ([]Event, error) {
 	owner, p, err := r.ownerAnd(by, target)
 	if err != nil {
@@ -245,7 +245,7 @@ func (r *Room) Ban(now time.Time, by, target PID) ([]Event, error) {
 	if owner == p {
 		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "the owner leaves instead of banning themselves", nil)
 	}
-	if p.origin != "" && len(r.banned) < maxBanned {
+	if p.origin != "" && p.origin != owner.origin && len(r.banned) < maxBanned {
 		if r.banned == nil {
 			r.banned = map[string]struct{}{}
 		}

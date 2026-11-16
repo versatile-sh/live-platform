@@ -147,6 +147,20 @@ describe("the lv.1 server", () => {
     });
   });
 
+  describe("when the owner bans someone", () => {
+    test("the banned connection is closed with 4404", async () => {
+      const slug = slugOf("ban");
+      const ana = connect({ t: "join", slug, name: "Ana" });
+      await ana.frame("joined");
+      const bia = connect({ t: "join", slug, name: "Bia" });
+      const joined = await bia.frame("joined");
+      await ana.frame("roster", (r) => r.people.length === 2 && r.people.every((p) => p.state === "active"));
+      ana.link.send({ t: "owner", op: "ban", pid: joined.pid });
+      expect(await bia.closed()).toMatchObject({ code: 4404, meaning: { kind: "banned" } });
+      ana.link.send({ t: "leave" });
+    });
+  });
+
   describe("when someone says something", () => {
     test("everyone in the room hears it with its author", async () => {
       const slug = slugOf("chat");

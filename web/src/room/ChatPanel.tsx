@@ -199,7 +199,7 @@ export function ChatPanel({
                       </span>
                     )}
                     <span
-                      className={`max-w-[85%] px-3.5 py-2 text-[0.9375rem] leading-snug break-words whitespace-pre-wrap ${
+                      className={`selectable max-w-[85%] px-3.5 py-2 text-[0.9375rem] leading-snug break-words whitespace-pre-wrap ${
                         mine
                           ? "bubble-sent bg-bubble text-on-bubble"
                           : "bubble border border-line-strong bg-canvas"

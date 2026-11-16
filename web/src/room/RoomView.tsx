@@ -643,6 +643,7 @@ export function RoomView({
                   me={myPid}
                   canModerate={iAmOwner}
                   onRemove={(pid) => session.owner({ op: "remove", pid })}
+                  onBan={(pid) => session.owner({ op: "ban", pid })}
                   onTransfer={(pid) => session.owner({ op: "transfer", pid })}
                   photos={snapshot.photos}
                   onEditLook={() => setSheet("look")}
@@ -860,6 +861,7 @@ export function RoomView({
                             pid: personMenu.pid,
                           }),
                       ] as const,
+                      [t("owner.banShort"), () => void session.owner({ op: "ban", pid: personMenu.pid })] as const,
                     ]
                   : []),
               ] as const
