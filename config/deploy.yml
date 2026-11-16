@@ -1,0 +1,51 @@
+# Kamal 2 deploy for live. See DEPLOY.md. The server is reached through the Cloudflare Tunnel as the SSH alias "hosting".
+service: live
+image: live
+
+servers:
+  web:
+    hosts:
+      - hosting
+    # The signalling port is not behind kamal-proxy: the tunnel reaches it by this name on the Kamal network.
+    options:
+      network-alias: live-signal
+
+ssh:
+  user: root
+
+# Kamal's local registry: the image is pushed through an SSH tunnel, no Docker Hub.
+registry:
+  server: localhost:5555
+
+builder:
+  arch: amd64
+
+proxy:
+  host: live.versatile.sh
+  app_port: 3000
+  healthcheck:
+    path: /up
+  # The proxy listens on the VPS loopback only: the public path is the Cloudflare Tunnel, which also ends TLS.
+  run:
+    bind_ips:
+      - 127.0.0.1
+
+# The container's `service` label is how the server's collector knows whose log it is.
+logging:
+  driver: json-file
+  options:
+    max-size: 10m
+    labels: service
+
+env:
+  clear:
+    PORT: "3000"
+    SIGNAL_PORT: "3001"
+    PUBLIC_ORIGIN: https://live.versatile.sh
+    COUNTRY_HEADER: CF-IPCountry
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
+    CF_ACCESS_TEAM_DOMAIN: versatile-sh.cloudflareaccess.com
+    # Public host: Access lets everyone through, so there is no audience to check.
+  # Kamal refuses an empty secret: list one here only once its 1Password field is filled and .kamal/secrets extracts it.
+  # secret:
+  #   - MY_SECRET
