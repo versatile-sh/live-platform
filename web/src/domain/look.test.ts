@@ -1,18 +1,25 @@
 import { describe, expect, test } from "vitest";
 
-import { COLOURS, FACE_PRESETS, cleanFace, packLook, randomLook, unpackLook } from "./look";
+import { FACE_PRESETS, cleanFace, formatLook, parseLook, randomLook } from "./look";
 
 describe("look", () => {
-  test("packs and unpacks every colour and tilt to the same thing", () => {
-    for (let colour = 0; colour < COLOURS; colour++) for (let turn = 0; turn < 5; turn++) expect(unpackLook(packLook({ colour, turn }))).toEqual({ colour, turn });
+  test("reads and writes the form the server carries", () => {
+    expect(parseLook("ff9ec7-0e1116-45")).toEqual({ bg: "ff9ec7", fg: "0e1116", turn: 45 });
+    expect(formatLook({ bg: "ff9ec7", fg: "0e1116", turn: 45 })).toBe("ff9ec7-0e1116-45");
   });
 
-  test.each([-1, 1.5, 5 << 7, 65535])("reads %s as the plain look", (packed) => {
-    expect(unpackLook(packed)).toEqual({ colour: 0, turn: 2 });
+  test("a turn goes all the way round and wraps", () => {
+    expect(formatLook({ bg: "ffffff", fg: "000000", turn: 375 })).toBe("ffffff-000000-15");
+    expect(formatLook({ bg: "ffffff", fg: "000000", turn: -15 })).toBe("ffffff-000000-345");
   });
 
-  test("a random look is upright and within range", () => {
-    expect(unpackLook(randomLook(() => 0.999))).toEqual({ colour: 7, turn: 2 });
+  test.each([undefined, "", "red-blue-0", "ffffff-000000-360", "FFFFFF-000000-0"])("reads %s as the plain look", (text) => {
+    expect(parseLook(text)).toEqual({ bg: "c6f432", fg: "0e1116", turn: 0 });
+  });
+
+  test("a random look is upright and well formed", () => {
+    expect(randomLook(() => 0)).toBe("c6f432-0e1116-0");
+    expect(parseLook(randomLook(() => 0.99)).turn).toBe(0);
   });
 
   test("every preset face fits what the room accepts", () => {

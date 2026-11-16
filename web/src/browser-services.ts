@@ -1,4 +1,4 @@
-import { randomLook } from "./domain/look";
+import { formatLook, parseLook, randomLook } from "./domain/look";
 import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
@@ -68,6 +68,7 @@ export function createBrowserServices(): Services {
     socket: platformSocket(),
     signalUrl: signalUrl(window.location),
     seatStorage: session ?? noStorage,
+    rtc: typeof RTCPeerConnection === "undefined" ? undefined : () => new RTCPeerConnection(),
     mediaDevices: navigator.mediaDevices
       ? {
           user: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
@@ -89,15 +90,15 @@ export function createBrowserServices(): Services {
     shrinkPhoto,
     lookMemory: {
       read() {
-        const kept = Number(local?.getItem(LOOK_KEY));
-        if (Number.isInteger(kept) && kept > 0) return kept;
+        const kept = local?.getItem(LOOK_KEY) ?? "";
+        if (formatLook(parseLook(kept)) === kept) return kept;
         const drawn = randomLook();
         this.write(drawn);
         return drawn;
       },
       write(look) {
         try {
-          local?.setItem(LOOK_KEY, String(look));
+          local?.setItem(LOOK_KEY, look);
         } catch {
           return;
         }

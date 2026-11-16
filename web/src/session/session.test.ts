@@ -43,10 +43,10 @@ describe("Session#start", () => {
     });
 
     test("sends the listing and the look for a private room too", () => {
-      const { session, sockets } = setup({ name: "Ana", verifier: "v", listed: false, look: 35 });
+      const { session, sockets } = setup({ name: "Ana", verifier: "v", listed: false, look: "ff9ec7-0e1116-0" });
       session.start();
       sockets[0]!.serverOpen();
-      expect(sentFrames(sockets[0]!)[0]).toMatchObject({ verifier: "v", listed: false, look: 35 });
+      expect(sentFrames(sockets[0]!)[0]).toMatchObject({ verifier: "v", listed: false, look: "ff9ec7-0e1116-0" });
     });
 
     test("stores the seat once joined", () => {
