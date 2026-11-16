@@ -43,7 +43,7 @@ env:
     SIGNAL_PORT: "3001"
     PUBLIC_ORIGIN: https://live.versatile.sh
     COUNTRY_HEADER: CF-IPCountry
-    GITHUB_REPO: versatile-sh/call-platform
+    GITHUB_REPO: versatile-sh/meeting-platform
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
     CF_ACCESS_TEAM_DOMAIN: versatile-sh.cloudflareaccess.com
     # Public host: Access lets everyone through, so there is no audience to check.
