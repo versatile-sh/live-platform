@@ -14,8 +14,14 @@ const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 /** What a person gave to enter a room. A verifier makes the room private. */
 export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string };
 
+/** One line said in the room, as this page heard it. */
+export type ChatLine = { id: number; pid: number; name: string; text: string; at: number };
+
+const CHAT_KEPT = 300;
+
 export type SessionSnapshot = {
   connection: Connection;
+  chat: readonly ChatLine[];
   slug: string;
   private: boolean;
   listed: boolean | undefined;
@@ -43,6 +49,10 @@ export type Session = {
   /** Stops the session; a participant who is in the room leaves it. */
   dispose(): void;
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
+  /** Says a line to the room; false when it could not be sent. */
+  say(text: string): boolean;
+  /** Tells the room what I am sending (microphone, camera, screen, hand); it is told again after a reconnection. */
+  setMedia(flags: number): void;
 };
 
 type Handle = ReturnType<typeof setTimeout>;
@@ -67,6 +77,7 @@ function causeOf(meaning: Extract<LinkEvent, { kind: "closed" }>["meaning"]): Dr
 export function createSession({ slug, url, socket, storage, entry }: SessionOptions): Session {
   let snapshot: SessionSnapshot = {
     connection: IDLE,
+    chat: [],
     slug,
     private: entry?.verifier !== undefined,
     listed: entry?.listed,
@@ -77,6 +88,8 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let generation = 0;
   let leaving = false;
   let resuming = false;
+  let mediaFlags = 0;
+  let nextChatId = 1;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let watchdog: Handle | undefined;
   let deadline: Handle | undefined;
@@ -170,6 +183,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     dispatch({ type: "joined", pid: frame.pid });
     clearInterval(heartbeat);
     heartbeat = setInterval(() => void link?.send({ t: "hb" }), HEARTBEAT_MS);
+    if (mediaFlags !== 0) link?.send({ t: "media", flags: mediaFlags });
   }
 
   function onLinkEvent(event: LinkEvent) {
@@ -178,6 +192,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       if (snapshot.connection.phase === "joined" || frame.t === "joined") armWatchdog(DEAD_AFTER_MS);
       if (frame.t === "joined") onJoined(frame);
       else if (frame.t === "roster") dispatch({ type: "roster", frame });
+      else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at }].slice(-CHAT_KEPT) });
       else if (frame.t === "error" && snapshot.connection.phase === "joined") dispatch({ type: "owner-refused", code: frame.code });
       return;
     }
@@ -302,6 +317,14 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       noticeTimers.clear();
       closeLink();
       if (snapshot.connection.phase !== "ended") clearSeat(storage, slug);
+    },
+    say(text) {
+      return link?.send({ t: "chat", text }) ?? false;
+    },
+    setMedia(flags) {
+      if (flags === mediaFlags) return;
+      mediaFlags = flags;
+      link?.send({ t: "media", flags });
     },
     owner(op, effect) {
       const sent = link?.send({ t: "owner", ...op }) ?? false;

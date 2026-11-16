@@ -66,11 +66,11 @@ describe("RoomPage", () => {
       expect(screen.getByRole("status", { name: "Connection" })).toHaveTextContent("Connected");
     });
 
-    test("tells the visitor that media does not exist yet", async () => {
+    test("tells the visitor that what they capture stays on their device for now", async () => {
       const { services } = await setup();
       await submitName("Ana");
       await joinAs(await socketOf(services));
-      expect(await screen.findByText(/not built yet/)).toBeInTheDocument();
+      expect(await screen.findByText(/stay on this device for now/)).toBeInTheDocument();
     });
 
     test("lists people in slot order", async () => {
@@ -242,38 +242,26 @@ describe("RoomPage", () => {
 
   describe("the owner's controls", () => {
     async function asOwner(status: StatusResult = { kind: "ok", room: free }) {
-      const ctx = await setup(status);
+      const ctx = await setup(status, { generatePassword: () => "8ABH-23HK" });
       await submitName("Ana");
       const socket = await socketOf(ctx.services);
       await joinAs(socket);
       await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });
-      await screen.findByText("Bia");
+      await screen.findAllByText("Bia");
       return { ...ctx, socket };
     }
+    const sent = (socket: FakeSocket, count: number) => socket.sent.slice(-count).map((frame) => JSON.parse(frame) as unknown);
 
-    test("appear for the owner, with remove and transfer on other people only", async () => {
-      await asOwner();
-      expect(screen.getByRole("heading", { name: "Room controls" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Remove Bia" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Make Bia the owner" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Remove Ana" })).not.toBeInTheDocument();
-    });
-
-    test("send remove and transfer frames", async () => {
+    test("remove and transfer are offered in the people panel, on other people only", async () => {
       const { socket } = await asOwner();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      expect(screen.queryByRole("button", { name: "Remove Ana" })).not.toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Remove Bia" }));
       await userEvent.click(screen.getByRole("button", { name: "Make Bia the owner" }));
-      expect(socket.sent.slice(-2).map((s) => JSON.parse(s))).toEqual([
+      expect(sent(socket, 2)).toEqual([
         { t: "owner", op: "remove", pid: 2 },
         { t: "owner", op: "transfer", pid: 2 },
       ]);
-    });
-
-    test("list and unlist the room", async () => {
-      const { socket } = await asOwner();
-      await userEvent.click(screen.getByRole("button", { name: "Show in the lobby" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "listed", listed: true });
-      expect(await screen.findByText("This room is shown in the lobby.")).toBeInTheDocument();
     });
 
     test("do not appear for someone who is not the owner", async () => {
@@ -282,58 +270,128 @@ describe("RoomPage", () => {
       const socket = await socketOf(ctx.services);
       await joinAs(socket, 2);
       await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });
-      await screen.findByText("Ana");
-      expect(screen.queryByRole("heading", { name: "Room controls" })).not.toBeInTheDocument();
+      await screen.findAllByText("Ana");
+      expect(screen.queryByRole("button", { name: "Room settings" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
       expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
     });
 
-    test("copy a share link that carries the password of a private room", async () => {
-      const ctx = await setup();
-      await userEvent.click(await screen.findByLabelText("Private", { exact: false }));
-      await submitName("Ana");
-      const socket = await socketOf(ctx.services);
-      await joinAs(socket);
-      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 })], gone: [] });
-      await userEvent.click(await screen.findByRole("button", { name: "Copy share link" }));
-      expect(ctx.services.copied.at(-1)).toBe("https://live.test/demo#Kq7mR2xP");
+    test("making the room public lists it, and its link is plain", async () => {
+      const { socket, services } = await asOwner();
+      await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
+      await userEvent.click(screen.getByRole("radio", { name: /Public/ }));
+      expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: true }]);
+      await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      expect(services.copied.at(-1)).toBe("https://live.test/demo");
+    });
+
+    test("making it private again unlists it and locks it with a room code that the link carries", async () => {
+      const { socket, services } = await asOwner();
+      await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
+      await userEvent.click(screen.getByRole("radio", { name: /Public/ }));
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await waitFor(() =>
+        expect(sent(socket, 2)).toEqual([
+          { t: "owner", op: "listed", listed: false },
+          { t: "owner", op: "password", verifier: "v:demo:8ABH-23HK" },
+        ]),
+      );
+      expect(await screen.findByLabelText("Password")).toHaveTextContent("8ABH-23HK");
+      await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      expect(services.copied.at(-1)).toBe("https://live.test/demo#8ABH-23HK");
       expect(screen.getByText(/after the # sign/)).toBeInTheDocument();
     });
 
-    test("copy a plain link for a public room", async () => {
-      const ctx = await asOwner();
-      await userEvent.click(screen.getByRole("button", { name: "Copy share link" }));
-      expect(ctx.services.copied.at(-1)).toBe("https://live.test/demo");
+    test("turning the password off sends an owner frame with no verifier, and a new code sends its verifier", async () => {
+      const { socket, services } = await asOwner();
+      await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
+      await userEvent.click(screen.getByRole("switch", { name: "Ask for a password" }));
+      await waitFor(() => expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password", verifier: "v:demo:8ABH-23HK" }]));
+      services.generatePassword = () => "9XYZ-45QR";
+      await userEvent.click(await screen.findByRole("button", { name: "New" }));
+      await waitFor(() => expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password", verifier: "v:demo:9XYZ-45QR" }]));
+      await userEvent.click(screen.getByRole("switch", { name: "Ask for a password" }));
+      expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password" }]);
     });
 
-    test("show a refusal in words when the server will not do it yet", async () => {
+    test("show a refusal in words when the server will not do it", async () => {
       const { socket } = await asOwner();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
       await userEvent.click(screen.getByRole("button", { name: "Remove Bia" }));
       await send(socket, { t: "error", code: "INVARIANT_VIOLATION", message: "only the active owner may do this" });
       expect(await screen.findByText(/Only the owner can do it, and only once their own connection is fully up/)).toBeInTheDocument();
     });
+  });
 
-    test("send a new password verifier when it is changed", async () => {
-      const ctx = await setup();
-      await userEvent.click(await screen.findByLabelText("Private", { exact: false }));
+  describe("the call", () => {
+    async function inCall(extra: Partial<Parameters<typeof fakeServices>[0]> = {}) {
+      const ctx = await setup({ kind: "ok", room: free }, extra);
       await submitName("Ana");
       const socket = await socketOf(ctx.services);
       await joinAs(socket);
-      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 })], gone: [] });
-      await userEvent.click(await screen.findByRole("button", { name: "Change password" }));
-      await userEvent.click(screen.getByRole("button", { name: "Save password" }));
-      await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "password", verifier: "v:demo:Kq7mR2xP" }));
+      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { state: "active" })], gone: [] });
+      return { ...ctx, socket };
+    }
+
+    test("shows the room name, the chat with how many are here, and no way to other rooms", async () => {
+      await inCall();
+      expect(screen.getByRole("heading", { level: 1, name: "demo" })).toBeInTheDocument();
+      expect(within(screen.getByRole("complementary", { name: "Chat" })).getByText("2 here")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /open rooms/i })).not.toBeInTheDocument();
     });
 
-    test("remove the password with an owner frame that has no verifier", async () => {
-      const ctx = await setup();
-      await userEvent.click(await screen.findByLabelText("Private", { exact: false }));
-      await submitName("Ana");
-      const socket = await socketOf(ctx.services);
-      await joinAs(socket);
-      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 })], gone: [] });
-      await userEvent.click(await screen.findByRole("button", { name: "Remove password" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "password" });
-      expect(await screen.findByRole("button", { name: "Add a password" })).toBeInTheDocument();
+    test("sends what I type to the room and shows what the room says, mine and theirs", async () => {
+      const { socket } = await inCall();
+      await userEvent.type(screen.getByLabelText("Message to the room"), "hello{enter}");
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "chat", text: "hello" });
+      expect(screen.getByLabelText("Message to the room")).toHaveValue("");
+      await send(socket, { t: "chat", pid: 1, name: "Ana", text: "hello", at: 1_700_000_000_000 });
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "hi Ana", at: 1_700_000_001_000 });
+      const log = within(screen.getByRole("list", { name: "Messages" }));
+      expect(log.getByText("hello")).toBeInTheDocument();
+      expect(log.getByText("hi Ana")).toBeInTheDocument();
+      expect(log.getByText("Bia")).toBeInTheDocument();
+    });
+
+    test("counts unread messages on the chat button while the panel shows something else", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "anyone?", at: 1_700_000_001_000 });
+      expect(screen.getByRole("button", { name: "Chat" })).toHaveTextContent("1");
+      await userEvent.click(screen.getByRole("button", { name: "Chat" }));
+      expect(screen.getByRole("button", { name: "Chat" })).not.toHaveTextContent("1");
+    });
+
+    test("turning the microphone on asks the browser and tells the room, and raising a hand tells it too", async () => {
+      const track = { stop: () => undefined, addEventListener: () => undefined };
+      const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;
+      const asked: MediaStreamConstraints[] = [];
+      const { socket } = await inCall({
+        mediaDevices: {
+          user: async (constraints) => {
+            asked.push(constraints);
+            return stream;
+          },
+          display: async () => stream,
+        },
+      });
+      await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
+      await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 1 }));
+      expect(asked[0]).toHaveProperty("audio");
+      expect(screen.getByRole("button", { name: "Turn microphone off" })).toHaveAttribute("aria-pressed", "true");
+      await userEvent.click(screen.getByRole("button", { name: "Raise your hand" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 17 });
+    });
+
+    test("says in words when the browser refuses the camera", async () => {
+      await inCall({
+        mediaDevices: {
+          user: async () => Promise.reject(new DOMException("no", "NotAllowedError")),
+          display: async () => Promise.reject(new DOMException("no", "NotAllowedError")),
+        },
+      });
+      await userEvent.click(screen.getByRole("button", { name: "Turn camera on" }));
+      expect(await screen.findByText(/The browser refused the camera/)).toBeInTheDocument();
     });
   });
 });

@@ -3,6 +3,7 @@ import { createContext, use, type ReactNode } from "react";
 import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
 import type { LobbyStore } from "./lobby/lobby-store";
+import type { MediaDevicesPort } from "./media/local-media";
 import type { ProjectStore } from "./project/project-store";
 import type { EntryIntent } from "./session/intent";
 import type { SeatStorage } from "./session/seat";
@@ -16,6 +17,7 @@ export type Services = {
   socket: SocketFactory;
   signalUrl: string;
   seatStorage: SeatStorage;
+  mediaDevices: MediaDevicesPort | undefined;
   entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };
   origin: string;
