@@ -99,6 +99,7 @@ type rosterFrame struct {
 	V      uint64      `json:"v"`
 	People []person    `json:"people"`
 	Gone   []departure `json:"gone,omitempty"`
+	Quiet  bool        `json:"quiet,omitempty"`
 }
 
 type joinedFrame struct {
@@ -115,7 +116,7 @@ type errorFrame struct {
 }
 
 func encodeRoster(s room.Snapshot) []byte {
-	f := rosterFrame{T: "roster", V: s.Version, People: make([]person, len(s.Participants))}
+	f := rosterFrame{T: "roster", V: s.Version, People: make([]person, len(s.Participants)), Quiet: s.Quiet}
 	for i, p := range s.Participants {
 		f.People[i] = person{PID: uint32(p.ID), Slot: p.Slot, Name: p.Name, State: p.State.String(), Flags: uint16(p.Flags), Look: string(p.Look), Face: p.Face}
 	}
