@@ -1,13 +1,15 @@
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { checkName } from "../domain/name";
 import { checkSlug, normalizeSlug } from "../domain/slug";
-import { useT } from "../i18n/I18nProvider";
+import { useChooseLocale, useT } from "../i18n/I18nProvider";
+import { PROJECT_LINKS } from "../project/project-store";
 import { AppLink, useNavigate } from "../routing/Navigation";
 import { LobbyPage } from "../lobby/LobbyPage";
 import { AccessSettings, type Access } from "../room/AccessSettings";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
+import { CommandPalette } from "../ui/CommandPalette";
 import { Social } from "../ui/Social";
 import { Field } from "../ui/Field";
 import { button } from "../ui/styles";
@@ -183,6 +185,18 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
     setLeavingDoorway(track.view === "entry");
   }
   const back = leavingDoorway && view !== "entry";
+  const [palette, setPalette] = useState(false);
+  const navigate = useNavigate();
+  const choose = useChooseLocale();
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      setPalette((open) => !open);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const lobby = view === "lobby";
   const leftLobby = view === "entry" && stop === 2;
   const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
@@ -200,6 +214,19 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
           </div>
         ))}
       </div>
+      {palette ? (
+        <CommandPalette
+          onClose={() => setPalette(false)}
+          commands={[
+            { id: "home", group: t("palette.group.site"), label: t("palette.home"), run: () => navigate("/") },
+            { id: "rooms", group: t("palette.group.site"), label: t("palette.rooms"), run: () => navigate("/lobby") },
+            { id: "github", group: t("palette.group.site"), label: t("palette.github"), run: () => void window.open(PROJECT_LINKS.repo, "_blank", "noreferrer") },
+            { id: "x", group: t("palette.group.site"), label: t("palette.x"), run: () => void window.open(PROJECT_LINKS.x, "_blank", "noreferrer") },
+            { id: "en", group: t("palette.group.language"), label: "English", run: () => choose("en") },
+            { id: "pt", group: t("palette.group.language"), label: "Português", run: () => choose("pt-BR") },
+          ]}
+        />
+      ) : null}
       <Pitch />
       <div className={`no-scrollbar relative flex flex-1 flex-col px-6 py-8 group-data-[view=lobby]:bg-bubble sm:px-10 lg:min-h-0 lg:overflow-y-auto lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
         <Social className="justify-end" />
