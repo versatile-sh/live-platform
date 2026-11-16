@@ -88,6 +88,7 @@ export const en = {
   "entry.unreachableBody": "Check your connection and try again.",
   "entry.retry": "Try again",
   "entry.createTitle": "Create",
+  "entry.roomHint": "It came from the address. Change it and the room of the name you type is the one opened.",
   "entry.createIntro": "This name is free. The room is yours for as long as someone is in it.",
   "entry.joinTitle": "Join",
   "entry.joinPeople": "{count}/{capacity} people are in it.",
