@@ -5,7 +5,7 @@ import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
 import { StageFrame, type StageMode } from "./StageFrame";
 
-type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined; mode?: StageMode; onFront?(): void; onMenu?(at: { x: number; y: number }): void };
+type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined; mode?: StageMode; speaking?: boolean; onFront?(): void; onMenu?(at: { x: number; y: number }): void };
 
 function attach(stream: MediaStream | undefined) {
   return (element: HTMLVideoElement | null) => {
@@ -14,7 +14,7 @@ function attach(stream: MediaStream | undefined) {
 }
 
 /** One participant on the stage: their camera when there is one to show, otherwise their initial; always their name and, in words, any trouble. */
-export function Tile({ person, isMe, video, photo, mode = "grid", onFront = () => undefined, onMenu }: TileProps) {
+export function Tile({ person, isMe, video, photo, mode = "grid", speaking = false, onFront = () => undefined, onMenu }: TileProps) {
   const t = useT();
   const view = describePerson(person);
     const muted = !view.flags.includes("microphone");
@@ -31,7 +31,8 @@ export function Tile({ person, isMe, video, photo, mode = "grid", onFront = () =
         event.preventDefault();
         onMenu?.({ x: event.clientX, y: event.clientY });
       }}
-      className={`arrive ${isMe ? "bubble-sent" : "bubble"} border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
+      className={`arrive ${isMe ? "bubble-sent" : "bubble"} border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : speaking || hand ? "border-bubble" : "border-line"} outline-2 -outline-offset-1 transition-[outline-color] duration-150 ${speaking ? "outline-bubble" : "outline-transparent"}`}
+      data-speaking={speaking || undefined}
     >
       {video ? (
         <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full ${mode === "front" ? "object-contain" : "object-cover"} ${isMe ? "-scale-x-100" : ""}`} />

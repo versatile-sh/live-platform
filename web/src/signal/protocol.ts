@@ -16,7 +16,7 @@ export type Departure = { pid: number; reason: GoneReason };
 
 export type ServerFrame =
   | { t: "joined"; pid: number; gen: number; secret: string }
-  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean }
+  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean; locked?: boolean }
   | { t: "error"; code: ErrorCode; message: string }
   | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number }
   | { t: "photo"; pid: number; data: string }
@@ -38,6 +38,10 @@ export type OwnerOp =
   | { op: "unmute-all" }
   | { op: "mute"; pid: number }
   | { op: "allow"; pid: number }
+  | { op: "lock-board" }
+  | { op: "unlock-board" }
+  | { op: "draw-deny"; pid: number }
+  | { op: "draw-allow"; pid: number }
   | { op: "transfer"; pid: number }
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
@@ -93,7 +97,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       const people = parseList(raw.people, parsePerson);
       const gone = parseList(raw.gone, parseDeparture);
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
-      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}) };
+      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}), ...(raw.locked === true ? { locked: true } : {}) };
     }
     case "board":
       return typeof raw.pid === "number" ? { t: "board", pid: raw.pid, data: raw.data } : undefined;

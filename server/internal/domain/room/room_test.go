@@ -338,18 +338,23 @@ func TestSay(t *testing.T) {
 	r := newRoom(t)
 	ana := joinActive(t, r, "ana", false)
 	bia := joinActive(t, r, "bia", false)
-	toAll, ok := r.Say(t0, ana.ID, 0, "hi")
+	toAll, ok := r.Say(t0, ana.ID, 0, "hi", nil)
 	require.True(t, ok)
 	assert.Zero(t, toAll.To)
-	private, ok := r.Say(t0, ana.ID, bia.ID, "psst")
+	private, ok := r.Say(t0, ana.ID, bia.ID, "psst", nil)
 	require.True(t, ok)
 	assert.Equal(t, bia.ID, private.To)
 	for _, to := range []PID{ana.ID, 99} {
-		_, ok := r.Say(t0, ana.ID, to, "x")
+		_, ok := r.Say(t0, ana.ID, to, "x", nil)
 		assert.False(t, ok)
 	}
-	_, ok = r.Say(t0, 99, 0, "x")
+	_, ok = r.Say(t0, 99, 0, "x", nil)
 	assert.False(t, ok)
+	_, ok = r.Say(t0, ana.ID, 0, "", nil)
+	assert.False(t, ok, "nothing to say and nothing to show is no message")
+	shown, ok := r.Say(t0, ana.ID, 0, "", []byte("GIF89a"))
+	require.True(t, ok, "a picture alone is a message")
+	assert.Equal(t, []byte("GIF89a"), shown.Image)
 }
 
 func TestFaceAndPhoto(t *testing.T) {

@@ -6,12 +6,12 @@ import { describePerson } from "./person";
 import { button } from "../ui/styles";
 import { hasFlag } from "../domain/flags";
 
-type PeoplePanelProps = { people: readonly Person[]; me: number | undefined; canModerate: boolean; quiet: boolean; onRemove(pid: number): void; onBan(pid: number): void; onQuiet(op: "mute-all" | "unmute-all"): void; onVoice(pid: number, op: "mute" | "allow"): void; onTransfer(pid: number): void; photos: Readonly<Record<number, string>>; onEditLook(): void };
+type PeoplePanelProps = { people: readonly Person[]; me: number | undefined; canModerate: boolean; quiet: boolean; locked: boolean; onDraw(pid: number, op: "draw-allow" | "draw-deny"): void; onRemove(pid: number): void; onBan(pid: number): void; onQuiet(op: "mute-all" | "unmute-all"): void; onVoice(pid: number, op: "mute" | "allow"): void; onTransfer(pid: number): void; photos: Readonly<Record<number, string>>; onEditLook(): void };
 
 const XS = button({ variant: "secondary", size: "xs" });
 
 /** Everyone in the room as a list: who they are, what they are doing, and, for the owner, what can be done about them. */
-export function PeoplePanel({ people, me, canModerate, quiet, onRemove, onBan, onQuiet, onVoice, onTransfer, photos, onEditLook }: PeoplePanelProps) {
+export function PeoplePanel({ people, me, canModerate, quiet, locked, onDraw, onRemove, onBan, onQuiet, onVoice, onTransfer, photos, onEditLook }: PeoplePanelProps) {
   const t = useT();
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -53,6 +53,11 @@ export function PeoplePanel({ people, me, canModerate, quiet, onRemove, onBan, o
                 <button type="button" className={button({ variant: asking ? "accent" : "secondary", size: "xs" })} onClick={() => onVoice(person.pid, muted ? "allow" : "mute")} aria-label={t(muted ? "quiet.allow" : "quiet.mute", { name: person.name })}>
                   {t(muted ? "quiet.allowShort" : "quiet.muteShort")}
                 </button>
+                {locked ? (
+                  <button type="button" className={XS} onClick={() => onDraw(person.pid, hasFlag(person.flags, "noDraw") ? "draw-allow" : "draw-deny")} aria-label={t(hasFlag(person.flags, "noDraw") ? "board.allow" : "board.deny", { name: person.name })}>
+                    {t(hasFlag(person.flags, "noDraw") ? "board.allowShort" : "board.denyShort")}
+                  </button>
+                ) : null}
                 <button type="button" className={XS} onClick={() => onTransfer(person.pid)} aria-label={t("owner.transfer", { name: person.name })}>
                   {t("owner.transferShort")}
                 </button>
