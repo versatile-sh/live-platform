@@ -5,6 +5,7 @@
 @import "@fontsource/noto-sans/latin-600.css";
 @import "@fontsource/jetbrains-mono/latin-400.css";
 @import "@fontsource/jetbrains-mono/latin-500.css";
+@import "@fontsource/jetbrains-mono/latin-700.css";
 
 @theme {
   --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
@@ -26,7 +27,6 @@
   --color-light: #f5f5f2;
   --color-ink: #0e1116;
   --color-paper: #f5f5f2;
-  --color-mark: #c6f432;
 
   --radius-bubble: 1.25rem;
   --radius-tail: 0.3rem;
@@ -49,7 +49,6 @@
     --color-line: #e2e1dc;
     --color-line-strong: #cfcec8;
     --color-light: #0e1116;
-    --color-mark: #5e8c00;
   }
 }
 
@@ -113,10 +112,6 @@ body {
   background-size: 64px 64px;
   background-position: center -1px;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 20%, transparent 75%);
-}
-
-.on-accent {
-  --color-mark: var(--color-ink);
 }
 
 .backdrop-grid-ink {
