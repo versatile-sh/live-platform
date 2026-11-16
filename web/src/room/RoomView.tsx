@@ -1025,6 +1025,9 @@ export function RoomView({
           >
             <Icon name="hand" />
           </button>
+          <button type="button" aria-pressed={boardOpen} aria-label={t("more.board")} title={t("more.board")} className={`${DOCK.round} ${boardOpen ? DOCK.on : DOCK.idle}`} onClick={() => setBoardOpen((open) => !open)}>
+            <Icon name="board" />
+          </button>
           <div className="relative">
             <button
               type="button"
