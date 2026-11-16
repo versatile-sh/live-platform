@@ -15,6 +15,9 @@ servers:
 ssh:
   user: root
 
+# What the proxy answers while the app is not there, such as the seconds of a deploy: our own pages, which try again by themselves.
+error_pages_path: deploy/errors
+
 # Kamal's local registry: the image is pushed through an SSH tunnel, no Docker Hub.
 registry:
   server: localhost:5555

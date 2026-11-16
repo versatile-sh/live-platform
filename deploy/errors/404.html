@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="5" />
+    <title>~/versatile.sh/live</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; }
+      html { height: 100%; background: #0e1116; color: #f5f5f2; font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+      body { min-height: 100%; display: grid; place-items: center; padding: 2rem; background-image: linear-gradient(to right, rgb(245 245 242 / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(245 245 242 / 0.04) 1px, transparent 1px); background-size: 64px 64px; }
+      main { width: min(34rem, 100%); display: flex; flex-direction: column; gap: 1.25rem; }
+      .mono { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; }
+      .mark { display: inline-flex; align-items: center; gap: 0.6rem; font-size: 1rem; font-weight: 700; margin-bottom: 1.5rem; }
+      .mark b { background: #c6f432; color: #0e1116; font-weight: 500; font-size: 0.8em; padding: 0.3em 0.5em; border-radius: 0.9em; border-bottom-left-radius: 0.2em; }
+      .mark i { font-style: normal; color: #c6f432; }
+      .said { align-self: flex-start; max-width: 85%; padding: 0.7rem 1rem; border-radius: 1.25rem; border-bottom-left-radius: 0.3rem; background: #171b22; border: 1px solid rgb(245 245 242 / 0.14); line-height: 1.45; }
+      .sent { align-self: flex-end; max-width: 85%; padding: 0.7rem 1rem; border-radius: 1.25rem; border-bottom-right-radius: 0.3rem; background: #c6f432; color: #0e1116; font-weight: 600; line-height: 1.45; }
+      .said, .sent { animation: arrive 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      .sent { animation-delay: 0.25s; }
+      .said + .said { animation-delay: 0.5s; }
+      .dot { display: inline-block; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #c6f432; margin-right: 0.5rem; animation: pulse 1.4s ease-in-out infinite; }
+      small { color: rgb(245 245 242 / 0.55); font-size: 0.8125rem; margin-top: 0.75rem; }
+      @keyframes arrive { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+      @keyframes pulse { 50% { opacity: 0.25; } }
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="mark mono"><b>live</b><span>versatile<i>.sh</i></span></span>
+      <p class="said">is the room still there?</p>
+      <p class="sent">We are putting a new version in place. It takes a few seconds.</p>
+      <p class="said mono"><span class="dot"></span>back in a moment</p>
+      <small class="mono">404 · this page tries again by itself every few seconds · esta página tenta de novo sozinha</small>
+    </main>
+  </body>
+</html>
