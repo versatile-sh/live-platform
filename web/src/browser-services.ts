@@ -44,6 +44,12 @@ export function createBrowserServices(): Services {
     socket: platformSocket(),
     signalUrl: signalUrl(window.location),
     seatStorage: session ?? noStorage,
+    mediaDevices: navigator.mediaDevices
+      ? {
+          user: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+          display: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
+        }
+      : undefined,
     entryIntent: createEntryIntent(),
     nameMemory: {
       read: () => local?.getItem(NAME_KEY) ?? "",
