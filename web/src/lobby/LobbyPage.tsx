@@ -36,7 +36,7 @@ function Nobody({ className = "" }: { className?: string }) {
 }
 
 /** The open rooms, drawn for the lime panel: a short list or the map, each of which opens into a window with every room. They are asked of the server only when someone comes to see them. */
-export function LobbyPage() {
+export function LobbyPage({ active = true }: { active?: boolean }) {
   const t = useT();
   const { lobby } = useServices();
   const state = useSyncExternalStore(lobby.subscribe, lobby.getSnapshot);
@@ -46,6 +46,7 @@ export function LobbyPage() {
   const [country, setCountry] = useState<string | undefined>();
   const [dialog, setDialog] = useState<"list" | "map" | undefined>();
   const names = new Intl.DisplayNames([useLocale()], { type: "region" });
+  if (!active && dialog) setDialog(undefined);
 
   const counts = new Map<string, number>();
   for (const room of rooms) if (room.country) counts.set(room.country, (counts.get(room.country) ?? 0) + 1);
@@ -150,7 +151,7 @@ export function LobbyPage() {
         </div>
       </div>
 
-      {dialog ? <RoomsDialog rooms={rooms} start={dialog} onClose={() => setDialog(undefined)} /> : null}
+      {dialog && active ? <RoomsDialog rooms={rooms} start={dialog} onClose={() => setDialog(undefined)} /> : null}
     </section>
   );
 }

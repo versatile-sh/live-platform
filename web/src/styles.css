@@ -244,7 +244,7 @@ body {
 }
 
 .ride-in {
-  animation: ride-in 0.7s var(--ease-glide) both;
+  animation: ride-in 0.7s var(--ease-glide);
 }
 
 @keyframes ride-in {
