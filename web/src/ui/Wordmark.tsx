@@ -1,35 +1,11 @@
-const LETTERS: readonly (readonly [transform: string, d: string])[] = [
-  ["translate(0)", "M220 0 38 486H102L262 46H274L434 486H498L316 0Z"],
-  ["translate(494)", "M312 -14Q237 -14 181.5 17.5Q126 49 95.0 106.0Q64 163 64 237V249Q64 324 95.0 380.5Q126 437 180.5 468.5Q235 500 305 500Q373 500 425.5 471.5Q478 443 508.0 389.5Q538 336 538 262V230H124Q127 139 179.5 89.5Q232 40 312 40Q380 40 417.5 71.0Q455 102 475 147L529 123Q514 90 487.5 58.5Q461 27 419.0 6.5Q377 -14 312 -14ZM125 282H477Q473 361 426.0 403.5Q379 446 305 446Q232 446 184.0 403.5Q136 361 125 282Z"],
-  ["translate(1050)", "M88 0V486H146V425H158Q172 458 199.5 473.0Q227 488 276 488H333V432H269Q214 432 181.0 401.0Q148 370 148 304V0Z"],
-  ["translate(1377)", "M281 -14Q193 -14 130.5 28.0Q68 70 54 167L113 178Q121 125 145.5 94.5Q170 64 205.5 51.0Q241 38 281 38Q341 38 377.5 62.5Q414 87 414 130Q414 174 379.5 191.0Q345 208 288 218L242 226Q196 234 159.0 250.5Q122 267 100.5 295.0Q79 323 79 365Q79 428 128.5 464.0Q178 500 260 500Q343 500 393.5 462.5Q444 425 457 354L401 342Q391 400 353.5 424.0Q316 448 260 448Q205 448 172.0 427.0Q139 406 139 365Q139 325 169.0 306.5Q199 288 251 279L297 271Q347 263 387.0 247.5Q427 232 450.5 204.0Q474 176 474 130Q474 61 422.0 23.5Q370 -14 281 -14Z"],
-  ["translate(1863)", "M237 -14Q186 -14 144.5 3.5Q103 21 79.0 55.0Q55 89 55 137Q55 186 79.0 218.0Q103 250 144.0 266.0Q185 282 235 282H413V321Q413 380 379.0 413.0Q345 446 280 446Q216 446 178.5 414.5Q141 383 128 330L70 347Q82 390 108.0 424.5Q134 459 177.0 479.5Q220 500 280 500Q372 500 422.5 452.0Q473 404 473 318V82Q473 52 501 52H548V0H484Q453 0 435.0 18.5Q417 37 417 69V76H407Q394 54 373.5 33.0Q353 12 320.0 -1.0Q287 -14 237 -14ZM241 40Q318 40 365.5 86.5Q413 133 413 218V230H236Q184 230 149.5 207.5Q115 185 115 138Q115 91 150.5 65.5Q186 40 241 40Z"],
-  ["translate(2395)", "M264 0Q225 0 205.5 20.0Q186 40 186 76V432H30V486H186V668H246V486H416V432H246V84Q246 54 276 54H390V0Z"],
-  ["translate(2815)", "M88 0V486H148V0ZM118 570Q96 570 81.0 585.0Q66 600 66 622Q66 645 81.0 659.5Q96 674 118 674Q141 674 155.5 659.5Q170 645 170 622Q170 600 155.5 585.0Q141 570 118 570Z"],
-  ["translate(3009)", "M88 0V700H148V0Z"],
-  ["translate(3203)", "M312 -14Q237 -14 181.5 17.5Q126 49 95.0 106.0Q64 163 64 237V249Q64 324 95.0 380.5Q126 437 180.5 468.5Q235 500 305 500Q373 500 425.5 471.5Q478 443 508.0 389.5Q538 336 538 262V230H124Q127 139 179.5 89.5Q232 40 312 40Q380 40 417.5 71.0Q455 102 475 147L529 123Q514 90 487.5 58.5Q461 27 419.0 6.5Q377 -14 312 -14ZM125 282H477Q473 361 426.0 403.5Q379 446 305 446Q232 446 184.0 403.5Q136 361 125 282Z"],
-];
-
-/** The company logo from its brand kit, as outlines: the letters follow the text colour and the cursor keeps the brand lime. */
-function VersatileLogo() {
-  return (
-    <svg viewBox="0 0 1292 256" role="img" aria-label="versatile" className="h-[1.05em] w-auto">
-      <g transform="translate(19.46 232.29) scale(0.30404 -0.30404)">
-        {LETTERS.map(([transform, d]) => (
-          <path key={transform} transform={transform} d={d} fill="currentColor" />
-        ))}
-        <rect x="3865" y="0" width="256" height="64" rx="8" fill="var(--color-mark)" />
-      </g>
-    </svg>
-  );
-}
-
-/** The logotype: `live` speaks from inside a bubble, then the company logo as the brand kit draws it. On the accent the bubble turns to ink. */
+/** The logotype: `live` speaks from inside a bubble, then `versatile.sh` as the company writes it. On the accent it sits on its own ink plate, so the lime of `.sh` survives. */
 export function Wordmark({ className = "", onAccent = false }: { className?: string; onAccent?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-[0.55em] ${className}`} translate="no">
-      <span className={`bubble-word inline-block px-[0.52em] py-[0.32em] font-mono text-[0.8em] leading-none font-medium ${onAccent ? "bg-ink text-bubble" : "bg-bubble text-on-bubble"}`}>live</span>
-      <VersatileLogo />
+    <span className={`inline-flex items-center gap-[0.55em] ${onAccent ? "rounded-xl bg-ink px-[0.7em] py-[0.5em] text-paper" : ""} ${className}`} translate="no">
+      <span className="bubble-word inline-block bg-bubble px-[0.5em] py-[0.3em] font-mono text-[0.8em] leading-none font-medium text-on-bubble">live</span>
+      <span className="font-mono leading-none font-bold tracking-[-0.02em]">
+        versatile<span className={onAccent ? "text-bubble" : "text-accent"}>.sh</span>
+      </span>
     </span>
   );
 }
