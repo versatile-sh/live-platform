@@ -31,6 +31,7 @@ type conn struct {
 	raw      gnet.Conn
 	upgraded atomic.Bool
 	country  string
+	origin   string
 	limiter  bucket
 	late     *time.Timer
 	pending  atomic.Int64
@@ -238,7 +239,7 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 		if err != nil {
 			return "", room.Seat{}, err
 		}
-		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Country: c.country}, c)
+		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Origin: c.origin, Country: c.country}, c)
 		return slug, seat, err
 	case "resume":
 		if secret, ok := decodeSecret(hello.Secret); ok {
@@ -312,6 +313,8 @@ func (c *conn) owner(f clientFrame) {
 	switch f.Op {
 	case "remove":
 		err = c.server.presence.Remove(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
+	case "ban":
+		err = c.server.presence.Ban(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
 	case "transfer":
 		err = c.server.presence.Transfer(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
 	case "listed":

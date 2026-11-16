@@ -53,6 +53,7 @@ type Reason string
 const (
 	ReasonLeft         Reason = "left"
 	ReasonRemoved      Reason = "removed-by-owner"
+	ReasonBanned       Reason = "banned-by-owner"
 	ReasonTimeout      Reason = "timeout"
 	ReasonMediaTimeout Reason = "media-timeout"
 	ReasonUnhealthyCap Reason = "unhealthy-cap"
