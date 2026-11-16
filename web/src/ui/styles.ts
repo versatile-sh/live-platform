@@ -6,7 +6,7 @@ export const PRESS = "transition-[background-color,border-color,color,opacity,tr
 
 /** Single-line form field. */
 export const FIELD =
-  "block h-11 w-full rounded-xl border border-line-strong bg-canvas px-3.5 text-fg placeholder:text-muted transition-colors duration-200 focus:border-fg/50 aria-invalid:border-amber";
+  "block h-11 w-full rounded-xl border border-muted-light bg-canvas px-3.5 text-fg placeholder:text-muted transition-colors duration-200 focus:border-fg/50 aria-invalid:border-amber";
 
 /** Small mono caption for machine facts: slugs, counts, states. */
 export const CAPTION = "font-mono text-xs text-muted";
@@ -18,7 +18,7 @@ type ButtonOptions = { variant?: "primary" | "secondary" | "quiet"; size?: "sm" 
 
 const BUTTON_VARIANT = {
   primary: "bg-bubble text-on-bubble hover:opacity-90 focus-visible:opacity-90 disabled:opacity-60",
-  secondary: "border border-line-strong text-fg hover:border-accent hover:text-accent focus-visible:border-accent disabled:opacity-60",
+  secondary: "border border-muted-light text-fg hover:border-accent hover:text-accent focus-visible:border-accent disabled:opacity-60",
   quiet: "text-muted hover:bg-fg/8 hover:text-fg focus-visible:bg-fg/8 focus-visible:text-fg disabled:opacity-60",
 } as const;
 
