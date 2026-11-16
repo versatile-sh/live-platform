@@ -144,6 +144,11 @@ func (h *Hub) SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look, 
 	})
 }
 
+// Board relays a piece of the whiteboard to everyone else in the room, or to one participant.
+func (h *Hub) Board(slug room.Slug, pid room.PID, gen uint32, to room.PID, data string) {
+	h.tell(slug, func(a *actor) { a.board(pid, gen, to, data) })
+}
+
 // SetPhoto shows a participant's photo to the room for as long as they are in it, or takes it away when empty.
 func (h *Hub) SetPhoto(slug room.Slug, pid room.PID, gen uint32, jpeg []byte) {
 	h.tell(slug, func(a *actor) { a.photo(pid, gen, jpeg) })

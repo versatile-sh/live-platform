@@ -90,6 +90,21 @@ func (c *conn) Media(signal room.MediaSignal) {
 	}
 }
 
+// Board queues a piece of the whiteboard and reports false when the connection has fallen too far behind.
+func (c *conn) Board(update room.BoardUpdate) bool {
+	frame := textFrame(encodeBoard(update))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch {
+	case c.gone || c.phase != phaseJoined:
+		return true
+	case c.pending.Load() > c.server.cfg.MaxPending:
+		return false
+	}
+	c.send(frame)
+	return true
+}
+
 // Chat queues a message and reports false when the connection has fallen too far behind.
 func (c *conn) Chat(message room.ChatMessage) bool {
 	frame := textFrame(encodeChat(message))
@@ -272,6 +287,13 @@ func (c *conn) dispatch(f clientFrame) {
 			return
 		}
 		p.Chat(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.To), text)
+	case "board":
+		data, err := room.NewBoardData(f.Board)
+		if err != nil {
+			c.send(textFrame(encodeError(err)))
+			return
+		}
+		p.Board(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.To), data)
 	case "leave":
 		c.mu.Lock()
 		c.left = true

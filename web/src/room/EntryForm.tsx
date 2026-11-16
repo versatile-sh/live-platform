@@ -59,7 +59,10 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     <form onSubmit={(event) => void submit(event)} noValidate className="w-full max-w-md">
       <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
         <span className="block truncate" translate="no">
-          {creating ? t("entry.createTitle", { slug }) : t("entry.joinTitle", { slug })}
+          {creating ? t("entry.createTitle") : t("entry.joinTitle")}{" "}
+          <span className="bubble-word inline-block max-w-full truncate bg-bubble px-3 py-0.5 align-bottom font-mono text-[0.8em] tracking-normal text-on-bubble" translate="no">
+            {slug}
+          </span>
         </span>
       </h2>
       <p className="mt-2 mb-6 text-muted">{creating ? t("entry.createIntro") : full ? t("entry.joinFull", { count: room.count, capacity: room.capacity }) : t("entry.joinPeople", { count: room.count, capacity: room.capacity })}</p>

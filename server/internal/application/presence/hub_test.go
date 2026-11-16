@@ -23,6 +23,7 @@ type fakeSession struct {
 	gone   []room.Departure
 	closed room.CloseReason
 	said   []room.ChatMessage
+	drawn  []room.BoardUpdate
 	photos map[room.PID]int
 	stuck  bool
 }
@@ -54,6 +55,19 @@ func (f *fakeSession) heard() []room.ChatMessage {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]room.ChatMessage(nil), f.said...)
+}
+
+func (f *fakeSession) Board(u room.BoardUpdate) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.drawn = append(f.drawn, u)
+	return true
+}
+
+func (f *fakeSession) boards() []room.BoardUpdate {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]room.BoardUpdate(nil), f.drawn...)
 }
 
 func (f *fakeSession) Photo(pid room.PID, jpeg []byte) {
@@ -390,5 +404,19 @@ func TestHub(t *testing.T) {
 		h.Chat("bk", ana.PID, ana.Gen, 0, "everyone")
 		require.Eventually(t, func() bool { return len(caioSession.heard()) == 1 }, wait, tick)
 		assert.Equal(t, "everyone", caioSession.heard()[0].Text)
+	})
+
+	t.Run("a piece of the whiteboard reaches the others and never comes back to who drew it", func(t *testing.T) {
+		h := newCalmHub()
+		ana, anaSession := enter(t, h, "ana")
+		bia, biaSession := enter(t, h, "bia")
+		_, caioSession := enter(t, h, "caio")
+		h.Board("bk", ana.PID, ana.Gen, 0, `{"n":1}`)
+		require.Eventually(t, func() bool { return len(biaSession.boards()) == 1 && len(caioSession.boards()) == 1 }, wait, tick)
+		h.Board("bk", ana.PID, ana.Gen, bia.PID, `{"n":2}`)
+		h.Board("bk", ana.PID, ana.Gen+1, 0, `{"n":3}`)
+		require.Eventually(t, func() bool { return len(biaSession.boards()) == 2 }, wait, tick)
+		assert.Len(t, caioSession.boards(), 1)
+		assert.Empty(t, anaSession.boards())
 	})
 }

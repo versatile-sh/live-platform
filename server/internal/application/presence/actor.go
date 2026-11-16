@@ -211,6 +211,28 @@ func (a *actor) chat(pid room.PID, gen uint32, to room.PID, text string) {
 	}
 }
 
+func (a *actor) board(pid room.PID, gen uint32, to room.PID, data string) {
+	if !a.holds(pid, gen) {
+		return
+	}
+	update, ok := a.room.Draw(pid, to, data)
+	if !ok {
+		return
+	}
+	var slow []room.PID
+	for id, s := range a.seats {
+		if id == pid || (to != 0 && id != to) {
+			continue
+		}
+		if s.online && !s.session.Board(update) {
+			slow = append(slow, id)
+		}
+	}
+	for _, id := range slow {
+		a.suspect(id, a.seats[id].gen, room.CloseSlow)
+	}
+}
+
 func (a *actor) wire(pid room.PID, gen uint32, session outbound.Session) {
 	if a.wires == nil {
 		return

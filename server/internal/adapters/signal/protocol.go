@@ -41,6 +41,7 @@ type clientFrame struct {
 	To        uint32            `json:"to"`
 	Face      string            `json:"face"`
 	Data      string            `json:"data"`
+	Board     string            `json:"board"`
 	Role      string            `json:"role"`
 	Kind      string            `json:"kind"`
 	SDP       string            `json:"sdp"`
@@ -60,6 +61,12 @@ type photoFrame struct {
 	T    string `json:"t"`
 	PID  uint32 `json:"pid"`
 	Data string `json:"data"`
+}
+
+type boardFrame struct {
+	T    string          `json:"t"`
+	PID  uint32          `json:"pid"`
+	Data json.RawMessage `json:"data"`
 }
 
 type chatFrame struct {
@@ -123,6 +130,10 @@ func encodeMedia(s room.MediaSignal) []byte {
 
 func encodePhoto(pid room.PID, jpeg []byte) []byte {
 	return mustJSON(photoFrame{T: "photo", PID: uint32(pid), Data: base64.StdEncoding.EncodeToString(jpeg)})
+}
+
+func encodeBoard(u room.BoardUpdate) []byte {
+	return mustJSON(boardFrame{T: "board", PID: uint32(u.From), Data: json.RawMessage(u.Data)})
 }
 
 func encodeChat(m room.ChatMessage) []byte {
