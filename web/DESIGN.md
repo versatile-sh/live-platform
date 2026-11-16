@@ -44,7 +44,7 @@ Shape. One family of speech bubbles, and nothing else has a tail:
 | `.bubble-word` | 0.9em, 0.2em tail bottom left | one line of words: badges, chips, small buttons, labels over video, the switch and the two-way selector (their thumbs inherit the shape) |
 | `.bubble-word-sent` | same, tail bottom right | one line of words on the sending side: the wordmark plate |
 
-Outside the family only three shapes exist: `rounded-full` for round things (avatars, icon buttons, dots, colour swatches), `rounded-2xl` for screens (call tiles and side panels, which show and do not speak), and `rounded-md` for keycaps. No arbitrary radius (`rounded-[…]`) in components; `src/ui/shape.test.ts` fails when one appears.
+Outside the family only two shapes exist: `rounded-full` for round things (avatars, icon buttons, dots, colour swatches) and `rounded-md` for keycaps. Call tiles and panels are bubbles too: mine and what I opened with the tail on the right, the others with it on the left. No arbitrary radius (`rounded-[…]`) in components; `src/ui/shape.test.ts` fails when one appears.
 
 Buttons. Every clickable skin lives in `src/ui/styles.ts`, and pages only pick one:
 
