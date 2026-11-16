@@ -17,7 +17,9 @@ type ChatMessage struct {
 	To   PID
 	Name string
 	Text string
-	At   time.Time
+	// Image is a small picture sent in place of, or with, the words: a GIF or a JPEG the room checked.
+	Image []byte
+	At    time.Time
 }
 
 // NewChatText accepts 1 to 500 characters of text, with line breaks but no other control or invisible character.
@@ -36,10 +38,13 @@ func NewChatText(raw string) (string, error) {
 }
 
 // Say stamps a message from a participant who is in the room, to everyone or to one other participant who is in it too; anything else reports false.
-func (r *Room) Say(now time.Time, from, to PID, text string) (ChatMessage, bool) {
+func (r *Room) Say(now time.Time, from, to PID, text string, image []byte) (ChatMessage, bool) {
 	p := r.find(from)
 	if p == nil || to == from || (to != 0 && r.find(to) == nil) {
 		return ChatMessage{}, false
 	}
-	return ChatMessage{From: p.ID, To: to, Name: p.Name, Text: text, At: now}, true
+	if text == "" && len(image) == 0 {
+		return ChatMessage{}, false
+	}
+	return ChatMessage{From: p.ID, To: to, Name: p.Name, Text: text, Image: image, At: now}, true
 }

@@ -22,6 +22,7 @@ const (
 	CloseNoHello    ws.StatusCode = 4401
 	CloseRemoved    ws.StatusCode = 4403
 	CloseBanned     ws.StatusCode = 4404
+	CloseRestarting ws.StatusCode = 4012
 	CloseSilent     ws.StatusCode = 4408
 	CloseSlow       ws.StatusCode = 4409
 	CloseFlood      ws.StatusCode = 4429
@@ -76,6 +77,7 @@ type chatFrame struct {
 	To   uint32 `json:"to,omitempty"`
 	Name string `json:"name"`
 	Text string `json:"text"`
+	Img  string `json:"img,omitempty"`
 	At   int64  `json:"at"`
 }
 
@@ -100,6 +102,7 @@ type rosterFrame struct {
 	People []person    `json:"people"`
 	Gone   []departure `json:"gone,omitempty"`
 	Quiet  bool        `json:"quiet,omitempty"`
+	Locked bool        `json:"locked,omitempty"`
 }
 
 type joinedFrame struct {
@@ -116,7 +119,7 @@ type errorFrame struct {
 }
 
 func encodeRoster(s room.Snapshot) []byte {
-	f := rosterFrame{T: "roster", V: s.Version, People: make([]person, len(s.Participants)), Quiet: s.Quiet}
+	f := rosterFrame{T: "roster", V: s.Version, People: make([]person, len(s.Participants)), Quiet: s.Quiet, Locked: s.Locked}
 	for i, p := range s.Participants {
 		f.People[i] = person{PID: uint32(p.ID), Slot: p.Slot, Name: p.Name, State: p.State.String(), Flags: uint16(p.Flags), Look: string(p.Look), Face: p.Face}
 	}
@@ -139,7 +142,7 @@ func encodeBoard(u room.BoardUpdate) []byte {
 }
 
 func encodeChat(m room.ChatMessage) []byte {
-	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, At: m.At.UnixMilli()})
+	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, Img: base64.StdEncoding.EncodeToString(m.Image), At: m.At.UnixMilli()})
 }
 
 func encodeJoined(seat room.Seat) []byte {

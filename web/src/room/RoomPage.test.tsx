@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, test, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../media/settings";
 
-vi.mock("../board/Whiteboard", () => ({ default: () => "the drawing surface" }));
+vi.mock("../board/Whiteboard", () => ({ default: ({ readOnly }: { readOnly?: boolean }) => (readOnly ? "the drawing surface, to look at" : "the drawing surface") }));
+vi.mock("../board/BoardPreview", () => ({ default: () => "a small picture of the board" }));
 
 import type { RoomSummary, StatusResult } from "../api/rooms";
 import { writeSeat } from "../session/seat";
@@ -553,6 +554,57 @@ describe("RoomPage", () => {
       expect(screen.getByText("The owner let you speak. Your microphone is still off.")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Not now" }));
       expect(screen.queryByText(/The owner let you speak/)).not.toBeInTheDocument();
+    });
+
+    test("the owner keeps the whiteboard to those they let draw, and the others see it read only", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "Whiteboard" }));
+      await userEvent.click(screen.getByRole("button", { name: "Only who I let draws" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "lock-board" });
+      await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 32 | 128, state: "active" }), person(2, "Bia", { flags: 512, state: "active" })], gone: [], locked: true });
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.click(screen.getByRole("button", { name: "Let Bia draw" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "draw-allow", pid: 2 });
+    });
+
+    test("whoever may not draw sees the whiteboard read only and is told so", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 512, state: "active" }), person(2, "Bia", { flags: 32 | 128, state: "active" })], gone: [], locked: true });
+      const frame = screen.getByRole("listitem", { name: "Whiteboard" });
+      expect(await within(frame).findByText("the drawing surface, to look at")).toBeInTheDocument();
+      expect(within(frame).getByText("view only")).toBeInTheDocument();
+      expect(within(frame).queryByRole("button", { name: "Only who I let draws" })).not.toBeInTheDocument();
+    });
+
+    test("a muted participant always sees why, and the whiteboard shows as a small picture when it is not in front", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 256, state: "active" }), person(2, "Bia", { flags: 32 | 128, state: "active" })], gone: [], quiet: true });
+      expect(screen.getByText("The owner muted everyone. Raise your hand to ask to speak.")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("listitem", { name: /Bia, connected/ }));
+      expect(await within(screen.getByRole("listitem", { name: "Whiteboard" })).findByText("a small picture of the board")).toBeInTheDocument();
+    });
+
+    test("a private message is announced as private, with who sent it, and opens that conversation", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "chat", pid: 2, to: 1, name: "Bia", text: "só pra você", at: 1_700_000_000_000 });
+      expect(screen.getByText("Bia wrote only to you (1)")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Private · 1" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Open" }));
+      expect(within(screen.getByRole("list", { name: "Messages" })).getByText("só pra você")).toBeInTheDocument();
+      expect(screen.queryByText(/wrote only to you/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Private" })).toHaveAttribute("aria-pressed", "true");
+    });
+
+    test("an address in a message is a link that opens elsewhere, and a picture sent is shown", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "entra https://live.versatile.sh/meet", at: 1_700_000_000_000, img: "R0lGODlhAQABAAAAACw=" });
+      const link = screen.getByRole("link", { name: "https://live.versatile.sh/meet" });
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noreferrer noopener");
+      expect(screen.getByRole("img", { name: "Picture from Bia" })).toHaveAttribute("src", "data:image/gif;base64,R0lGODlhAQABAAAAACw=");
+      await userEvent.click(screen.getByRole("button", { name: "Emoji" }));
+      await userEvent.click(screen.getByRole("button", { name: "🔥" }));
+      expect(screen.getByLabelText("Message to the room")).toHaveValue("🔥");
     });
 
     test("a right click on a person offers what can be done about them, starting with a private message", async () => {

@@ -7,14 +7,18 @@ servers:
     hosts:
       - hosting
     # The signalling port is not behind kamal-proxy: the tunnel reaches it by this name on the Kamal network.
-    # Media does not pass through the tunnel: browsers reach this one UDP port on the server's own address.
+    # Media does not pass through the tunnel: browsers reach one UDP port on the server's own address.
+    # The port alternates between 40000 and 40001 from one deploy to the next (deploy/server.sh picks it),
+    # so the new container starts while the old one still holds its calls.
     options:
       network-alias: live-signal
-      publish: "40000:40000/udp"
+      publish: "<%= ENV.fetch("LIVE_MEDIA_PORT", "40000") %>:<%= ENV.fetch("LIVE_MEDIA_PORT", "40000") %>/udp"
 
 # A newer client is laid over the one in the image from this directory of the server, so the page can change without restarting calls.
+# And the rooms of a server that is stopping are handed to the one taking over through /state.
 volumes:
   - /srv/live/web:/web-live:ro
+  - /srv/live/state:/state
 
 ssh:
   user: root
@@ -53,7 +57,8 @@ env:
     PUBLIC_ORIGIN: https://live.versatile.sh
     COUNTRY_HEADER: CF-IPCountry
     ADDRESS_HEADER: CF-Connecting-IP
-    MEDIA_UDP_PORT: "40000"
+    MEDIA_UDP_PORT: "<%= ENV.fetch("LIVE_MEDIA_PORT", "40000") %>"
+    HANDOVER_DIR: /state
     MEDIA_PUBLIC_IP: 217.76.62.157
     WEB_LIVE_DIR: /web-live
     GITHUB_REPO: versatile-sh/meeting-platform

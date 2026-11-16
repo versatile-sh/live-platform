@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -32,12 +33,14 @@ type Config struct {
 	Origins       []string
 	CountryHeader string
 	AddressHeader string
-	HelloTimeout  time.Duration
-	ReadLimit     int64
-	FramesPerSec  float64
-	FrameBurst    float64
-	MaxPending    int64
-	MaxConns      int64
+	// Salt keys the opaque origin of each visitor; given, it stays the same across restarts so that bans hold through a deploy.
+	Salt         []byte
+	HelloTimeout time.Duration
+	ReadLimit    int64
+	FramesPerSec float64
+	FrameBurst   float64
+	MaxPending   int64
+	MaxConns     int64
 }
 
 // DefaultConfig returns the limits of lv.1 for the given allowed origins.
@@ -62,12 +65,15 @@ type Server struct {
 	ready    chan struct{}
 	conns    atomic.Int64
 	salt     [16]byte
+	open     sync.Map
 }
 
 // NewServer builds the signalling endpoint over the presence port.
 func NewServer(presence inbound.Presence, cfg Config) *Server {
 	s := &Server{presence: presence, cfg: cfg, ready: make(chan struct{})}
-	_, _ = rand.Read(s.salt[:])
+	if copy(s.salt[:], cfg.Salt) < len(s.salt) {
+		_, _ = rand.Read(s.salt[:])
+	}
 	return s
 }
 
@@ -89,6 +95,14 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 }
 
+// Handoff closes every connection with the code that tells a browser to come straight back, for when another server has taken the rooms over.
+func (s *Server) Handoff() {
+	s.open.Range(func(key, _ any) bool {
+		key.(*conn).fail(CloseRestarting, "restarting")
+		return true
+	})
+}
+
 // OnBoot records the engine so that Stop can reach it.
 func (s *Server) OnBoot(engine gnet.Engine) gnet.Action {
 	s.engine = engine
@@ -108,6 +122,7 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 		}
 	}
 	c.late = time.AfterFunc(s.cfg.HelloTimeout, c.expireHello)
+	s.open.Store(c, struct{}{})
 	raw.SetContext(c)
 	return nil, gnet.None
 }
@@ -116,6 +131,7 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 func (s *Server) OnClose(raw gnet.Conn, _ error) gnet.Action {
 	s.conns.Add(-1)
 	if c, ok := raw.Context().(*conn); ok {
+		s.open.Delete(c)
 		c.closed()
 	}
 	return gnet.None
