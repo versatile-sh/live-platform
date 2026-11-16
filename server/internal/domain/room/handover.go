@@ -30,13 +30,14 @@ type Handed struct {
 	NextPID  PID      `json:"next"`
 	Version  uint64   `json:"version"`
 	Quiet    bool     `json:"quiet"`
+	Locked   bool     `json:"locked"`
 	Banned   []string `json:"banned"`
 	People   []Kept   `json:"people"`
 }
 
 // Export describes the room for the server that will take it over.
 func (r *Room) Export() Handed {
-	s := Handed{Slug: r.slug, Private: r.settings.Private, Listed: r.settings.Listed, Country: r.settings.Country, Verifier: r.settings.verifier, NextPID: r.nextPID, Version: r.version, Quiet: r.quiet}
+	s := Handed{Slug: r.slug, Private: r.settings.Private, Listed: r.settings.Listed, Country: r.settings.Country, Verifier: r.settings.verifier, NextPID: r.nextPID, Version: r.version, Quiet: r.quiet, Locked: r.locked}
 	for origin := range r.banned {
 		s.Banned = append(s.Banned, origin)
 	}
@@ -60,7 +61,7 @@ func Restore(s Handed, cfg Config, now time.Time, hold time.Duration) (*Room, er
 	if len(s.People) == 0 || len(s.People) > cfg.Capacity || hold <= 0 {
 		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "a room handed over has people in it, no more than fit", nil)
 	}
-	r.nextPID, r.version, r.quiet, r.emptyAt = s.NextPID, s.Version+1, s.Quiet, time.Time{}
+	r.nextPID, r.version, r.quiet, r.locked, r.emptyAt = s.NextPID, s.Version+1, s.Quiet, s.Locked, time.Time{}
 	for _, origin := range s.Banned {
 		if origin != "" && len(r.banned) < maxBanned {
 			if r.banned == nil {

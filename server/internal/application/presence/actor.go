@@ -359,7 +359,7 @@ func (a *actor) apply(events []room.Event) {
 
 func (a *actor) broadcast() {
 	a.hush()
-	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone, Quiet: a.room.Hushed()}
+	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone, Quiet: a.room.Hushed(), Locked: a.room.Locked()}
 	a.gone = nil
 	var slow []room.PID
 	for pid, s := range a.seats {

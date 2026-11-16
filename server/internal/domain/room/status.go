@@ -29,7 +29,7 @@ func (s State) String() string {
 // Flags packs what a participant is doing into one word, sent whole in every roster entry.
 type Flags uint16
 
-// Flag bits; owner, unstable and muted are set only by the server, the others by the participant.
+// Flag bits; owner, unstable, muted and no-draw are set only by the server, the others by the participant.
 const (
 	FlagMicrophone Flags = 1 << iota
 	FlagCamera
@@ -40,6 +40,7 @@ const (
 	FlagUnstable
 	FlagBoard
 	FlagMuted
+	FlagNoDraw
 )
 
 // MediaFlags is the mask of bits a participant may set about themselves.
