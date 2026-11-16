@@ -4,7 +4,7 @@ import { AppLink } from "../routing/Navigation";
 import { Arrow } from "../ui/Arrow";
 
 const TONE = {
-  ink: { card: "bg-ink text-paper", soft: "text-paper/70", on: "bg-bubble", off: "bg-paper/25", tag: "bg-paper text-ink", arrow: "text-paper/60 group-hover/row:text-bubble" },
+  ink: { card: "border border-transparent bg-ink text-paper", soft: "text-paper/70", on: "bg-bubble", off: "bg-paper/25", tag: "bg-paper text-ink", arrow: "text-paper/60 group-hover/row:text-bubble" },
   raised: { card: "border border-paper/10 bg-ink-raised text-paper", soft: "text-paper/70", on: "bg-bubble", off: "bg-paper/25", tag: "bg-paper text-ink", arrow: "text-paper/60 group-hover/row:text-bubble" },
 } as const;
 
@@ -15,7 +15,7 @@ export function RoomRow({ room, tone = "ink", compact = false }: { room: RoomSum
   const full = room.count >= room.capacity;
   return (
     <li>
-      <AppLink href={`/${room.slug}`} aria-label={t("lobby.roomEnter", { slug: room.slug })} className={`bubble group/row flex items-center gap-4 px-5 ${compact ? "h-14" : "h-16"} transition-transform duration-200 hover:translate-x-1 ${colours.card}`}>
+      <AppLink href={`/${room.slug}`} aria-label={t("lobby.roomEnter", { slug: room.slug })} className={`bubble group/row flex items-center gap-4 px-5 ${compact ? "h-14" : "h-16"} transition-colors duration-200 hover:border-bubble focus-visible:border-bubble ${colours.card}`}>
         <span className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-[-0.03em]" translate="no">
           {room.slug}
         </span>
