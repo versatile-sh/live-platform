@@ -22,6 +22,7 @@ const (
 	CloseNoHello    ws.StatusCode = 4401
 	CloseRemoved    ws.StatusCode = 4403
 	CloseBanned     ws.StatusCode = 4404
+	CloseRestarting ws.StatusCode = 4012
 	CloseSilent     ws.StatusCode = 4408
 	CloseSlow       ws.StatusCode = 4409
 	CloseFlood      ws.StatusCode = 4429
