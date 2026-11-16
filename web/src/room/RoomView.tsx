@@ -349,7 +349,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
               </h2>
               <span className="flex items-center gap-2">
                 <button type="button" aria-label={t("side.close")} className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg" onClick={() => setSide(undefined)}>
-                  <Icon name="close" className="size-4" />
+                  <Icon name="minimize" className="size-4" />
                 </button>
               </span>
             </div>

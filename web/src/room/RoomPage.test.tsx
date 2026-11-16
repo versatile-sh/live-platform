@@ -486,7 +486,12 @@ describe("RoomPage", () => {
       const log = within(screen.getByRole("list", { name: "Messages" }));
       expect(log.getByText("psst")).toBeInTheDocument();
       expect(log.queryByText("to everyone")).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Chat" , pressed: false }));
+      await userEvent.click(screen.getByRole("button", { name: "Back to the people" }));
+      expect(screen.queryByLabelText("Message to the room")).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Messages" })).not.toBeInTheDocument();
+      await userEvent.click(within(screen.getByRole("list", { name: "Private with" })).getByRole("button", { name: /Bia/ }));
+      expect(within(screen.getByRole("list", { name: "Messages" })).getByText("psst")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Chat", pressed: false }));
       expect(within(screen.getByRole("list", { name: "Messages" })).getByText("to everyone")).toBeInTheDocument();
     });
 
@@ -501,7 +506,7 @@ describe("RoomPage", () => {
       expect(panel()).toHaveAccessibleName("Chat");
       await userEvent.click(screen.getByRole("button", { name: "People" }));
       expect(panel()).toHaveAccessibleName("People");
-      await userEvent.click(screen.getByRole("button", { name: "Close the panel" }));
+      await userEvent.click(screen.getByRole("button", { name: "Minimize the panel" }));
       expect(screen.getByRole("button", { name: "People" })).toHaveAttribute("aria-pressed", "false");
       await userEvent.click(screen.getByRole("button", { name: "Chat" }));
       expect(panel()).toHaveAccessibleName("Chat");
