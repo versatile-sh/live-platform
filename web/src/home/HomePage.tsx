@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { withIris } from "../ui/motion";
 
 import { checkName } from "../domain/name";
 import { checkSlug, normalizeSlug } from "../domain/slug";
@@ -187,6 +188,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   }
   const back = leavingDoorway && view !== "entry";
   const [palette, setPalette] = useState(false);
+  const { theme } = useServices();
   const navigate = useNavigate();
   const choose = useChooseLocale();
   useEffect(() => {
@@ -223,6 +225,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
             { id: "rooms", group: t("palette.group.site"), label: t("palette.rooms"), run: () => navigate("/lobby") },
             { id: "github", group: t("palette.group.site"), label: t("palette.github"), run: () => void window.open(PROJECT_LINKS.repo, "_blank", "noreferrer") },
             { id: "x", group: t("palette.group.site"), label: t("palette.x"), run: () => void window.open(PROJECT_LINKS.x, "_blank", "noreferrer") },
+            { id: "theme", group: t("palette.group.site"), label: t(theme.getSnapshot() === "dark" ? "theme.toLight" : "theme.toDark"), run: () => withIris({ x: window.innerWidth / 2, y: window.innerHeight / 2 }, theme.toggle) },
             { id: "en", group: t("palette.group.language"), label: "English", run: () => choose("en") },
             { id: "pt", group: t("palette.group.language"), label: "Português", run: () => choose("pt-BR") },
           ]}
