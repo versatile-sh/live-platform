@@ -1,12 +1,12 @@
-// Package ws carries the signalling protocol lv.1 over WebSocket.
-package ws
+// Package signal carries the signalling protocol lv.1 over WebSocket on a gnet event loop.
+package signal
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 
-	"github.com/coder/websocket"
+	"github.com/gobwas/ws"
 
 	"github.com/versatile-sh/live/server/internal/domain/room"
 	"github.com/versatile-sh/live/server/internal/domain/shared"
@@ -17,13 +17,13 @@ const Subprotocol = "lv.1"
 
 // Close codes of lv.1, in the range WebSocket leaves to applications.
 const (
-	CloseSuperseded websocket.StatusCode = 4001
-	CloseBadFrame   websocket.StatusCode = 4400
-	CloseNoHello    websocket.StatusCode = 4401
-	CloseRemoved    websocket.StatusCode = 4403
-	CloseSilent     websocket.StatusCode = 4408
-	CloseSlow       websocket.StatusCode = 4409
-	CloseFlood      websocket.StatusCode = 4429
+	CloseSuperseded ws.StatusCode = 4001
+	CloseBadFrame   ws.StatusCode = 4400
+	CloseNoHello    ws.StatusCode = 4401
+	CloseRemoved    ws.StatusCode = 4403
+	CloseSilent     ws.StatusCode = 4408
+	CloseSlow       ws.StatusCode = 4409
+	CloseFlood      ws.StatusCode = 4429
 )
 
 type clientFrame struct {
@@ -104,7 +104,7 @@ func decodeSecret(raw string) ([32]byte, bool) {
 	return out, true
 }
 
-func closeCode(reason room.CloseReason) websocket.StatusCode {
+func closeCode(reason room.CloseReason) ws.StatusCode {
 	switch reason {
 	case room.CloseSuperseded:
 		return CloseSuperseded
@@ -115,7 +115,15 @@ func closeCode(reason room.CloseReason) websocket.StatusCode {
 	case room.CloseRemoved:
 		return CloseRemoved
 	}
-	return websocket.StatusNormalClosure
+	return ws.StatusNormalClosure
+}
+
+func textFrame(payload []byte) []byte {
+	return ws.MustCompileFrame(ws.NewTextFrame(payload))
+}
+
+func closeFrame(code ws.StatusCode, reason string) []byte {
+	return ws.MustCompileFrame(ws.NewCloseFrame(ws.NewCloseFrameBody(code, reason)))
 }
 
 func mustJSON(v any) []byte {

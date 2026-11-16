@@ -1,19 +1,18 @@
-// Command live serves the rooms: signalling, and later media and the page.
+// Command live serves the rooms: HTTP on one port, signalling on another, and later media.
 package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
+	ossignal "os/signal"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/versatile-sh/live/server/internal/adapters/ws"
+	"github.com/versatile-sh/live/server/internal/adapters/signal"
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
 )
@@ -24,7 +23,6 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /up", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
-	mux.Handle("GET /ws", ws.NewHandler(hub, ws.DefaultConfig(origins())))
 
 	server := &http.Server{
 		Addr:              net.JoinHostPort(env("HOST", "127.0.0.1"), env("PORT", "8080")),
@@ -32,19 +30,26 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 	}
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	signalling := signal.NewServer(hub, signal.DefaultConfig(origins()))
+	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
+
+	ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	go func() {
-		<-ctx.Done()
-		grace, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = server.Shutdown(grace)
-	}()
-	log.Info("listening", "addr", server.Addr)
-	if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+	failed := make(chan error, 2)
+	go func() { failed <- signalling.Run(signalAddr) }()
+	go func() { failed <- server.ListenAndServe() }()
+	log.Info("listening", "http", server.Addr, "signal", signalAddr)
+
+	select {
+	case <-ctx.Done():
+	case err := <-failed:
 		log.Error("server stopped", "error", err.Error())
-		os.Exit(1)
+		defer os.Exit(1)
 	}
+	grace, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = server.Shutdown(grace)
+	_ = signalling.Stop(grace)
 }
 
 func origins() []string {
