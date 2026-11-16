@@ -40,3 +40,7 @@ TURN: `PermissionHandler` receives only the peer IP, so another port on the SFU'
 ## Not run
 
 Real browsers (tab throttling, bfcache, Safari), the product SFU (only a stub), the VPS itself.
+
+## Running a spike again
+
+The module files of the spikes are kept as `go.mod.txt` and `go.sum.txt`, so that dependency scanners do not treat experiment code, with the versions it was run on, as part of the product. Copy the spike to a temporary directory outside the repository and rename them back before building.
