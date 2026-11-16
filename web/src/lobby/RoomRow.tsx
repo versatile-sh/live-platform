@@ -5,17 +5,17 @@ import { Arrow } from "../ui/Arrow";
 
 const TONE = {
   ink: { card: "bg-ink text-paper", soft: "text-paper/70", on: "bg-bubble", off: "bg-paper/25", tag: "bg-paper text-ink", arrow: "text-paper/60 group-hover/row:text-bubble" },
-  paper: { card: "bg-paper text-ink", soft: "text-ink/65", on: "bg-ink", off: "bg-ink/20", tag: "bg-ink text-paper", arrow: "text-ink/50 group-hover/row:text-ink" },
+  raised: { card: "border border-paper/10 bg-ink-raised text-paper", soft: "text-paper/70", on: "bg-bubble", off: "bg-paper/25", tag: "bg-paper text-ink", arrow: "text-paper/60 group-hover/row:text-bubble" },
 } as const;
 
 /** One open room as a bubble that leads into it: its name, where it is, and how many seats are taken. */
-export function RoomRow({ room, tone = "ink" }: { room: RoomSummary; tone?: keyof typeof TONE }) {
+export function RoomRow({ room, tone = "ink", compact = false }: { room: RoomSummary; tone?: keyof typeof TONE; compact?: boolean }) {
   const t = useT();
   const colours = TONE[tone];
   const full = room.count >= room.capacity;
   return (
     <li>
-      <AppLink href={`/${room.slug}`} aria-label={t("lobby.roomEnter", { slug: room.slug })} className={`bubble group/row flex h-16 items-center gap-4 px-5 transition-transform duration-200 hover:translate-x-1 ${colours.card}`}>
+      <AppLink href={`/${room.slug}`} aria-label={t("lobby.roomEnter", { slug: room.slug })} className={`bubble group/row flex items-center gap-4 px-5 ${compact ? "h-14" : "h-16"} transition-transform duration-200 hover:translate-x-1 ${colours.card}`}>
         <span className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-[-0.03em]" translate="no">
           {room.slug}
         </span>
@@ -26,12 +26,12 @@ export function RoomRow({ room, tone = "ink" }: { room: RoomSummary; tone?: keyo
             <span className="sr-only">{t("lobby.country", { code: room.country })}</span>
           </span>
         ) : null}
-        <span aria-hidden="true" className="hidden gap-1 xl:flex">
+        <span aria-hidden="true" className={`hidden gap-1 ${compact ? "" : "xl:flex"}`}>
           {Array.from({ length: room.capacity }, (_, seat) => (
             <span key={seat} className={`size-1.5 rounded-full ${seat < room.count ? colours.on : colours.off}`} />
           ))}
         </span>
-        <span className={`w-24 text-right font-mono text-xs tabular-nums ${colours.soft}`}>{t("lobby.roomPeople", { count: room.count, capacity: room.capacity })}</span>
+        <span className={`shrink-0 text-right font-mono text-xs tabular-nums ${compact ? "" : "w-24"} ${colours.soft}`}>{t("lobby.roomPeople", { count: room.count, capacity: room.capacity })}</span>
         <span className={`transition-colors duration-200 ${colours.arrow}`}>
           <Arrow />
         </span>

@@ -119,10 +119,10 @@ export function LobbyPage() {
                 </Suspense>
                 {state.status === "ready" && rooms.length === 0 ? <Nobody className="arrive absolute inset-x-0 top-1/2 mx-auto w-full max-w-md -translate-y-1/2" /> : null}
                 {picked ? (
-                  <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-paper p-3 text-ink">
+                  <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-ink p-3 text-paper">
                     <div className="flex items-center justify-between gap-3 px-2 pb-2">
                       <p className="font-display text-lg font-bold tracking-[-0.03em]">{names.of(picked) ?? picked}</p>
-                      <button type="button" aria-label={t("lobby.mapClose")} className="grid size-8 place-items-center rounded-full transition-colors duration-200 hover:bg-ink/10" onClick={() => setCountry(undefined)}>
+                      <button type="button" aria-label={t("lobby.mapClose")} className="grid size-8 place-items-center rounded-full transition-colors duration-200 hover:bg-paper/15" onClick={() => setCountry(undefined)}>
                         <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                           <path d="M4 4l8 8M12 4l-8 8" />
                         </svg>
@@ -132,7 +132,7 @@ export function LobbyPage() {
                       {rooms
                         .filter((room) => room.country === picked)
                         .map((room) => (
-                          <RoomRow key={room.slug} room={room} />
+                          <RoomRow key={room.slug} room={room} tone="raised" compact />
                         ))}
                     </ul>
                   </div>
