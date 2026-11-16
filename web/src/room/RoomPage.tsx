@@ -1,4 +1,4 @@
-import { Suspense, use, useEffect, useState } from "react";
+import { Suspense, use, useEffect, useState, type ReactNode } from "react";
 
 import type { StatusResult } from "../api/rooms";
 import { useT } from "../i18n/I18nProvider";
@@ -33,21 +33,35 @@ function Gate({ promise, slug, onRetry, refusal, expired, onEnter }: GateProps) 
   return <EntryForm slug={slug} room={result.room} {...(refusal ? { refusal } : {})} {...(expired ? { expired } : {})} onEnter={onEnter} />;
 }
 
-/** A room's page: asks what the room is, lets the visitor in, and then shows the room for as long as they are in it. */
-export function RoomPage({ slug }: { slug: string }) {
+type Held = { slug: string | undefined; status: Promise<StatusResult> | undefined; session: Session | undefined };
+
+/** What a room route needs from the page around it: whether the visitor is in the room, the room itself, and what to show while they are not. */
+export type RoomGate = { inRoom: boolean; view: ReactNode; panel: ReactNode };
+
+/** Runs a room for the slug in the address, or nothing when the address is not a room. The page that calls it stays mounted while the slug comes and goes. */
+export function useRoomGate(slug: string | undefined): RoomGate | undefined {
   const t = useT();
   const services = useServices();
-  const [statusPromise, setStatusPromise] = useState(() => services.roomsApi.status(slug));
-  const [session, setSession] = useState<Session | undefined>(() => {
-    const base = { slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage };
-    if (readSeat(services.seatStorage, slug)) return createSession(base);
-    const entry = services.entryIntent.read(slug);
-    return entry ? createSession({ ...base, entry }) : undefined;
-  });
+
+  function open(next: string | undefined): Held {
+    if (next === undefined) return { slug: next, status: undefined, session: undefined };
+    const base = { slug: next, url: services.signalUrl, socket: services.socket, storage: services.seatStorage };
+    const entry = services.entryIntent.read(next);
+    const session = readSeat(services.seatStorage, next) ? createSession(base) : entry ? createSession({ ...base, entry }) : undefined;
+    return { slug: next, status: services.roomsApi.status(next), session };
+  }
+
+  const [stored, setHeld] = useState(() => open(slug));
+  let held = stored;
+  if (held.slug !== slug) {
+    held = open(slug);
+    setHeld(held);
+  }
+  const { session, status } = held;
   const snapshot = useSession(session);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || slug === undefined) return;
     services.entryIntent.clear(slug);
     const starting = setTimeout(session.start, 0);
     const stopListening = services.pageLifecycle.onPageHide(session.leave);
@@ -58,44 +72,60 @@ export function RoomPage({ slug }: { slug: string }) {
     };
   }, [session, slug, services.entryIntent, services.pageLifecycle]);
 
-  function enter(entry: JoinEntry) {
-    setSession(createSession({ slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage, entry }));
-  }
+  if (slug === undefined || status === undefined) return undefined;
+
+  const setSession = (next: Session | undefined) => setHeld((current) => (current.slug === slug ? { ...current, session: next } : current));
+  const enter = (entry: JoinEntry) => setSession(createSession({ slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage, entry }));
+  const retry = () => setHeld((current) => (current.slug === slug ? { ...current, status: services.roomsApi.status(slug) } : current));
 
   const connection = snapshot.connection;
   const refused = connection.phase === "ended" && connection.reason.kind === "refused" ? connection.reason.code : undefined;
   const expired = connection.phase === "ended" && connection.reason.kind === "expired" && !session?.canRejoin();
-  const showRoom = session !== undefined && connection.phase !== "idle" && refused === undefined && !expired;
+  const inRoom = session !== undefined && connection.phase !== "idle" && refused === undefined && !expired;
 
   const waiting = (text: string) => (
     <p role="status" className={`${SURFACE} inline-block px-4 py-3`}>
       {text}
     </p>
   );
+  const title = <title>{`${slug} · live.versatile.sh`}</title>;
 
-  return (
-    <>
-      <title>{`${slug} · live.versatile.sh`}</title>
-      {session && showRoom ? (
-        <Shell>
+  return {
+    inRoom,
+    view:
+      session && inRoom ? (
+        <>
+          {title}
           <RoomView slug={slug} session={session} snapshot={snapshot} onEnterAgain={() => setSession(undefined)} />
-        </Shell>
-      ) : (
-        <Shell bare>
-          <HomePage
-            view="entry"
-            panel={
-              session && connection.phase === "idle" ? (
-                waiting(t("connection.joining"))
-              ) : (
-                <Suspense fallback={waiting(t("entry.checking"))}>
-                  <Gate promise={statusPromise} slug={slug} onRetry={() => setStatusPromise(services.roomsApi.status(slug))} {...(refused ? { refusal: refused } : {})} {...(expired ? { expired } : {})} onEnter={enter} />
-                </Suspense>
-              )
-            }
-          />
-        </Shell>
-      )}
-    </>
+        </>
+      ) : null,
+    panel: (
+      <>
+        {title}
+        {session && connection.phase === "idle" ? (
+          waiting(t("connection.joining"))
+        ) : (
+          <Suspense fallback={waiting(t("entry.checking"))}>
+            <Gate promise={status} slug={slug} onRetry={retry} {...(refused ? { refusal: refused } : {})} {...(expired ? { expired } : {})} onEnter={enter} />
+          </Suspense>
+        )}
+      </>
+    ),
+  };
+}
+
+/** The first thing anyone sees, and everything before being in a room: the home, the open rooms and a room's doorway share one page that slides between them; being in a room replaces it. */
+export function FrontPage({ view, slug }: { view: "home" | "lobby" | "entry"; slug?: string }) {
+  const room = useRoomGate(slug);
+  if (room?.inRoom) return <Shell>{room.view}</Shell>;
+  return (
+    <Shell bare>
+      <HomePage view={view} panel={room?.panel} />
+    </Shell>
   );
+}
+
+/** A room's page on its own: its doorway inside the front page, then the room. */
+export function RoomPage({ slug }: { slug: string }) {
+  return <FrontPage view="entry" slug={slug} />;
 }

@@ -33,6 +33,7 @@ export const en = {
   "home.unlockedHint": "Anyone with the link gets in. It still never shows in open rooms.",
   "home.newCode": "New",
   "home.settingsNote": "Settings apply when the name is free and the room is new.",
+  "home.back": "Back",
   "home.seeRooms": "See open rooms",
 
   "lobby.back": "Back to enter",
