@@ -9,6 +9,8 @@ type Session interface {
 	Roster(snapshot room.Snapshot) bool
 	// Chat queues a message without blocking and reports false when the connection cannot keep up.
 	Chat(message room.ChatMessage) bool
+	// Photo queues a participant's photo, or its removal when empty, without blocking.
+	Photo(pid room.PID, jpeg []byte)
 	// Close ends the connection with the reason the participant is shown.
 	Close(reason room.CloseReason)
 }

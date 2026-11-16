@@ -90,7 +90,7 @@ describe("RoomPage", () => {
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
-      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: false, look: 34 });
+      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: false, look: 34, face: "^_^" });
     });
   });
 
@@ -400,14 +400,42 @@ describe("RoomPage", () => {
       await waitFor(() => expect(asked.at(-1)).toMatchObject({ audio: { noiseSuppression: false, echoCancellation: false } }));
     });
 
-    test("choosing a face, a colour and a tilt tells the room at once", async () => {
+    test("typing a face, picking a colour or a preset tells the room at once", async () => {
       const { socket } = await inCall();
-      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active", look: 34 }), person(2, "Bia", { state: "active" })], gone: [] });
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active", look: 34, face: "^_^" }), person(2, "Bia", { state: "active" })], gone: [] });
       await userEvent.click(screen.getByRole("button", { name: "People" }));
-      await userEvent.click(screen.getByRole("radio", { name: "Face 5" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: (34 & ~0xf) | 4 });
       await userEvent.click(screen.getByRole("radio", { name: "Colour 1" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: 34 & 0xf });
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: 0, face: "^_^" });
+      await userEvent.click(screen.getByRole("button", { name: "(•‿•)" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ t: "look", face: "(•‿•)" });
+      await userEvent.type(screen.getByLabelText("Face"), "!");
+      expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ t: "look", face: "^_^!" });
+    });
+
+    test("a photo is shrunk, sent to the room, shown when the room echoes it, and can be removed", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.upload(screen.getByLabelText("Photo"), new File(["x"], "me.png", { type: "image/png" }));
+      await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "photo", data: "/9j/4AAQ" }));
+      await send(socket, { t: "photo", pid: 1, data: "/9j/4AAQ" });
+      expect(document.querySelector('img[src="data:image/jpeg;base64,/9j/4AAQ"]')).not.toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "photo", data: "" });
+      await send(socket, { t: "photo", pid: 1, data: "" });
+      expect(document.querySelector("img")).toBeNull();
+    });
+
+    test("more options show the connection with its round trip, and the keyboard shortcuts, which work", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Connection quality/ }));
+      expect(within(screen.getByRole("dialog", { name: "Connection quality" })).getByText("measuring")).toBeInTheDocument();
+      await userEvent.click(within(screen.getByRole("dialog", { name: "Connection quality" })).getByRole("button", { name: "Close" }));
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("menuitem", { name: /Keyboard shortcuts/ }));
+      expect(within(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).getByText("Ctrl+Alt+H")).toBeInTheDocument();
+      await userEvent.keyboard("{Control>}{Alt>}h{/Alt}{/Control}");
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 16 });
     });
 
     test("the side panel closes and reopens, and switches between the chat and the people", async () => {

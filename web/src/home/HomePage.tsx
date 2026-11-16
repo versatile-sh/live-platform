@@ -94,6 +94,7 @@ function EnterRoom() {
     services.entryIntent.put(slug.slug, {
       name: who.name,
       look: services.lookMemory.read(),
+      face: services.faceMemory.read(),
       listed,
       ...(derived ? { verifier: derived.verifier, password: code } : {}),
     });

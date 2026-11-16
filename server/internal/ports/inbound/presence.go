@@ -13,7 +13,8 @@ type Presence interface {
 	Touch(slug room.Slug, pid room.PID, gen uint32)
 	Disconnected(slug room.Slug, pid room.PID, gen uint32)
 	SetMedia(slug room.Slug, pid room.PID, gen uint32, flags room.Flags)
-	SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look)
+	SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look, face string)
+	SetPhoto(slug room.Slug, pid room.PID, gen uint32, jpeg []byte)
 	Chat(slug room.Slug, pid room.PID, gen uint32, text string)
 	Leave(slug room.Slug, pid room.PID, gen uint32)
 	Remove(slug room.Slug, by room.PID, gen uint32, target room.PID) error
