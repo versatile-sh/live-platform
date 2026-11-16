@@ -368,3 +368,25 @@ func TestFaceAndPhoto(t *testing.T) {
 	assert.Error(t, CheckPhoto([]byte("<svg onload=alert(1)>")))
 	assert.Error(t, CheckPhoto(append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 10<<10)...)))
 }
+
+func TestBan(t *testing.T) {
+	r := newRoom(t)
+	ana := joinActive(t, r, "ana", true)
+	bia := joinActive(t, r, "bia", false)
+	caio := joinActive(t, r, "caio", false)
+	r.From(bia.ID, "office")
+	_, err := r.Ban(t0, bia.ID, caio.ID)
+	assert.Error(t, err, "only the owner bans")
+	_, err = r.Ban(t0, ana.ID, ana.ID)
+	assert.Error(t, err, "the owner cannot ban themselves")
+	events, err := r.Ban(t0, ana.ID, bia.ID)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	assert.Equal(t, ReasonBanned, events[0].Reason)
+	assert.Error(t, r.Admit("office"))
+	assert.NoError(t, r.Admit("home"))
+	assert.NoError(t, r.Admit(""), "an unknown origin is never refused")
+	_, err = r.Ban(t0, ana.ID, caio.ID)
+	require.NoError(t, err, "someone of unknown origin is removed all the same")
+	assert.NoError(t, r.Admit(""))
+}

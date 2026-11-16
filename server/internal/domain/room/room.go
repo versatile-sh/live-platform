@@ -56,11 +56,14 @@ type Participant struct {
 	Gen   uint32
 
 	secretHash   [32]byte
+	origin       string
 	deadline     time.Time
 	outsideSince time.Time
 }
 
 // Room owns every participant's state; nothing outside it decides presence.
+const maxBanned = 64
+
 type Room struct {
 	slug     Slug
 	cfg      Config
@@ -72,6 +75,7 @@ type Room struct {
 	nextPID  PID
 	version  uint64
 	emptyAt  time.Time
+	banned   map[string]struct{}
 }
 
 // New creates an empty room that is released if nobody joins within the empty-release time.
@@ -230,6 +234,39 @@ func (r *Room) Remove(now time.Time, by, target PID) ([]Event, error) {
 		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "the owner leaves instead of removing themselves", nil)
 	}
 	return r.remove(now, p, ReasonRemoved), nil
+}
+
+// Ban lets the owner remove a participant and keep where they came from out of the room for as long as it exists.
+func (r *Room) Ban(now time.Time, by, target PID) ([]Event, error) {
+	owner, p, err := r.ownerAnd(by, target)
+	if err != nil {
+		return nil, err
+	}
+	if owner == p {
+		return nil, shared.NewDomainError(shared.ErrCodeInvalidArgument, "the owner leaves instead of banning themselves", nil)
+	}
+	if p.origin != "" && len(r.banned) < maxBanned {
+		if r.banned == nil {
+			r.banned = map[string]struct{}{}
+		}
+		r.banned[p.origin] = struct{}{}
+	}
+	return r.remove(now, p, ReasonBanned), nil
+}
+
+// Admit refuses an origin the owner banned; an unknown origin is never refused.
+func (r *Room) Admit(origin string) error {
+	if _, banned := r.banned[origin]; banned && origin != "" {
+		return shared.NewDomainError(shared.ErrCodeBanned, "the owner banned you from this room", nil)
+	}
+	return nil
+}
+
+// From records where a participant came from, so a ban can keep that origin out.
+func (r *Room) From(pid PID, origin string) {
+	if p := r.find(pid); p != nil {
+		p.origin = origin
+	}
 }
 
 // Transfer lets the owner hand the room to another participant.
