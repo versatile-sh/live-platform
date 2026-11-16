@@ -10,4 +10,6 @@ type MediaPlane interface {
 	Detach(slug room.Slug, pid room.PID)
 	// Signal applies a description or a candidate a participant sent.
 	Signal(slug room.Slug, pid room.PID, gen uint32, signal room.MediaSignal)
+	// Silence stops, or resumes, carrying a participant's microphone to the others.
+	Silence(slug room.Slug, pid room.PID, silent bool)
 }

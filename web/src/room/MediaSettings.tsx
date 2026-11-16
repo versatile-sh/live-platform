@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { useT } from "../i18n/I18nProvider";
 import type { VoiceFilter } from "../media/local-media";
-import { CAMERA_QUALITIES, SCREEN_QUALITIES, TALK_KEYS, type MediaSettings as Settings } from "../media/settings";
+import { CAMERA_EFFECTS, CAMERA_QUALITIES, SCREEN_QUALITIES, TALK_KEYS, type MediaSettings as Settings } from "../media/settings";
 import { Choice } from "../ui/Choice";
 import { Slider } from "../ui/Slider";
 import { Switch } from "../ui/Switch";
@@ -11,6 +11,7 @@ type MediaSettingsProps = {
   settings: Settings;
   filter: VoiceFilter;
   strongAvailable: boolean;
+  effectsAvailable: boolean;
   onFilter(filter: VoiceFilter): void;
   onChange(change: Partial<Settings>): void;
 };
@@ -25,7 +26,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** How this device captures and sends: the voice's path, the keys, the sounds, and the size of camera and screen. Each change takes effect at once and is kept for the next visit. */
-export function MediaSettings({ settings, filter, strongAvailable, onFilter, onChange }: MediaSettingsProps) {
+export function MediaSettings({ settings, filter, strongAvailable, effectsAvailable, onFilter, onChange }: MediaSettingsProps) {
   const t = useT();
   const cleaned = filter !== "off";
   return (
@@ -65,6 +66,7 @@ export function MediaSettings({ settings, filter, strongAvailable, onFilter, onC
         </Group>
         <Group title={t("settings.video")}>
           <Choice label={t("settings.cameraQuality")} value={settings.cameraQuality} onChange={(cameraQuality) => onChange({ cameraQuality })} options={CAMERA_QUALITIES.map((quality) => ({ value: quality, text: `${quality}p` }))} />
+          {effectsAvailable ? <Choice label={t("settings.cameraEffect")} hint={t("settings.cameraEffectHint")} value={settings.cameraEffect} onChange={(cameraEffect) => onChange({ cameraEffect })} options={CAMERA_EFFECTS.map((effect) => ({ value: effect, text: t(`settings.effect.${effect}`) }))} /> : null}
           <Choice
             label={t("settings.screenQuality")}
             hint={t("settings.screenQualityHint")}

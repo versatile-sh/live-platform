@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pion/interceptor"
@@ -50,6 +51,7 @@ type peer struct {
 	sub     *webrtc.PeerConnection
 	pub     *webrtc.PeerConnection
 	dirty   bool
+	silent  atomic.Bool
 	sources map[string]string
 	tracks  map[string]*webrtc.TrackLocalStaticRTP
 	senders map[*webrtc.TrackLocalStaticRTP]*webrtc.RTPSender
@@ -166,6 +168,16 @@ func (e *Engine) Detach(slug room.Slug, pid room.PID) {
 	}
 	for _, track := range gone {
 		e.withdraw(others, track)
+	}
+}
+
+// Silence stops, or resumes, carrying a participant's microphone: the packets still arrive and are dropped here, so a muted participant cannot be heard whatever their browser does.
+func (e *Engine) Silence(slug room.Slug, pid room.PID, silent bool) {
+	e.mu.Lock()
+	p := e.rooms[slug][pid]
+	e.mu.Unlock()
+	if p != nil {
+		p.silent.Store(silent)
 	}
 }
 
@@ -286,6 +298,9 @@ func (e *Engine) incoming(p *peer, remote *webrtc.TrackRemote) {
 		n, _, err := remote.Read(packet)
 		if err != nil {
 			break
+		}
+		if source == "microphone" && p.silent.Load() {
+			continue
 		}
 		if _, err := local.Write(packet[:n]); err != nil && !errors.Is(err, io.ErrClosedPipe) {
 			break
