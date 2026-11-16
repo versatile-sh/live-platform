@@ -28,7 +28,7 @@ export const en = {
   "lobby.heading": "Open rooms",
   "lobby.intro": "Share a screen, your voice and your camera from a link. No account, nothing to install.",
   "lobby.goLabel": "Room name",
-  "lobby.goHint": "Lowercase letters, numbers and hyphens, like standup or team-42.",
+  "lobby.goHint": "Lowercase letters, numbers and hyphens, like meet or team-42.",
   "lobby.goPlaceholder": "meet",
   "lobby.goButton": "Enter",
   "lobby.listHeading": "Listed rooms",
@@ -48,9 +48,9 @@ export const en = {
   "slug.reserved": "The site keeps that name. Pick another one.",
 
   "invalidRoom.title": "That is not a room name",
-  "invalidRoom.body": "A room name has 2 to 40 lowercase letters, numbers or hyphens, like standup or team-42.",
+  "invalidRoom.body": "A room name has 2 to 40 lowercase letters, numbers or hyphens, like meet or team-42.",
   "notFound.title": "There is nothing at this address",
-  "notFound.body": "Rooms live at the top level, like live.versatile.sh/standup.",
+  "notFound.body": "Rooms live at the top level, like live.versatile.sh/meet.",
   "common.lobby": "Back to the start",
 
   "entry.checking": "Checking the room",
