@@ -99,7 +99,7 @@ export function useRoomGate(slug: string | undefined): RoomGate | undefined {
       {text}
     </p>
   );
-  const title = <title>{`> ~/versatile.sh/live/${slug}`}</title>;
+  const title = <title>{`~/live/${slug}`}</title>;
 
   return {
     inRoom,
