@@ -186,8 +186,14 @@ func (a *actor) apply(events []room.Event) {
 			continue
 		}
 		a.gone = append(a.gone, room.Departure{PID: e.PID, Reason: e.Reason})
-		if s := a.seats[e.PID]; s != nil && s.online && e.Reason != room.ReasonLeft {
-			s.session.Close(room.CloseRemoved)
+		if s := a.seats[e.PID]; s != nil && s.online {
+			switch e.Reason {
+			case room.ReasonLeft:
+			case room.ReasonRemoved:
+				s.session.Close(room.CloseRemoved)
+			default:
+				s.session.Close(room.CloseSilent)
+			}
 		}
 		delete(a.seats, e.PID)
 	}

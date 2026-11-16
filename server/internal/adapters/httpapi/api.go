@@ -13,6 +13,7 @@ type roomView struct {
 	Slug     string `json:"slug"`
 	Exists   bool   `json:"exists"`
 	Private  bool   `json:"private"`
+	Listed   bool   `json:"listed"`
 	Country  string `json:"country,omitempty"`
 	Count    int    `json:"count"`
 	Capacity int    `json:"capacity"`
@@ -43,7 +44,7 @@ func Register(mux *http.ServeMux, directory inbound.Directory) {
 }
 
 func view(s room.Summary) roomView {
-	return roomView{Slug: string(s.Slug), Private: s.Private, Country: s.Country, Count: s.Count, Capacity: s.Capacity}
+	return roomView{Slug: string(s.Slug), Private: s.Private, Listed: s.Listed, Country: s.Country, Count: s.Count, Capacity: s.Capacity}
 }
 
 func write(w http.ResponseWriter, status int, body any) {

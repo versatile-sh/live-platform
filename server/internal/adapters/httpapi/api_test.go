@@ -13,8 +13,10 @@ import (
 type fakeDirectory map[room.Slug]room.Summary
 
 func (d fakeDirectory) Status(slug room.Slug) (room.Summary, bool) {
-	s, ok := d[slug]
-	return s, ok
+	if s, ok := d[slug]; ok {
+		return s, true
+	}
+	return room.Summary{Slug: slug, Capacity: 10}, false
 }
 
 func (d fakeDirectory) Lobby() []room.Summary {
@@ -29,10 +31,10 @@ func TestAPI(t *testing.T) {
 		status int
 		body   string
 	}{
-		{"/api/rooms/bk", 200, `{"slug":"bk","exists":true,"private":false,"country":"BR","count":2,"capacity":10}`},
-		{"/api/rooms/free", 200, `{"slug":"free","exists":false,"private":false,"count":0,"capacity":0}`},
+		{"/api/rooms/bk", 200, `{"slug":"bk","exists":true,"private":false,"listed":true,"country":"BR","count":2,"capacity":10}`},
+		{"/api/rooms/free", 200, `{"slug":"free","exists":false,"private":false,"listed":false,"count":0,"capacity":10}`},
 		{"/api/rooms/API!", 400, `{"error":"invalid slug"}`},
-		{"/api/lobby", 200, `{"rooms":[{"slug":"bk","exists":true,"private":false,"country":"BR","count":2,"capacity":10}]}`},
+		{"/api/lobby", 200, `{"rooms":[{"slug":"bk","exists":true,"private":false,"listed":true,"country":"BR","count":2,"capacity":10}]}`},
 	}
 	for _, c := range cases {
 		rec := httptest.NewRecorder()
