@@ -143,6 +143,28 @@ body {
   }
 }
 
+::view-transition-old(root) {
+  animation: words-out 0.28s ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: words-in 0.42s var(--ease-settle) both;
+}
+
+@keyframes words-out {
+  to {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+@keyframes words-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
 .no-scrollbar {
   scrollbar-width: none;
 }
