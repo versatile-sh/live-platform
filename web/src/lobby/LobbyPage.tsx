@@ -96,7 +96,7 @@ export function LobbyPage() {
             <Nobody />
           ) : (
             <>
-              <ul className="flex flex-col gap-3">
+              <ul className="flex flex-col gap-3 p-1">
                 {rooms.slice(0, PREVIEW).map((room) => (
                   <RoomRow key={room.slug} room={room} />
                 ))}
@@ -128,7 +128,7 @@ export function LobbyPage() {
                         </svg>
                       </button>
                     </div>
-                    <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto">
+                    <ul className="flex flex-col gap-2 overflow-x-hidden overflow-y-auto p-1">
                       {rooms
                         .filter((room) => room.country === picked)
                         .map((room) => (
