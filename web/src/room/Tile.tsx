@@ -4,7 +4,7 @@ import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
 
-type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined };
+type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined; onMenu?(at: { x: number; y: number }): void };
 
 function attach(stream: MediaStream | undefined) {
   return (element: HTMLVideoElement | null) => {
@@ -13,7 +13,7 @@ function attach(stream: MediaStream | undefined) {
 }
 
 /** One participant on the stage: their camera when there is one to show, otherwise their initial; always their name and, in words, any trouble. */
-export function Tile({ person, isMe, video, photo }: TileProps) {
+export function Tile({ person, isMe, video, photo, onMenu }: TileProps) {
   const t = useT();
   const view = describePerson(person);
     const muted = !view.flags.includes("microphone");
@@ -23,6 +23,10 @@ export function Tile({ person, isMe, video, photo }: TileProps) {
     <li
       data-tone={view.tone}
       aria-label={t("room.tile", { name: person.name, state: t(view.stateKey) })}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onMenu?.({ x: event.clientX, y: event.clientY });
+      }}
       className={`arrive relative isolate flex aspect-video min-h-0 items-center justify-center overflow-hidden rounded-2xl border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
     >
       {video ? (

@@ -11,6 +11,10 @@ import { ServicesProvider } from "./services";
 
 import "./styles.css";
 
+document.addEventListener("contextmenu", (event) => {
+  if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLTextAreaElement)) event.preventDefault();
+});
+
 const container = document.getElementById("root");
 
 if (container) {

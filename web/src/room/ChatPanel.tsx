@@ -2,9 +2,23 @@ import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { useLocale, useT } from "../i18n/I18nProvider";
 import type { ChatLine } from "../session/session";
+import type { Person } from "../signal/protocol";
+import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
+import { Segmented } from "../ui/Segmented";
 
-type ChatPanelProps = { lines: readonly ChatLine[]; me: number | undefined; canSend: boolean; onSay(text: string): boolean };
+type ChatPanelProps = {
+  lines: readonly ChatLine[];
+  me: number | undefined;
+  people: readonly Person[];
+  photos: Readonly<Record<number, string>>;
+  canSend: boolean;
+  peer: number | undefined;
+  onPeer(pid: number | undefined): void;
+  privately: boolean;
+  onPrivately(privately: boolean): void;
+  onSay(text: string, to?: number): boolean;
+};
 
 const MAX = 500;
 
@@ -13,15 +27,19 @@ function intoView(element: HTMLLIElement | null) {
 }
 
 /** The room's conversation as bubbles: mine on the right in lime, the others on the left, newest at the bottom and kept in view. */
-export function ChatPanel({ lines, me, canSend, onSay }: ChatPanelProps) {
+export function ChatPanel({ lines: all, me, people, photos, canSend, peer, onPeer, privately, onPrivately, onSay }: ChatPanelProps) {
   const t = useT();
   const id = useId();
   const clock = new Intl.DateTimeFormat(useLocale(), { hour: "2-digit", minute: "2-digit" });
   const [draft, setDraft] = useState("");
+  const others = people.filter((person) => person.pid !== me);
+  const target = privately ? others.find((person) => person.pid === peer) : undefined;
+  const lines = privately ? all.filter((line) => line.to !== undefined && target !== undefined && (line.pid === target.pid || line.to === target.pid)) : all.filter((line) => line.to === undefined);
+  const ready = canSend && (!privately || target !== undefined);
 
   function send() {
     const text = draft.trim();
-    if (text && onSay(text)) setDraft("");
+    if (text && ready && onSay(text, target?.pid)) setDraft("");
   }
 
   function submit(event: FormEvent) {
@@ -37,8 +55,37 @@ export function ChatPanel({ lines, me, canSend, onSay }: ChatPanelProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 px-3 pt-3">
+        <Segmented<"room" | "private">
+          label={t("chat.audience")}
+          value={privately ? "private" : "room"}
+          onChange={(next) => onPrivately(next === "private")}
+          options={[
+            { value: "room", text: t("chat.room") },
+            { value: "private", text: t("chat.private") },
+          ]}
+        />
+        {privately ? (
+          <div role="radiogroup" aria-label={t("chat.with")} className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-1">
+            {others.length === 0 ? <p className="py-1.5 text-sm text-muted">{t("chat.nobody")}</p> : null}
+            {others.map((person) => (
+              <button
+                key={person.pid}
+                type="button"
+                role="radio"
+                aria-checked={peer === person.pid}
+                className="bubble-word flex h-9 shrink-0 items-center gap-2 border border-line-strong pr-3 pl-1.5 text-sm font-semibold transition-colors duration-200 hover:border-fg/50 aria-checked:border-transparent aria-checked:bg-bubble aria-checked:text-on-bubble"
+                onClick={() => onPeer(person.pid)}
+              >
+                <Avatar look={person.look} face={person.face} name={person.name} photo={photos[person.pid]} className="text-[1.5rem]" />
+                <span translate="no">{person.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
       {lines.length === 0 ? (
-        <p className="m-auto max-w-56 text-center text-sm text-muted">{t("chat.empty")}</p>
+        <p className="m-auto max-w-56 text-center text-sm text-muted">{t(privately ? (target ? "chat.emptyPrivate" : "chat.pick") : "chat.empty")}</p>
       ) : (
         <ol aria-label={t("chat.log")} aria-live="polite" className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-4 py-3">
           {lines.map((line, index) => {
@@ -72,19 +119,19 @@ export function ChatPanel({ lines, me, canSend, onSay }: ChatPanelProps) {
         <label htmlFor={id} className="sr-only">
           {t("chat.label")}
         </label>
-        <div className="flex items-end gap-2 rounded-[1.25rem] border border-line-strong bg-canvas py-1.5 pr-1.5 pl-4 transition-colors duration-200 focus-within:border-fg/50">
+        <div className="flex items-end gap-2 bubble border border-line-strong bg-canvas py-1.5 pr-1.5 pl-4 transition-colors duration-200 focus-within:border-fg/50">
           <textarea
             id={id}
             rows={1}
             value={draft}
             maxLength={MAX}
-            disabled={!canSend}
-            placeholder={t("chat.placeholder")}
+            disabled={!ready}
+            placeholder={target ? t("chat.placeholderTo", { name: target.name }) : t("chat.placeholder")}
             className="max-h-28 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-[0.9375rem] leading-snug text-fg placeholder:text-muted-light focus-visible:outline-none disabled:opacity-50 [field-sizing:content]"
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={onKey}
           />
-          <button type="submit" disabled={!canSend || draft.trim() === ""} aria-label={t("chat.send")} className="grid size-9 shrink-0 place-items-center rounded-full bg-fg text-canvas transition-opacity duration-200 hover:opacity-85 disabled:opacity-30">
+          <button type="submit" disabled={!ready || draft.trim() === ""} aria-label={t("chat.send")} className="grid size-9 shrink-0 place-items-center rounded-full bg-fg text-canvas transition-opacity duration-200 hover:opacity-85 disabled:opacity-30">
             <Icon name="send" className="size-4" />
           </button>
         </div>

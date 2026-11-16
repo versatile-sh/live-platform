@@ -60,7 +60,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     mediaDevices: undefined,
     rtc: undefined,
     entryIntent: createEntryIntent(),
-    lookMemory: { read: () => 34, write: () => undefined },
+    lookMemory: { read: () => "ff9ec7-0e1116-0", write: () => undefined },
     faceMemory: { read: () => "^_^", write: () => undefined },
     shrinkPhoto: async () => "/9j/4AAQ",
     nameMemory: { read: () => names.value, write: (name) => void (names.value = name) },
