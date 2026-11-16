@@ -149,9 +149,9 @@ func (h *Hub) SetPhoto(slug room.Slug, pid room.PID, gen uint32, jpeg []byte) {
 	h.tell(slug, func(a *actor) { a.photo(pid, gen, jpeg) })
 }
 
-// Chat relays a line a participant said to everyone in the room, the speaker included.
-func (h *Hub) Chat(slug room.Slug, pid room.PID, gen uint32, text string) {
-	h.tell(slug, func(a *actor) { a.chat(pid, gen, text) })
+// Chat relays a line a participant said: to everyone in the room, or to one participant and back to the speaker.
+func (h *Hub) Chat(slug room.Slug, pid room.PID, gen uint32, to room.PID, text string) {
+	h.tell(slug, func(a *actor) { a.chat(pid, gen, to, text) })
 }
 
 // Leave removes a participant at once.

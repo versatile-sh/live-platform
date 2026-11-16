@@ -354,9 +354,9 @@ func TestHub(t *testing.T) {
 		ana, anaSession := enter(t, h, "ana")
 		_, biaSession := enter(t, h, "bia")
 		outsider := &fakeSession{}
-		h.Chat("bk", ana.PID, ana.Gen, "hello")
-		h.Chat("bk", ana.PID, ana.Gen+1, "from a stale connection")
-		h.Chat("bk", 99, 1, "from nobody")
+		h.Chat("bk", ana.PID, ana.Gen, 0, "hello")
+		h.Chat("bk", ana.PID, ana.Gen+1, 0, "from a stale connection")
+		h.Chat("bk", 99, 1, 0, "from nobody")
 		require.Eventually(t, func() bool { return len(biaSession.heard()) == 1 && len(anaSession.heard()) == 1 }, wait, tick)
 		said := biaSession.heard()[0]
 		assert.Equal(t, ana.PID, said.From)
@@ -377,5 +377,18 @@ func TestHub(t *testing.T) {
 		require.Eventually(t, func() bool { n, ok := caioSession.photoOf(ana.PID); return ok && n == len(jpeg) }, wait, tick)
 		h.SetPhoto("bk", ana.PID, ana.Gen, nil)
 		require.Eventually(t, func() bool { n, ok := biaSession.photoOf(ana.PID); return ok && n == 0 }, wait, tick)
+	})
+
+	t.Run("a private line reaches only the one it is for, and comes back to the speaker", func(t *testing.T) {
+		h := newCalmHub()
+		ana, anaSession := enter(t, h, "ana")
+		bia, biaSession := enter(t, h, "bia")
+		_, caioSession := enter(t, h, "caio")
+		h.Chat("bk", ana.PID, ana.Gen, bia.PID, "psst")
+		require.Eventually(t, func() bool { return len(biaSession.heard()) == 1 && len(anaSession.heard()) == 1 }, wait, tick)
+		assert.Equal(t, bia.PID, biaSession.heard()[0].To)
+		h.Chat("bk", ana.PID, ana.Gen, 0, "everyone")
+		require.Eventually(t, func() bool { return len(caioSession.heard()) == 1 }, wait, tick)
+		assert.Equal(t, "everyone", caioSession.heard()[0].Text)
 	})
 }

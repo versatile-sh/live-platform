@@ -189,16 +189,19 @@ func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
 	return err
 }
 
-func (a *actor) chat(pid room.PID, gen uint32, text string) {
+func (a *actor) chat(pid room.PID, gen uint32, to room.PID, text string) {
 	if !a.holds(pid, gen) {
 		return
 	}
-	message, ok := a.room.Say(a.now(), pid, text)
+	message, ok := a.room.Say(a.now(), pid, to, text)
 	if !ok {
 		return
 	}
 	var slow []room.PID
 	for id, s := range a.seats {
+		if to != 0 && id != to && id != pid {
+			continue
+		}
 		if s.online && !s.session.Chat(message) {
 			slow = append(slow, id)
 		}
