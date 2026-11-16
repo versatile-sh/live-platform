@@ -38,6 +38,7 @@ export default async function setup(): Promise<() => void> {
   const child: ChildProcess = spawn(binary, [], { cwd: work, env: { ...process.env, PORT: String(http), SIGNAL_PORT: String(signal), MEDIA: "off" }, stdio: "ignore" });
   process.env.LIVE_HTTP = `http://127.0.0.1:${http}`;
   process.env.LIVE_SIGNAL = `ws://127.0.0.1:${signal}/ws`;
+  process.env.LIVE_BINARY = binary;
   await waitUntilUp(`${process.env.LIVE_HTTP}/up`);
   return () => {
     child.kill("SIGTERM");
