@@ -34,6 +34,10 @@ export type Hello =
 export type OwnerOp =
   | { op: "remove"; pid: number }
   | { op: "ban"; pid: number }
+  | { op: "mute-all" }
+  | { op: "unmute-all" }
+  | { op: "mute"; pid: number }
+  | { op: "allow"; pid: number }
   | { op: "transfer"; pid: number }
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };

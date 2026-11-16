@@ -96,3 +96,34 @@ describe("settings", () => {
     expect(display.mock.calls[0]![0]).toMatchObject({ video: { width: { ideal: 2560 }, frameRate: { ideal: 60 } }, audio: false });
   });
 });
+
+describe("camera effects", () => {
+  test("an effect sends the redrawn picture and lets the camera go when turned off; none sends the camera as it is", async () => {
+    const { raw, user, devices } = setup();
+    const changed = fakeStream();
+    const release = vi.fn();
+    const effects = vi.fn((_raw: MediaStream, _effect: string) => ({ stream: changed, release }));
+    const media = createLocalMedia(devices, () => undefined, undefined, undefined, effects);
+    await media.toggle("camera");
+    expect(media.getSnapshot().camera).toBe(raw);
+    await media.setSettings({ cameraEffect: "noir" });
+    expect(user).toHaveBeenCalledTimes(2);
+    expect(effects).toHaveBeenCalledWith(raw, "noir");
+    expect(media.getSnapshot().camera).toBe(changed);
+    await media.toggle("camera");
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  test("a muted room takes the microphone away and gives it back without turning it on", async () => {
+    const { raw, devices } = setup();
+    const media = createLocalMedia(devices, () => undefined);
+    await media.toggle("microphone");
+    media.silence(true);
+    expect(media.getSnapshot().microphone).toBeUndefined();
+    expect(raw.track.stop).toHaveBeenCalled();
+    await media.toggle("microphone");
+    expect(media.getSnapshot()).toMatchObject({ microphone: undefined, problem: { kind: "microphone", why: "muted" } });
+    media.silence(false);
+    expect(media.getSnapshot()).toMatchObject({ microphone: undefined, problem: undefined, silenced: false });
+  });
+});

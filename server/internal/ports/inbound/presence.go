@@ -21,6 +21,7 @@ type Presence interface {
 	Leave(slug room.Slug, pid room.PID, gen uint32)
 	Remove(slug room.Slug, by room.PID, gen uint32, target room.PID) error
 	Ban(slug room.Slug, by room.PID, gen uint32, target room.PID) error
+	Quiet(slug room.Slug, by room.PID, gen uint32, op room.QuietOp, target room.PID) error
 	Transfer(slug room.Slug, by room.PID, gen uint32, target room.PID) error
 	SetListed(slug room.Slug, by room.PID, gen uint32, listed bool) error
 	SetPassword(slug room.Slug, by room.PID, gen uint32, verifier *room.Verifier) error

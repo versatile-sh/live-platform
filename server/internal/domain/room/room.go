@@ -76,6 +76,7 @@ type Room struct {
 	version  uint64
 	emptyAt  time.Time
 	banned   map[string]struct{}
+	quiet    bool
 }
 
 // New creates an empty room that is released if nobody joins within the empty-release time.
@@ -131,6 +132,9 @@ func (r *Room) Join(now time.Time, name string, look Look, face string, secretHa
 	r.slots[slot] = p
 	r.occupied |= 1 << slot
 	r.emptyAt = time.Time{}
+	if r.quiet && !owner {
+		p.Flags |= FlagMuted
+	}
 	events := []Event{r.emit(EventJoined, p.ID, "")}
 	if owner {
 		events = append(events, r.giveOwnership(p)...)
@@ -188,6 +192,9 @@ func (r *Room) SetMedia(pid PID, flags Flags) []Event {
 		return nil
 	}
 	next := p.Flags&^MediaFlags | flags&MediaFlags
+	if next.Has(FlagMuted) {
+		next &^= FlagMicrophone
+	}
 	if next == p.Flags {
 		return nil
 	}
@@ -365,8 +372,8 @@ func (r *Room) giveOwnership(to *Participant) []Event {
 			events = append(events, r.emit(EventChanged, p.ID, ""))
 		}
 	}
-	if !to.Flags.Has(FlagOwner) {
-		to.Flags |= FlagOwner
+	if !to.Flags.Has(FlagOwner) || to.Flags.Has(FlagMuted) {
+		to.Flags = to.Flags&^FlagMuted | FlagOwner
 		events = append(events, r.emit(EventChanged, to.ID, ""))
 	}
 	return events

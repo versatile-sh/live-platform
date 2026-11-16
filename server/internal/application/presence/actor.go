@@ -19,13 +19,14 @@ type seat struct {
 }
 
 type actor struct {
-	hub   *Hub
-	room  *room.Room
-	seats map[room.PID]*seat
-	inbox chan func(*actor)
-	gone  []room.Departure
-	shots map[room.PID][]byte
-	wires chan func()
+	hub    *Hub
+	room   *room.Room
+	seats  map[room.PID]*seat
+	inbox  chan func(*actor)
+	gone   []room.Departure
+	shots  map[room.PID][]byte
+	wires  chan func()
+	silent map[room.PID]bool
 
 	summary atomic.Pointer[room.Summary]
 }
@@ -193,6 +194,37 @@ func (a *actor) ban(by room.PID, gen uint32, target room.PID) error {
 	return err
 }
 
+func (a *actor) quiet(by room.PID, gen uint32, op room.QuietOp, target room.PID) error {
+	if !a.holds(by, gen) {
+		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
+	}
+	events, err := a.room.Quiet(op, by, target)
+	a.apply(events)
+	return err
+}
+
+func (a *actor) hush() {
+	if a.wires == nil {
+		return
+	}
+	now := map[room.PID]bool{}
+	for _, pid := range a.room.Silenced() {
+		now[pid] = true
+	}
+	slug, plane := a.room.Slug(), a.hub.media
+	for pid := range a.seats {
+		if now[pid] == a.silent[pid] {
+			continue
+		}
+		silent := now[pid]
+		select {
+		case a.wires <- func() { plane.Silence(slug, pid, silent) }:
+		default:
+		}
+	}
+	a.silent = now
+}
+
 func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
 		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
@@ -250,9 +282,12 @@ func (a *actor) wire(pid room.PID, gen uint32, session outbound.Session) {
 	if a.wires == nil {
 		return
 	}
-	slug, plane := a.room.Slug(), a.hub.media
+	slug, plane, silent := a.room.Slug(), a.hub.media, a.silent[pid]
 	select {
-	case a.wires <- func() { plane.Attach(slug, pid, gen, session.Media) }:
+	case a.wires <- func() {
+		plane.Attach(slug, pid, gen, session.Media)
+		plane.Silence(slug, pid, silent)
+	}:
 	default:
 	}
 }
@@ -323,6 +358,7 @@ func (a *actor) apply(events []room.Event) {
 }
 
 func (a *actor) broadcast() {
+	a.hush()
 	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone}
 	a.gone = nil
 	var slow []room.PID
