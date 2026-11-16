@@ -59,6 +59,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     seatStorage: memoryStorage(),
     mediaDevices: undefined,
     entryIntent: createEntryIntent(),
+    lookMemory: { read: () => 34, write: () => undefined },
     nameMemory: { read: () => names.value, write: (name) => void (names.value = name) },
     origin: "https://live.test",
     clipboard: {

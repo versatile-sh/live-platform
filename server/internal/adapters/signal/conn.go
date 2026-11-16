@@ -190,7 +190,7 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 		if !ok {
 			return "", room.Seat{}, shared.NewDomainError(shared.ErrCodeInvalidArgument, "verifier is 32 bytes in base64url", nil)
 		}
-		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Proof: proof, Listed: hello.Listed, Country: c.country}, c)
+		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Proof: proof, Listed: hello.Listed, Country: c.country}, c)
 		return slug, seat, err
 	case "resume":
 		if secret, ok := decodeSecret(hello.Secret); ok {
@@ -209,6 +209,8 @@ func (c *conn) dispatch(f clientFrame) {
 		c.send(hbFrame)
 	case "media":
 		p.SetMedia(c.slug, c.seat.PID, c.seat.Gen, room.Flags(f.Flags))
+	case "look":
+		p.SetLook(c.slug, c.seat.PID, c.seat.Gen, room.NewLook(f.Look))
 	case "chat":
 		text, err := room.NewChatText(f.Text)
 		if err != nil {

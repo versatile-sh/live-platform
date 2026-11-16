@@ -10,7 +10,7 @@ export type GoneReason = "left" | "removed-by-owner" | "timeout" | "media-timeou
 
 export type ErrorCode = "INVALID_ARGUMENT" | "NOT_FOUND" | "CONFLICT" | "PERMISSION_DENIED" | "RATE_LIMITED" | "INVARIANT_VIOLATION" | "INTERNAL";
 
-export type Person = { pid: number; slot: number; name: string; state: PersonState; flags: number };
+export type Person = { pid: number; slot: number; name: string; state: PersonState; flags: number; look?: number };
 
 export type Departure = { pid: number; reason: GoneReason };
 
@@ -22,7 +22,7 @@ export type ServerFrame =
   | { t: "hb" };
 
 export type Hello =
-  | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean }
+  | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean; look?: number }
   | { t: "resume"; slug: string; pid: number; secret: string };
 
 export type OwnerOp =
@@ -31,7 +31,7 @@ export type OwnerOp =
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "look"; look: number } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -45,10 +45,10 @@ function isFields(value: unknown): value is Fields {
 
 function parsePerson(raw: unknown): Person | undefined {
   if (!isFields(raw)) return undefined;
-  const { pid, slot, name, state, flags } = raw;
+  const { pid, slot, name, state, flags, look } = raw;
   if (typeof pid !== "number" || typeof slot !== "number" || typeof name !== "string" || typeof flags !== "number") return undefined;
   if (typeof state !== "string" || !PERSON_STATES.includes(state)) return undefined;
-  return { pid, slot, name, state: state as PersonState, flags };
+  return { pid, slot, name, state: state as PersonState, flags, ...(typeof look === "number" ? { look } : {}) };
 }
 
 function parseDeparture(raw: unknown): Departure | undefined {

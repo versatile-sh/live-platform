@@ -51,6 +51,7 @@ type Participant struct {
 	Name  string
 	State State
 	Flags Flags
+	Look  Look
 	Gen   uint32
 
 	secretHash   [32]byte
@@ -108,7 +109,7 @@ func (r *Room) Roster() []Participant {
 }
 
 // Join admits a participant in the connecting state, or refuses when the room is full.
-func (r *Room) Join(now time.Time, name string, secretHash [32]byte, owner bool) (Participant, []Event, error) {
+func (r *Room) Join(now time.Time, name string, look Look, secretHash [32]byte, owner bool) (Participant, []Event, error) {
 	clean, err := cleanName(name)
 	if err != nil {
 		return Participant{}, nil, err
@@ -119,7 +120,7 @@ func (r *Room) Join(now time.Time, name string, secretHash [32]byte, owner bool)
 	slot := uint8(bits.TrailingZeros64(^r.occupied))
 	r.nextPID++
 	p := &Participant{
-		ID: r.nextPID, Slot: slot, Name: clean, State: StateConnecting, Gen: 1,
+		ID: r.nextPID, Slot: slot, Name: clean, Look: look, State: StateConnecting, Gen: 1,
 		secretHash: secretHash, deadline: now.Add(r.cfg.ConnectTimeout),
 	}
 	r.slots[slot] = p
@@ -186,6 +187,16 @@ func (r *Room) SetMedia(pid PID, flags Flags) []Event {
 		return nil
 	}
 	p.Flags = next
+	return []Event{r.emit(EventChanged, pid, "")}
+}
+
+// SetLook changes how a participant appears.
+func (r *Room) SetLook(pid PID, look Look) []Event {
+	p := r.find(pid)
+	if p == nil || p.Look == look {
+		return nil
+	}
+	p.Look = look
 	return []Event{r.emit(EventChanged, pid, "")}
 }
 

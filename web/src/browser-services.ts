@@ -1,3 +1,4 @@
+import { randomLook } from "./domain/look";
 import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
@@ -8,6 +9,7 @@ import { platformSocket, signalUrl } from "./signal/link";
 import type { Services } from "./services";
 
 const NAME_KEY = "live.name";
+const LOOK_KEY = "live.look";
 
 function safeStorage(kind: "localStorage" | "sessionStorage"): Storage | undefined {
   try {
@@ -47,10 +49,27 @@ export function createBrowserServices(): Services {
     mediaDevices: navigator.mediaDevices
       ? {
           user: (constraints) => navigator.mediaDevices.getUserMedia(constraints),
+          list: () => navigator.mediaDevices.enumerateDevices(),
           display: (constraints) => navigator.mediaDevices.getDisplayMedia(constraints),
         }
       : undefined,
     entryIntent: createEntryIntent(),
+    lookMemory: {
+      read() {
+        const kept = Number(local?.getItem(LOOK_KEY));
+        if (Number.isInteger(kept) && kept > 0) return kept;
+        const drawn = randomLook();
+        this.write(drawn);
+        return drawn;
+      },
+      write(look) {
+        try {
+          local?.setItem(LOOK_KEY, String(look));
+        } catch {
+          return;
+        }
+      },
+    },
     nameMemory: {
       read: () => local?.getItem(NAME_KEY) ?? "",
       write(name) {
