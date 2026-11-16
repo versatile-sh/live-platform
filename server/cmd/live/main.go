@@ -34,7 +34,7 @@ func main() {
 	}
 	signalCfg := signal.DefaultConfig(origins())
 	signalCfg.CountryHeader = os.Getenv("COUNTRY_HEADER")
-	signalling := signal.NewServer(hub, signalCfg)
+	signalling := signal.NewServer(presence.WithoutMedia{Hub: hub}, signalCfg)
 	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
 
 	ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

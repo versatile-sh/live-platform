@@ -291,4 +291,23 @@ func TestHub(t *testing.T) {
 		require.Eventually(t, func() bool { return len(h.Lobby()) == 1 }, wait, tick)
 		assert.Equal(t, shared.ErrCodeNotFound, shared.CodeOf(h.SetListed("small", owner.PID, owner.Gen+1, true)))
 	})
+
+	t.Run("without a media plane a participant is active as soon as it is seated, and again after a resume", func(t *testing.T) {
+		h := WithoutMedia{Hub: newCalmHub()}
+		session := &fakeSession{}
+		seat, err := h.Join("bk", room.Entry{Name: "ana"}, session)
+		require.NoError(t, err)
+		active := func(pid room.PID) func() bool {
+			return func() bool {
+				p, ok := session.sees(pid)
+				return ok && p.State == room.StateActive
+			}
+		}
+		require.Eventually(t, active(seat.PID), wait, tick)
+		fresh := &fakeSession{}
+		resumed, err := h.Resume("bk", seat.PID, seat.Secret, fresh)
+		require.NoError(t, err)
+		session = fresh
+		require.Eventually(t, active(resumed.PID), wait, tick)
+	})
 }
