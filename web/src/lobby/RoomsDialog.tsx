@@ -24,7 +24,6 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
   useEffect(() => {
     const element = dialog.current;
     if (element && !element.open) element.showModal();
-    return () => element?.close();
   }, []);
 
   const counts = new Map<string, number>();
