@@ -388,5 +388,11 @@ func TestBan(t *testing.T) {
 	assert.NoError(t, r.Admit(""), "an unknown origin is never refused")
 	_, err = r.Ban(t0, ana.ID, caio.ID)
 	require.NoError(t, err, "someone of unknown origin is removed all the same")
+	dani := joinActive(t, r, "dani", false)
+	r.From(ana.ID, "home")
+	r.From(dani.ID, "home")
+	_, err = r.Ban(t0, ana.ID, dani.ID)
+	require.NoError(t, err)
+	assert.NoError(t, r.Admit("home"), "an origin shared with the owner is never barred")
 	assert.NoError(t, r.Admit(""))
 }
