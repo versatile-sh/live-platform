@@ -278,10 +278,10 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
     <div className="flex h-dvh min-h-0 flex-col bg-canvas">
       <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 px-5">
         <Wordmark className="text-sm" />
-        <h1 className="max-w-[40vw] truncate font-display text-lg font-bold tracking-[-0.03em]" translate="no">
-          {slug}
-        </h1>
-        <div className="flex justify-end">
+        <div className="flex max-w-[60vw] items-center gap-3">
+          <h1 className="min-w-0 truncate font-display text-lg font-bold tracking-[-0.03em]" translate="no">
+            {slug}
+          </h1>
           <ConnectionStatus connection={connection} />
         </div>
       </header>
@@ -340,7 +340,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
         <aside
           aria-label={t(`side.${shown}`)}
           inert={!side}
-          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
+          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 md:-mt-11 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
         >
           <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-card max-md:w-full">
             <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
