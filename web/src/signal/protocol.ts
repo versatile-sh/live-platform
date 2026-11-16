@@ -10,7 +10,7 @@ export type GoneReason = "left" | "removed-by-owner" | "timeout" | "media-timeou
 
 export type ErrorCode = "INVALID_ARGUMENT" | "NOT_FOUND" | "CONFLICT" | "PERMISSION_DENIED" | "RATE_LIMITED" | "INVARIANT_VIOLATION" | "INTERNAL";
 
-export type Person = { pid: number; slot: number; name: string; state: PersonState; flags: number; look?: number };
+export type Person = { pid: number; slot: number; name: string; state: PersonState; flags: number; look?: number; face?: string };
 
 export type Departure = { pid: number; reason: GoneReason };
 
@@ -19,10 +19,11 @@ export type ServerFrame =
   | { t: "roster"; v: number; people: Person[]; gone: Departure[] }
   | { t: "error"; code: ErrorCode; message: string }
   | { t: "chat"; pid: number; name: string; text: string; at: number }
+  | { t: "photo"; pid: number; data: string }
   | { t: "hb" };
 
 export type Hello =
-  | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean; look?: number }
+  | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean; look?: number; face?: string }
   | { t: "resume"; slug: string; pid: number; secret: string };
 
 export type OwnerOp =
@@ -31,7 +32,7 @@ export type OwnerOp =
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "look"; look: number } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string } | { t: "look"; look: number; face: string } | { t: "photo"; data: string } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -45,10 +46,10 @@ function isFields(value: unknown): value is Fields {
 
 function parsePerson(raw: unknown): Person | undefined {
   if (!isFields(raw)) return undefined;
-  const { pid, slot, name, state, flags, look } = raw;
+  const { pid, slot, name, state, flags, look, face } = raw;
   if (typeof pid !== "number" || typeof slot !== "number" || typeof name !== "string" || typeof flags !== "number") return undefined;
   if (typeof state !== "string" || !PERSON_STATES.includes(state)) return undefined;
-  return { pid, slot, name, state: state as PersonState, flags, ...(typeof look === "number" ? { look } : {}) };
+  return { pid, slot, name, state: state as PersonState, flags, ...(typeof look === "number" ? { look } : {}), ...(typeof face === "string" && face !== "" ? { face } : {}) };
 }
 
 function parseDeparture(raw: unknown): Departure | undefined {
@@ -84,6 +85,9 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
       return { t: "roster", v: raw.v, people, gone };
     }
+    case "photo":
+      if (typeof raw.pid !== "number" || typeof raw.data !== "string" || !/^[A-Za-z0-9+/=]*$/.test(raw.data)) return undefined;
+      return { t: "photo", pid: raw.pid, data: raw.data };
     case "chat":
       if (typeof raw.pid !== "number" || typeof raw.name !== "string" || typeof raw.text !== "string" || typeof raw.at !== "number") return undefined;
       return { t: "chat", pid: raw.pid, name: raw.name, text: raw.text, at: raw.at };

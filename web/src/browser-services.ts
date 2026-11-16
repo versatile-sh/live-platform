@@ -10,6 +10,28 @@ import type { Services } from "./services";
 
 const NAME_KEY = "live.name";
 const LOOK_KEY = "live.look";
+const FACE_KEY = "live.face";
+const PHOTO_SIDE = 128;
+const PHOTO_MAX_BASE64 = 13_000;
+
+async function shrinkPhoto(file: Blob): Promise<string | undefined> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const side = Math.min(bitmap.width, bitmap.height);
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = PHOTO_SIDE;
+    const context = canvas.getContext("2d");
+    if (!context) return undefined;
+    context.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, PHOTO_SIDE, PHOTO_SIDE);
+    for (const quality of [0.8, 0.6, 0.4]) {
+      const data = canvas.toDataURL("image/jpeg", quality).split(",")[1] ?? "";
+      if (data !== "" && data.length <= PHOTO_MAX_BASE64) return data;
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 function safeStorage(kind: "localStorage" | "sessionStorage"): Storage | undefined {
   try {
@@ -54,6 +76,17 @@ export function createBrowserServices(): Services {
         }
       : undefined,
     entryIntent: createEntryIntent(),
+    faceMemory: {
+      read: () => local?.getItem(FACE_KEY) ?? "",
+      write(face) {
+        try {
+          local?.setItem(FACE_KEY, face);
+        } catch {
+          return;
+        }
+      },
+    },
+    shrinkPhoto,
     lookMemory: {
       read() {
         const kept = Number(local?.getItem(LOOK_KEY));

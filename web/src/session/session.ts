@@ -12,7 +12,7 @@ export const NOTICE_MS = 6000;
 const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 
 /** What a person gave to enter a room. A verifier makes the room private. */
-export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: number };
+export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: number; face?: string };
 
 /** One line said in the room, as this page heard it. */
 export type ChatLine = { id: number; pid: number; name: string; text: string; at: number };
@@ -22,6 +22,10 @@ const CHAT_KEPT = 300;
 export type SessionSnapshot = {
   connection: Connection;
   chat: readonly ChatLine[];
+  /** The photo each participant is showing, as a JPEG data address, by participant id. */
+  photos: Readonly<Record<number, string>>;
+  /** How long my last heartbeat took to come back, in milliseconds. */
+  rtt: number | undefined;
   slug: string;
   private: boolean;
   listed: boolean | undefined;
@@ -49,8 +53,10 @@ export type Session = {
   /** Stops the session; a participant who is in the room leaves it. */
   dispose(): void;
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
-  /** Changes how I appear to the room. */
-  setLook(look: number): void;
+  /** Changes how I appear to the room: colour and tilt, and the characters of my face. */
+  setLook(look: number, face: string): void;
+  /** Shows a photo of mine to the room while I am in it (JPEG as base64), or takes it away when empty. */
+  setPhoto(data: string): void;
   /** Says a line to the room; false when it could not be sent. */
   say(text: string): boolean;
   /** Tells the room what I am sending (microphone, camera, screen, hand); it is told again after a reconnection. */
@@ -80,6 +86,8 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let snapshot: SessionSnapshot = {
     connection: IDLE,
     chat: [],
+    photos: {},
+    rtt: undefined,
     slug,
     private: entry?.verifier !== undefined,
     listed: entry?.listed,
@@ -91,6 +99,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let leaving = false;
   let resuming = false;
   let mediaFlags = 0;
+  let beatAt = 0;
   let nextChatId = 1;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
   let watchdog: Handle | undefined;
@@ -184,7 +193,10 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     writeSeat(storage, slug, { pid: frame.pid, secret: frame.secret, private: snapshot.private, ...(snapshot.listed === undefined ? {} : { listed: snapshot.listed }) });
     dispatch({ type: "joined", pid: frame.pid });
     clearInterval(heartbeat);
-    heartbeat = setInterval(() => void link?.send({ t: "hb" }), HEARTBEAT_MS);
+    heartbeat = setInterval(() => {
+      beatAt = Date.now();
+      link?.send({ t: "hb" });
+    }, HEARTBEAT_MS);
     if (mediaFlags !== 0) link?.send({ t: "media", flags: mediaFlags });
   }
 
@@ -195,6 +207,13 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       if (frame.t === "joined") onJoined(frame);
       else if (frame.t === "roster") dispatch({ type: "roster", frame });
       else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at }].slice(-CHAT_KEPT) });
+      else if (frame.t === "photo") {
+        const { [frame.pid]: _gone, ...others } = snapshot.photos;
+        patch({ photos: frame.data === "" ? others : { ...others, [frame.pid]: `data:image/jpeg;base64,${frame.data}` } });
+      } else if (frame.t === "hb" && beatAt > 0) {
+        patch({ rtt: Date.now() - beatAt });
+        beatAt = 0;
+      }
       else if (frame.t === "error" && snapshot.connection.phase === "joined") dispatch({ type: "owner-refused", code: frame.code });
       return;
     }
@@ -276,6 +295,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       ...(joining.verifier === undefined ? {} : { verifier: joining.verifier }),
       ...(joining.listed === undefined ? {} : { listed: joining.listed }),
       ...(joining.look ? { look: joining.look } : {}),
+      ...(joining.face ? { face: joining.face } : {}),
     };
   }
 
@@ -321,8 +341,11 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       closeLink();
       if (snapshot.connection.phase !== "ended") clearSeat(storage, slug);
     },
-    setLook(look) {
-      link?.send({ t: "look", look });
+    setLook(look, face) {
+      link?.send({ t: "look", look, face });
+    },
+    setPhoto(data) {
+      link?.send({ t: "photo", data });
     },
     say(text) {
       return link?.send({ t: "chat", text }) ?? false;

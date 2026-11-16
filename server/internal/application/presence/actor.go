@@ -24,12 +24,13 @@ type actor struct {
 	seats map[room.PID]*seat
 	inbox chan func(*actor)
 	gone  []room.Departure
+	shots map[room.PID][]byte
 
 	summary atomic.Pointer[room.Summary]
 }
 
 func newActor(h *Hub, r *room.Room) *actor {
-	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, inbox: make(chan func(*actor), inboxSize)}
+	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, shots: map[room.PID][]byte{}, inbox: make(chan func(*actor), inboxSize)}
 	a.publish()
 	return a
 }
@@ -105,12 +106,13 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 	if err != nil {
 		return room.Seat{}, err
 	}
-	p, events, err := a.room.Join(a.now(), entry.Name, entry.Look, sha256.Sum256(secret[:]), a.room.Count() == 0)
+	p, events, err := a.room.Join(a.now(), entry.Name, entry.Look, entry.Face, sha256.Sum256(secret[:]), a.room.Count() == 0)
 	if err != nil {
 		return room.Seat{}, err
 	}
 	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
+	a.showPhotos(session)
 	return room.Seat{PID: p.ID, Gen: p.Gen, Secret: secret}, nil
 }
 
@@ -129,6 +131,7 @@ func (a *actor) resume(pid room.PID, secret [32]byte, session outbound.Session) 
 	}
 	*s = seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
+	a.showPhotos(session)
 	return room.Seat{PID: p.ID, Gen: p.Gen, Secret: next}, nil
 }
 
@@ -191,6 +194,28 @@ func (a *actor) chat(pid room.PID, gen uint32, text string) {
 	}
 }
 
+func (a *actor) photo(pid room.PID, gen uint32, jpeg []byte) {
+	if !a.holds(pid, gen) || room.CheckPhoto(jpeg) != nil {
+		return
+	}
+	if len(jpeg) == 0 {
+		delete(a.shots, pid)
+	} else {
+		a.shots[pid] = jpeg
+	}
+	for _, s := range a.seats {
+		if s.online {
+			s.session.Photo(pid, jpeg)
+		}
+	}
+}
+
+func (a *actor) showPhotos(session outbound.Session) {
+	for pid, jpeg := range a.shots {
+		session.Photo(pid, jpeg)
+	}
+}
+
 func (a *actor) holds(pid room.PID, gen uint32) bool {
 	s := a.seats[pid]
 	return s != nil && s.gen == gen
@@ -215,6 +240,7 @@ func (a *actor) apply(events []room.Event) {
 			}
 		}
 		delete(a.seats, e.PID)
+		delete(a.shots, e.PID)
 	}
 	a.broadcast()
 }

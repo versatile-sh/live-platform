@@ -1,6 +1,7 @@
 package signal
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"sync"
 	"sync/atomic"
@@ -59,6 +60,20 @@ func (c *conn) Roster(snapshot room.Snapshot) bool {
 	}
 	c.send(frame)
 	return true
+}
+
+// Photo queues a participant's photo, or its removal; one that cannot be queued is dropped, since the roster still draws a face.
+func (c *conn) Photo(pid room.PID, jpeg []byte) {
+	frame := textFrame(encodePhoto(pid, jpeg))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch {
+	case c.gone || c.phase == phaseEnding:
+	case c.phase != phaseJoined:
+		c.held = append(c.held, frame)
+	case c.pending.Load() <= c.server.cfg.MaxPending:
+		c.send(frame)
+	}
 }
 
 // Chat queues a message and reports false when the connection has fallen too far behind.
@@ -190,7 +205,11 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 		if !ok {
 			return "", room.Seat{}, shared.NewDomainError(shared.ErrCodeInvalidArgument, "verifier is 32 bytes in base64url", nil)
 		}
-		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Proof: proof, Listed: hello.Listed, Country: c.country}, c)
+		face, err := room.NewFace(hello.Face)
+		if err != nil {
+			return "", room.Seat{}, err
+		}
+		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Country: c.country}, c)
 		return slug, seat, err
 	case "resume":
 		if secret, ok := decodeSecret(hello.Secret); ok {
@@ -210,7 +229,22 @@ func (c *conn) dispatch(f clientFrame) {
 	case "media":
 		p.SetMedia(c.slug, c.seat.PID, c.seat.Gen, room.Flags(f.Flags))
 	case "look":
-		p.SetLook(c.slug, c.seat.PID, c.seat.Gen, room.NewLook(f.Look))
+		face, err := room.NewFace(f.Face)
+		if err != nil {
+			c.send(textFrame(encodeError(err)))
+			return
+		}
+		p.SetLook(c.slug, c.seat.PID, c.seat.Gen, room.NewLook(f.Look), face)
+	case "photo":
+		jpeg, err := base64.StdEncoding.DecodeString(f.Data)
+		if err == nil {
+			err = room.CheckPhoto(jpeg)
+		}
+		if err != nil {
+			c.send(textFrame(encodeError(shared.NewDomainError(shared.ErrCodeInvalidArgument, "a photo is a JPEG of at most 10 KiB", err))))
+			return
+		}
+		p.SetPhoto(c.slug, c.seat.PID, c.seat.Gen, jpeg)
 	case "chat":
 		text, err := room.NewChatText(f.Text)
 		if err != nil {

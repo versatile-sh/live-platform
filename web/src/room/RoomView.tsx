@@ -114,15 +114,41 @@ function NoticeLine({ notice }: { notice: Notice }) {
 export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProps) {
   const t = useT();
   const navigate = useNavigate();
-  const { mediaDevices, lookMemory } = useServices();
+  const { mediaDevices, lookMemory, faceMemory } = useServices();
   const [media] = useState(() => createLocalMedia(mediaDevices, (flags) => session.setMedia(flags)));
   const local = useSyncExternalStore(media.subscribe, media.getSnapshot);
   const [side, setSide] = useState<Side | undefined>("chat");
   const [shown, setShown] = useState<Side>("chat");
-  const [menu, setMenu] = useState<"microphone" | "camera" | undefined>();
+  const [menu, setMenu] = useState<"microphone" | "camera" | "more" | undefined>();
+  const [sheet, setSheet] = useState<"connection" | "shortcuts" | undefined>();
   const [seen, setSeen] = useState(0);
   if (side && side !== shown) setShown(side);
   useEffect(() => () => media.dispose(), [media]);
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (!event.ctrlKey || event.metaKey) return;
+      const key = event.key.toLowerCase();
+      const act =
+        !event.altKey && !event.shiftKey && key === "d"
+          ? () => void media.toggle("microphone")
+          : !event.altKey && !event.shiftKey && key === "e"
+            ? () => void media.toggle("camera")
+            : !event.altKey && event.shiftKey && key === "e"
+              ? () => void media.toggle("screen")
+              : event.altKey && key === "h"
+                ? media.toggleHand
+                : event.altKey && key === "c"
+                  ? () => setSide((current) => (current === "chat" ? undefined : "chat"))
+                  : event.altKey && key === "p"
+                    ? () => setSide((current) => (current === "people" ? undefined : "people"))
+                    : undefined;
+      if (!act) return;
+      event.preventDefault();
+      act();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [media]);
 
   const { connection, chat } = snapshot;
   const inRoom = connection.phase === "joined" || connection.phase === "reconnecting";
@@ -225,7 +251,7 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
                 </li>
               ) : null}
               {people.map((person) => (
-                <Tile key={person.pid} person={person} isMe={person.pid === myPid} video={person.pid === myPid ? local.camera : undefined} />
+                <Tile key={person.pid} person={person} isMe={person.pid === myPid} video={person.pid === myPid ? local.camera : undefined} photo={snapshot.photos[person.pid]} />
               ))}
             </ul>
           )}
@@ -262,10 +288,13 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
                   canModerate={iAmOwner}
                   onRemove={(pid) => session.owner({ op: "remove", pid })}
                   onTransfer={(pid) => session.owner({ op: "transfer", pid })}
-                  onLook={(look) => {
+                  photos={snapshot.photos}
+                  onLook={(look, face) => {
                     lookMemory.write(look);
-                    session.setLook(look);
+                    faceMemory.write(face);
+                    session.setLook(look, face);
                   }}
+                  onPhoto={session.setPhoto}
                 />
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -277,6 +306,42 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
         </aside>
       </div>
 
+      {sheet ? (
+        <>
+          <button type="button" aria-label={t("more.close")} className="fixed inset-0 z-30 cursor-default bg-ink/60" onClick={() => setSheet(undefined)} />
+          <section role="dialog" aria-label={t(sheet === "connection" ? "more.connection" : "more.shortcuts")} className="swap-in bubble fixed top-1/2 left-1/2 z-40 w-[min(26rem,calc(100vw-2rem))] -translate-1/2 border border-line-strong bg-card p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="font-display text-xl font-bold tracking-[-0.03em]">{t(sheet === "connection" ? "more.connection" : "more.shortcuts")}</h2>
+              <button type="button" aria-label={t("more.close")} className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg" onClick={() => setSheet(undefined)}>
+                <Icon name="close" className="size-4" />
+              </button>
+            </div>
+            <dl className="flex flex-col gap-2.5 text-sm">
+              {(sheet === "connection"
+                ? [
+                    [t("connection.rtt"), snapshot.rtt === undefined ? t("connection.measuring") : t("connection.ms", { ms: snapshot.rtt })],
+                    [t("connection.state"), t(connection.phase === "joined" ? "connection.joined" : "connection.reconnecting")],
+                    [t("connection.mediaState"), t("connection.mediaLocal")],
+                  ]
+                : [
+                    [t("shortcut.mic"), "Ctrl+D"],
+                    [t("shortcut.camera"), "Ctrl+E"],
+                    [t("shortcut.screen"), "Ctrl+Shift+E"],
+                    [t("shortcut.hand"), "Ctrl+Alt+H"],
+                    [t("shortcut.chat"), "Ctrl+Alt+C"],
+                    [t("shortcut.people"), "Ctrl+Alt+P"],
+                  ]
+              ).map(([term, value]) => (
+                <div key={term} className="flex items-baseline justify-between gap-4">
+                  <dt className="text-muted">{term}</dt>
+                  <dd className="text-right font-mono text-[0.8125rem]">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </>
+      ) : null}
+
       <footer className="grid h-20 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 px-5">
         <p className="truncate text-sm text-muted max-md:hidden">{t("room.mediaNote")}</p>
         <div role="toolbar" aria-label={t("dock.label")} className="col-start-2 flex items-center gap-2.5">
@@ -286,6 +351,45 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
           <button type="button" aria-pressed={local.hand} aria-label={t(local.hand ? "dock.handDown" : "dock.handUp")} title={t(local.hand ? "dock.handDown" : "dock.handUp")} className={`${ROUND} ${local.hand ? "bg-bubble text-on-bubble hover:opacity-85" : IDLE}`} onClick={media.toggleHand}>
             <Icon name="hand" />
           </button>
+          <div className="relative">
+            <button type="button" aria-expanded={menu === "more"} aria-label={t("more.label")} title={t("more.label")} className={`${ROUND} ${menu === "more" ? OPEN : IDLE}`} onClick={() => setMenu(menu === "more" ? undefined : "more")}>
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" fill="currentColor">
+                <circle cx="6" cy="12" r="1.6" />
+                <circle cx="12" cy="12" r="1.6" />
+                <circle cx="18" cy="12" r="1.6" />
+              </svg>
+            </button>
+            {menu === "more" ? (
+              <>
+                <button type="button" aria-label={t("menu.close")} className="fixed inset-0 z-20 cursor-default" onClick={() => setMenu(undefined)} />
+                <ul role="menu" aria-label={t("more.label")} className="swap-in bubble absolute bottom-[calc(100%+0.75rem)] left-1/2 z-30 flex w-72 -translate-x-1/2 flex-col border border-line-strong bg-card p-2 text-left">
+                  {(
+                    [
+                      ...(iAmOwner ? [["more.access", "settings", undefined, () => setSide("settings")] as const] : []),
+                      ["more.connection", "people", undefined, () => setSheet("connection")] as const,
+                      ["more.shortcuts", "chat", "Ctrl+/", () => setSheet("shortcuts")] as const,
+                    ] as const
+                  ).map(([label, icon, keys, run]) => (
+                    <li key={label} role="none">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
+                        onClick={() => {
+                          setMenu(undefined);
+                          run();
+                        }}
+                      >
+                        <Icon name={icon === "settings" ? "settings" : icon === "people" ? "signal" : "keyboard"} className="size-4 text-muted" />
+                        <span className="flex-1 text-left">{t(label)}</span>
+                        {keys ? <kbd className="rounded-md border border-line-strong px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted">{keys}</kbd> : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
+          </div>
           <button type="button" className="ml-1 inline-flex h-12 items-center gap-2 rounded-full bg-fg px-5 font-semibold text-canvas transition-opacity duration-200 hover:opacity-85" onClick={leave}>
             <Icon name="leave" />
             {t("room.leave")}

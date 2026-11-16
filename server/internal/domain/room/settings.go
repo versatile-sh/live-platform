@@ -40,6 +40,7 @@ func (s Settings) validate() error {
 type Entry struct {
 	Name    string
 	Look    Look
+	Face    string
 	Proof   *Verifier
 	Listed  bool
 	Country string
