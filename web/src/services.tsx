@@ -1,4 +1,5 @@
 import { createContext, use, type ReactNode } from "react";
+import type { ThemeStore } from "./ui/theme";
 
 import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
@@ -25,6 +26,7 @@ export type Services = {
   settingsMemory: { read(): MediaSettings; write(settings: MediaSettings): void };
   rtc: RtcPort;
   entryIntent: EntryIntent;
+  theme: ThemeStore;
   nameMemory: { read(): string; write(name: string): void };
   lookMemory: { read(): string; write(look: string): void };
   faceMemory: { read(): string; write(face: string): void };

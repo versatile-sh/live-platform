@@ -3,6 +3,7 @@ import { PROJECT_LINKS } from "../project/project-store";
 import { act, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { DEFAULT_SETTINGS } from "../media/settings";
+import { createTheme } from "../ui/theme";
 
 import type { LobbyState, LobbyStore } from "../lobby/lobby-store";
 import { I18nProvider } from "../i18n/I18nProvider";
@@ -60,6 +61,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     seatStorage: memoryStorage(),
     mediaDevices: undefined,
     voiceCleaner: undefined,
+    theme: createTheme({ read: () => undefined, write: () => undefined, systemPrefersLight: () => false, root: { dataset: {} } }),
     cameraEffects: undefined,
     settingsMemory: { read: () => DEFAULT_SETTINGS, write: () => undefined },
     rtc: undefined,
