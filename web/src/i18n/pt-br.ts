@@ -30,7 +30,7 @@ export const ptBR: Record<MessageKey, string> = {
   "lobby.heading": "Salas abertas",
   "lobby.intro": "Compartilhe uma tela, sua voz e sua câmera a partir de um link. Sem conta e sem instalar nada.",
   "lobby.goLabel": "Nome da sala",
-  "lobby.goHint": "Letras minúsculas, números e hifens, como standup ou time-42.",
+  "lobby.goHint": "Letras minúsculas, números e hifens, como meet ou time-42.",
   "lobby.goPlaceholder": "meet",
   "lobby.goButton": "Entrar",
   "lobby.listHeading": "Salas listadas",
@@ -50,9 +50,9 @@ export const ptBR: Record<MessageKey, string> = {
   "slug.reserved": "O site reserva esse nome. Escolha outro.",
 
   "invalidRoom.title": "Esse não é um nome de sala",
-  "invalidRoom.body": "O nome de uma sala tem de 2 a 40 letras minúsculas, números ou hifens, como standup ou time-42.",
+  "invalidRoom.body": "O nome de uma sala tem de 2 a 40 letras minúsculas, números ou hifens, como meet ou time-42.",
   "notFound.title": "Não há nada neste endereço",
-  "notFound.body": "As salas ficam no primeiro nível, como live.versatile.sh/standup.",
+  "notFound.body": "As salas ficam no primeiro nível, como live.versatile.sh/meet.",
   "common.lobby": "Voltar ao início",
 
   "entry.checking": "Verificando a sala",
