@@ -28,6 +28,9 @@ type serverFrame struct {
 	People []person    `json:"people"`
 	Gone   []departure `json:"gone"`
 	Code   string      `json:"code"`
+	Name   string      `json:"name"`
+	Text   string      `json:"text"`
+	At     int64       `json:"at"`
 }
 
 type client struct {
@@ -199,6 +202,23 @@ func TestSignalling(t *testing.T) {
 		f, err = guest.next()
 		require.NoError(t, err)
 		assert.Equal(t, "joined", f.T)
+	})
+
+	t.Run("a chat line reaches the room with its author, and a bad one is refused to its sender only", func(t *testing.T) {
+		url := startServer(t, nil)
+		ana, bia := dial(t, url), dial(t, url)
+		ana.join("ana")
+		bia.join("bia")
+		ana.send(`{"t":"chat","text":"  hello there  "}`)
+		heard := bia.until(func(f serverFrame) bool { return f.T == "chat" })
+		assert.Equal(t, "hello there", heard.Text)
+		assert.Equal(t, "ana", heard.Name)
+		assert.Equal(t, ana.me.PID, heard.PID)
+		assert.NotZero(t, heard.At)
+		ana.until(func(f serverFrame) bool { return f.T == "chat" })
+		ana.send(`{"t":"chat","text":"   "}`)
+		refused := ana.until(func(f serverFrame) bool { return f.T == "error" })
+		assert.Equal(t, "INVALID_ARGUMENT", refused.Code)
 	})
 
 	t.Run("a frame split across packets is reassembled", func(t *testing.T) {
