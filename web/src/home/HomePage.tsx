@@ -28,10 +28,10 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className="on-accent relative isolate flex flex-col overflow-hidden bg-bubble px-6 py-8 text-ink sm:px-10 lg:w-1/2 lg:px-14 lg:py-12">
+    <section className="relative isolate flex flex-col overflow-hidden bg-bubble px-6 py-8 text-ink sm:px-10 lg:w-1/2 lg:px-14 lg:py-12">
       <div aria-hidden="true" className="backdrop-glow pointer-events-none absolute inset-0 -z-10" />
       <div aria-hidden="true" className="backdrop-grid-ink pointer-events-none absolute inset-0 -z-10" />
-      <Wordmark onAccent className="text-xl" />
+      <Wordmark onAccent className="self-start text-lg" />
       <div className="flex flex-1 flex-col justify-center py-12 lg:py-0">
         <h1 className="font-display text-[2.5rem] leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl xl:text-6xl">
           <span className="block">{t("home.line1")}</span>
