@@ -8,7 +8,7 @@ import (
 
 // Presence is everything a transport may ask of the rooms.
 type Presence interface {
-	Join(slug room.Slug, name string, session outbound.Session) (room.Seat, error)
+	Join(slug room.Slug, entry room.Entry, session outbound.Session) (room.Seat, error)
 	Resume(slug room.Slug, pid room.PID, secret [32]byte, session outbound.Session) (room.Seat, error)
 	Touch(slug room.Slug, pid room.PID, gen uint32)
 	Disconnected(slug room.Slug, pid room.PID, gen uint32)
@@ -16,4 +16,12 @@ type Presence interface {
 	Leave(slug room.Slug, pid room.PID, gen uint32)
 	Remove(slug room.Slug, by room.PID, gen uint32, target room.PID) error
 	Transfer(slug room.Slug, by room.PID, gen uint32, target room.PID) error
+	SetListed(slug room.Slug, by room.PID, gen uint32, listed bool) error
+	SetPassword(slug room.Slug, by room.PID, gen uint32, verifier *room.Verifier) error
+}
+
+// Directory answers what anyone may know about rooms without entering them.
+type Directory interface {
+	Status(slug room.Slug) (room.Summary, bool)
+	Lobby() []room.Summary
 }

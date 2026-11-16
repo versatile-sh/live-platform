@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -24,13 +25,14 @@ var headEnd = []byte("\r\n\r\n")
 
 // Config bounds what one connection, and all of them together, may cost the server.
 type Config struct {
-	Origins      []string
-	HelloTimeout time.Duration
-	ReadLimit    int64
-	FramesPerSec float64
-	FrameBurst   float64
-	MaxPending   int64
-	MaxConns     int64
+	Origins       []string
+	CountryHeader string
+	HelloTimeout  time.Duration
+	ReadLimit     int64
+	FramesPerSec  float64
+	FrameBurst    float64
+	MaxPending    int64
+	MaxConns      int64
 }
 
 // DefaultConfig returns the limits of lv.1 for the given allowed origins.
@@ -163,8 +165,11 @@ func (c *conn) upgrader() ws.Upgrader {
 		},
 		OnHost: func(h []byte) error { host = string(h); return nil },
 		OnHeader: func(key, value []byte) error {
-			if string(key) == "Origin" {
+			switch {
+			case string(key) == "Origin":
 				origin = string(value)
+			case c.server.cfg.CountryHeader != "" && strings.EqualFold(string(key), c.server.cfg.CountryHeader):
+				c.country = countryCode(value)
 			}
 			return nil
 		},
@@ -175,6 +180,13 @@ func (c *conn) upgrader() ws.Upgrader {
 			return nil, nil
 		},
 	}
+}
+
+func countryCode(value []byte) string {
+	if len(value) != 2 || value[0] < 'A' || value[0] > 'Z' || value[1] < 'A' || value[1] > 'Z' || string(value) == "XX" || string(value) == "T1" {
+		return ""
+	}
+	return string(value)
 }
 
 func originAllowed(origin, host string, allowed []string) bool {

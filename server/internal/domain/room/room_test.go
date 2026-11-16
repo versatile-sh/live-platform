@@ -20,7 +20,7 @@ func secret(b byte) [32]byte { return [32]byte{b} }
 
 func newRoom(t *testing.T) *Room {
 	t.Helper()
-	r, err := New("bk", DefaultConfig(), t0)
+	r, err := New("bk", DefaultConfig(), Settings{}, t0)
 	require.NoError(t, err)
 	return r
 }
@@ -77,7 +77,7 @@ func TestJoin(t *testing.T) {
 	t.Run("refuses when the room is full and reuses the slot but never the id", func(t *testing.T) {
 		cfg := DefaultConfig()
 		cfg.Capacity = 2
-		r, err := New("bk", cfg, t0)
+		r, err := New("bk", cfg, Settings{}, t0)
 		require.NoError(t, err)
 		a, _, _ := r.Join(t0, "a", secret(1), false)
 		_, _, _ = r.Join(t0, "b", secret(2), false)
@@ -263,4 +263,58 @@ func TestRosterVersionGrowsByOnePerEvent(t *testing.T) {
 		assert.Equal(t, uint64(i+1), ev.Version)
 	}
 	assert.Equal(t, uint64(len(all)), r.Version())
+}
+
+func TestPrivateRoom(t *testing.T) {
+	right, wrong := Verifier{1}, Verifier{2}
+	settings, err := NewSettings(&right, false, "BR")
+	require.NoError(t, err)
+	r, err := New("bk", DefaultConfig(), settings, t0)
+	require.NoError(t, err)
+
+	t.Run("admits only the holder of the password", func(t *testing.T) {
+		assert.NoError(t, r.Authorize(t0, &right))
+		assert.Equal(t, shared.ErrCodePermissionDenied, shared.CodeOf(r.Authorize(t0, nil)))
+		assert.Equal(t, shared.ErrCodePermissionDenied, shared.CodeOf(r.Authorize(t0, &wrong)))
+	})
+	t.Run("locks after ten wrong proofs, even for the right one, until the window ends", func(t *testing.T) {
+		for i := 0; i < 9; i++ {
+			_ = r.Authorize(at(1), &wrong)
+		}
+		assert.Equal(t, shared.ErrCodeRateLimited, shared.CodeOf(r.Authorize(at(2), &right)))
+		assert.Equal(t, shared.ErrCodeRateLimited, shared.CodeOf(r.Authorize(at(299), &wrong)))
+		assert.NoError(t, r.Authorize(at(300), &right))
+	})
+	t.Run("asking without a proof does not spend an attempt", func(t *testing.T) {
+		for i := 0; i < 50; i++ {
+			_ = r.Authorize(at(600), nil)
+		}
+		assert.NoError(t, r.Authorize(at(601), &right))
+	})
+}
+
+func TestSettings(t *testing.T) {
+	v := Verifier{1}
+	_, err := NewSettings(&v, true, "")
+	assert.Equal(t, shared.ErrCodeInvalidArgument, shared.CodeOf(err), "a private room is never listed")
+	for country, ok := range map[string]bool{"": true, "BR": true, "br": false, "BRA": false, "B1": false} {
+		_, err := NewSettings(nil, true, country)
+		assert.Equal(t, ok, err == nil, country)
+	}
+
+	settings, _ := NewSettings(nil, true, "BR")
+	r, err := New("bk", DefaultConfig(), settings, t0)
+	require.NoError(t, err)
+	owner := joinActive(t, r, "o", true)
+	guest := joinActive(t, r, "gu", false)
+	assert.Equal(t, Summary{Slug: "bk", Listed: true, Country: "BR", Count: 2, Capacity: 10}, r.Summary())
+	assert.Equal(t, shared.ErrCodeInvariantViolation, shared.CodeOf(r.SetListed(guest.ID, false)))
+	assert.Equal(t, shared.ErrCodeInvariantViolation, shared.CodeOf(r.SetPassword(guest.ID, &v)))
+	require.NoError(t, r.SetPassword(owner.ID, &v))
+	assert.True(t, r.Summary().Private)
+	assert.False(t, r.Summary().Listed, "making a room private unlists it")
+	assert.Error(t, r.SetListed(owner.ID, true))
+	require.NoError(t, r.SetPassword(owner.ID, nil))
+	require.NoError(t, r.SetListed(owner.ID, true))
+	assert.Equal(t, Summary{Slug: "bk", Listed: true, Country: "BR", Count: 2, Capacity: 10}, r.Summary())
 }

@@ -7,7 +7,7 @@ There are no accounts, so nothing can own a slug over time. Whoever opens a free
 
 - Room configuration (slug, kind, password verifier, country, hashed owner secret) is kept in a small file so that a restart does not release occupied rooms. Media, chat and names never reach the disk.
 - A public room is listed in the lobby only if its owner asks. A private room is never listed.
-- The lobby country is detected from the owner's address at creation with a local database and cannot be edited. Only the country code is kept.
+- The lobby country is detected for the owner at creation and cannot be edited. Only the country code is kept. It is read from the header the proxy sets (`CF-IPCountry` behind Cloudflare, ADR 0004); a deployment with no such header shows no country until a local database lookup is added.
 - Defaults: 10 participants per room and an egress budget of 500 Mbps, both configuration.
 
 ## Consequences

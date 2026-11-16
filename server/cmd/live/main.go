@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
 	"github.com/versatile-sh/live/server/internal/adapters/signal"
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
@@ -22,6 +23,7 @@ func main() {
 	hub := presence.NewHub(room.DefaultConfig(), presence.DefaultLiveness(), time.Now)
 
 	mux := http.NewServeMux()
+	httpapi.Register(mux, hub)
 	mux.HandleFunc("GET /up", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
 	server := &http.Server{
@@ -30,7 +32,9 @@ func main() {
 		ReadHeaderTimeout: 5 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 	}
-	signalling := signal.NewServer(hub, signal.DefaultConfig(origins()))
+	signalCfg := signal.DefaultConfig(origins())
+	signalCfg.CountryHeader = os.Getenv("COUNTRY_HEADER")
+	signalling := signal.NewServer(hub, signalCfg)
 	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
 
 	ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
