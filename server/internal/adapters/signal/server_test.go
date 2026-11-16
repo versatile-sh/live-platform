@@ -219,7 +219,7 @@ func TestSignalling(t *testing.T) {
 		bia.until(func(f serverFrame) bool {
 			return f.T == "roster" && len(f.People) > 0 && f.People[0].Look == "ffffff-000000-90" && f.People[0].Face == "^_^"
 		})
-		ana.send(`{"t":"photo","data":"/9j/4AECAw=="}`)
+		ana.send(`{"t":"photo","data":"/9j/4AECA//Z"}`)
 		shown := bia.until(func(f serverFrame) bool { return f.T == "photo" })
 		assert.Equal(t, uint32(1), shown.PID)
 		ana.send(`{"t":"photo","data":"PHN2Zy8+"}`)
@@ -286,7 +286,7 @@ func TestSignalling(t *testing.T) {
 			{"unknown frame type", nil, func(c *client) { c.join("ana"); c.send(`{"t":"nope"}`) }, CloseBadFrame},
 			{"frame above the size limit", nil, func(c *client) {
 				c.join("ana")
-				require.NoError(c.t, ws.WriteHeader(c.conn, ws.Header{Fin: true, OpCode: ws.OpText, Masked: true, Length: 65<<10 + 1}))
+				require.NoError(c.t, ws.WriteHeader(c.conn, ws.Header{Fin: true, OpCode: ws.OpText, Masked: true, Length: 128<<10 + 1}))
 			}, ws.StatusMessageTooBig},
 			{"flood", func(c *Config) { c.FramesPerSec, c.FrameBurst = 1, 3 }, func(c *client) {
 				c.join("ana")

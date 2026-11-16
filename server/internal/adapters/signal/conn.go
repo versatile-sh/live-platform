@@ -271,15 +271,15 @@ func (c *conn) dispatch(f clientFrame) {
 		}
 		p.SetLook(c.slug, c.seat.PID, c.seat.Gen, room.NewLook(f.Look), face)
 	case "photo":
-		jpeg, err := base64.StdEncoding.DecodeString(f.Data)
-		if err == nil {
-			err = room.CheckPhoto(jpeg)
-		}
+		photo, err := base64.StdEncoding.DecodeString(f.Data)
 		if err != nil {
-			c.send(textFrame(encodeError(shared.NewDomainError(shared.ErrCodeInvalidArgument, "a photo is a JPEG of at most 10 KiB", err))))
+			photo = []byte{0}
+		}
+		if err := room.CheckPhoto(photo); err != nil {
+			c.send(textFrame(encodeError(err)))
 			return
 		}
-		p.SetPhoto(c.slug, c.seat.PID, c.seat.Gen, jpeg)
+		p.SetPhoto(c.slug, c.seat.PID, c.seat.Gen, photo)
 	case "chat":
 		text, err := room.NewChatText(f.Text)
 		if err != nil {
