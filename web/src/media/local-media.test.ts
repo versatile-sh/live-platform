@@ -98,24 +98,25 @@ describe("settings", () => {
 });
 
 describe("camera effects", () => {
-  test("the background blur comes on, changes strength and goes off without asking for the camera again", async () => {
+  test("the first blur moves the camera onto one picture, and from then on changing or removing the blur keeps that same picture", async () => {
     const { raw, user, devices } = setup();
-    const changed = fakeStream();
+    const staged = fakeStream();
     const release = vi.fn();
     const set = vi.fn();
-    const effects = vi.fn(async (_raw: MediaStream, _effect: string) => ({ stream: changed, set, release }));
+    const effects = vi.fn(async (_raw: MediaStream, _effect: string) => ({ stream: staged, set, release }));
     const media = createLocalMedia(devices, () => undefined, undefined, undefined, effects);
     await media.toggle("camera");
     expect(media.getSnapshot().camera).toBe(raw);
     await media.setSettings({ cameraEffect: "blur" });
     expect(effects).toHaveBeenCalledWith(raw, "blur");
-    expect(media.getSnapshot().camera).toBe(changed);
+    expect(media.getSnapshot().camera).toBe(staged);
     await media.setSettings({ cameraEffect: "blurStrong" });
-    expect(set).toHaveBeenCalledWith("blurStrong");
-    expect(media.getSnapshot().camera).toBe(changed);
     await media.setSettings({ cameraEffect: "none" });
-    expect(release).toHaveBeenCalledTimes(1);
-    expect(media.getSnapshot().camera).toBe(raw);
+    await media.setSettings({ cameraEffect: "blur" });
+    expect(set.mock.calls).toEqual([["blurStrong"], ["none"], ["blur"]]);
+    expect(media.getSnapshot().camera).toBe(staged);
+    expect(effects).toHaveBeenCalledTimes(1);
+    expect(release).not.toHaveBeenCalled();
     expect(raw.track.stop).not.toHaveBeenCalled();
     expect(user).toHaveBeenCalledTimes(1);
   });
