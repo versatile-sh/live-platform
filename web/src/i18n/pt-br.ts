@@ -3,7 +3,7 @@ import type { MessageKey } from "./en";
 /** O dicionário em português do Brasil; precisa ter exatamente as chaves do inglês. */
 export const ptBR: Record<MessageKey, string> = {
   "app.skip": "Pular para o conteúdo",
-  "app.home": "versatile.sh live, voltar ao início",
+  "app.home": "live, da versatile: voltar ao início",
   "app.loading": "Carregando",
 
   "app.rooms": "Salas abertas",
