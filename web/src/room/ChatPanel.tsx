@@ -122,13 +122,14 @@ export function ChatPanel({
           </div>
         ) : null}
       </div>
+      <div key={privately ? (target ? `to-${target.pid}` : "pick") : "room"} className={`flex min-h-0 flex-1 flex-col ${privately ? "swap-from-right" : "swap-from-left"}`}>
       {picking ? (
         others.length === 0 ? (
           <p className="m-auto max-w-56 text-center text-sm text-muted">
             {t("chat.nobody")}
           </p>
         ) : (
-          <div className="swap-in flex min-h-0 flex-1 flex-col px-3 pt-3 pb-3">
+          <div className="flex min-h-0 flex-1 flex-col px-3 pt-3 pb-3">
             <p className="px-1 pb-2 text-sm text-muted">{t("chat.pick")}</p>
             <ul
               aria-label={t("chat.with")}
@@ -181,7 +182,7 @@ export function ChatPanel({
                   <li
                     key={line.id}
                     ref={index === lines.length - 1 ? intoView : undefined}
-                    className={`flex flex-col ${mine ? "items-end" : "items-start"} ${follows ? "" : "mt-2.5"}`}
+                    className={`arrive flex flex-col ${mine ? "items-end" : "items-start"} ${follows ? "" : "mt-2.5"}`}
                   >
                     {follows ? null : (
                       <span className="mb-1 px-1 text-xs text-muted">
@@ -242,6 +243,7 @@ export function ChatPanel({
           </form>
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ import (
 )
 
 const contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; " +
-	"img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; " +
+	"img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; " +
 	"base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 // Handler serves hashed assets as immutable and answers every other path with the page itself, never cached.

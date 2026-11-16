@@ -57,6 +57,7 @@
 }
 
 html {
+  overflow-x: clip;
   background: var(--color-canvas);
   color-scheme: dark light;
   scrollbar-color: var(--color-line-strong) var(--color-canvas);
@@ -191,8 +192,8 @@ html[data-motion="forward"]::view-transition-new(root) {
 }
 
 .page-forward {
-  animation: page-in 0.55s var(--ease-glide) both;
-  --page-from: 6rem;
+  animation: page-in 0.5s var(--ease-settle) backwards;
+  --page-from: 2.5rem;
 }
 
 @keyframes page-out {

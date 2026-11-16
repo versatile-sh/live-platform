@@ -21,6 +21,7 @@ export type ServerFrame =
   | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number }
   | { t: "photo"; pid: number; data: string }
   | ({ t: "rtc" } & RtcSignal)
+  | { t: "board"; pid: number; data: unknown }
   | { t: "hb" };
 
 /** One step of setting up media: a session description or a network candidate, for the connection I publish on or the one I am sent the room on. */
@@ -36,7 +37,7 @@ export type OwnerOp =
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number } | { t: "board"; board: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -89,6 +90,8 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
       return { t: "roster", v: raw.v, people, gone };
     }
+    case "board":
+      return typeof raw.pid === "number" ? { t: "board", pid: raw.pid, data: raw.data } : undefined;
     case "rtc":
       if ((raw.role !== "pub" && raw.role !== "sub") || (raw.kind !== "offer" && raw.kind !== "answer" && raw.kind !== "ice")) return undefined;
       return { t: "rtc", role: raw.role, kind: raw.kind, ...(typeof raw.sdp === "string" ? { sdp: raw.sdp } : {}), ...(typeof raw.candidate === "string" ? { candidate: raw.candidate } : {}) };
