@@ -6,6 +6,7 @@ export type EndReason =
   | { kind: "left" }
   | { kind: "superseded" }
   | { kind: "removed" }
+  | { kind: "banned" }
   | { kind: "refused"; code: ErrorCode }
   | { kind: "dropped-by-server"; reason: GoneReason }
   | { kind: "server-closed" }
@@ -67,7 +68,7 @@ function onRoster(state: Extract<Connection, { phase: "joined" }>, frame: Extrac
   const update = applyRoster(state.roster, frame);
   if (!update.applied) return state;
   const mine = frame.gone.find((d) => d.pid === state.me);
-  if (mine) return { phase: "ended", reason: mine.reason === "removed-by-owner" ? { kind: "removed" } : { kind: "dropped-by-server", reason: mine.reason } };
+  if (mine) return { phase: "ended", reason: mine.reason === "removed-by-owner" ? { kind: "removed" } : mine.reason === "banned-by-owner" ? { kind: "banned" } : { kind: "dropped-by-server", reason: mine.reason } };
   const next = addNotices({ ...takePresence(state), roster: update.roster }, [
     ...update.arrived.filter((p) => p.pid !== state.me).map((p) => ({ kind: "arrived" as const, name: p.name })),
     ...update.left.map((l) => ({ kind: "left" as const, name: l.name, reason: l.reason })),

@@ -6,9 +6,9 @@ export const MAX_FRAMES_PER_SECOND = 20;
 
 export type PersonState = "connecting" | "active" | "reconnecting";
 
-export type GoneReason = "left" | "removed-by-owner" | "timeout" | "media-timeout" | "unhealthy-cap" | "unknown";
+export type GoneReason = "left" | "removed-by-owner" | "banned-by-owner" | "timeout" | "media-timeout" | "unhealthy-cap" | "unknown";
 
-export type ErrorCode = "INVALID_ARGUMENT" | "NOT_FOUND" | "CONFLICT" | "PERMISSION_DENIED" | "RATE_LIMITED" | "INVARIANT_VIOLATION" | "INTERNAL";
+export type ErrorCode = "INVALID_ARGUMENT" | "NOT_FOUND" | "CONFLICT" | "PERMISSION_DENIED" | "RATE_LIMITED" | "BANNED" | "INVARIANT_VIOLATION" | "INTERNAL";
 
 export type Person = { pid: number; slot: number; name: string; state: PersonState; flags: number; look?: string; face?: string };
 
@@ -33,6 +33,7 @@ export type Hello =
 
 export type OwnerOp =
   | { op: "remove"; pid: number }
+  | { op: "ban"; pid: number }
   | { op: "transfer"; pid: number }
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
@@ -40,8 +41,8 @@ export type OwnerOp =
 export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number } | { t: "board"; board: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
-const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
-const ERROR_CODES: readonly string[] = ["INVALID_ARGUMENT", "NOT_FOUND", "CONFLICT", "PERMISSION_DENIED", "RATE_LIMITED", "INVARIANT_VIOLATION"];
+const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "banned-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
+const ERROR_CODES: readonly string[] = ["INVALID_ARGUMENT", "NOT_FOUND", "CONFLICT", "PERMISSION_DENIED", "RATE_LIMITED", "BANNED", "INVARIANT_VIOLATION"];
 
 type Fields = Record<string, unknown>;
 
@@ -121,6 +122,7 @@ export type CloseMeaning =
   | { kind: "left" }
   | { kind: "superseded" }
   | { kind: "removed" }
+  | { kind: "banned" }
   | { kind: "refused" }
   | { kind: "flood" }
   | { kind: "no-hello" }
@@ -141,6 +143,8 @@ export function closeMeaning(code: number): CloseMeaning {
       return { kind: "no-hello" };
     case 4403:
       return { kind: "removed" };
+    case 4404:
+      return { kind: "banned" };
     case 4408:
       return { kind: "silent" };
     case 4409:

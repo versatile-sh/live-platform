@@ -174,6 +174,12 @@ func (h *Hub) Remove(slug room.Slug, by room.PID, gen uint32, target room.PID) e
 	return err
 }
 
+// Ban lets the owner remove another participant and keep where they came from out of the room.
+func (h *Hub) Ban(slug room.Slug, by room.PID, gen uint32, target room.PID) error {
+	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.ban(by, gen, target) })
+	return err
+}
+
 // Transfer lets the owner hand the room to another participant.
 func (h *Hub) Transfer(slug room.Slug, by room.PID, gen uint32, target room.PID) error {
 	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.transfer(by, gen, target) })

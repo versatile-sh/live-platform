@@ -245,14 +245,17 @@ describe("RoomPage", () => {
     }
     const sent = (socket: FakeSocket, count: number) => socket.sent.slice(-count).map((frame) => JSON.parse(frame) as unknown);
 
-    test("remove and transfer are offered in the people panel, on other people only", async () => {
+    test("kick, ban and transfer are offered in the people panel, on other people only", async () => {
       const { socket } = await asOwner();
       await userEvent.click(screen.getByRole("button", { name: "People" }));
-      expect(screen.queryByRole("button", { name: "Remove Ana" })).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Remove Bia" }));
+      expect(screen.queryByRole("button", { name: "Kick Ana" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Ban Ana" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Kick Bia" }));
+      await userEvent.click(screen.getByRole("button", { name: "Ban Bia" }));
       await userEvent.click(screen.getByRole("button", { name: "Make Bia the owner" }));
-      expect(sent(socket, 2)).toEqual([
+      expect(sent(socket, 3)).toEqual([
         { t: "owner", op: "remove", pid: 2 },
+        { t: "owner", op: "ban", pid: 2 },
         { t: "owner", op: "transfer", pid: 2 },
       ]);
     });
@@ -303,7 +306,7 @@ describe("RoomPage", () => {
     test("show a refusal in words when the server will not do it", async () => {
       const { socket } = await asOwner();
       await userEvent.click(screen.getByRole("button", { name: "People" }));
-      await userEvent.click(screen.getByRole("button", { name: "Remove Bia" }));
+      await userEvent.click(screen.getByRole("button", { name: "Kick Bia" }));
       await send(socket, { t: "error", code: "INVARIANT_VIOLATION", message: "only the active owner may do this" });
       expect(await screen.findByText(/Only the owner can do it, and only once their own connection is fully up/)).toBeInTheDocument();
     });

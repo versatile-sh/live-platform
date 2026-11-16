@@ -3,6 +3,7 @@ import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
 import { derive, generatePassword } from "./domain/password";
+import { GIF_MAX_BYTES, PHOTO_SOURCE_MAX_BYTES, sniffPhoto, toBase64 } from "./domain/photo";
 import { passwordFromHash } from "./domain/share-link";
 import { createLobbyStore, documentVisibility } from "./lobby/lobby-store";
 import { platformSocket, signalUrl } from "./signal/link";
@@ -16,6 +17,8 @@ const PHOTO_MAX_BASE64 = 13_000;
 
 async function shrinkPhoto(file: Blob): Promise<string | undefined> {
   try {
+    if (file.size > PHOTO_SOURCE_MAX_BYTES) return undefined;
+    if (sniffPhoto(new Uint8Array(await file.slice(0, 6).arrayBuffer())) === "gif" && file.size <= GIF_MAX_BYTES) return toBase64(new Uint8Array(await file.arrayBuffer()));
     const bitmap = await createImageBitmap(file);
     const side = Math.min(bitmap.width, bitmap.height);
     const canvas = document.createElement("canvas");

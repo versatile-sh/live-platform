@@ -22,6 +22,7 @@ const (
 	CloseSilent     CloseReason = "silent"
 	CloseSlow       CloseReason = "slow"
 	CloseRemoved    CloseReason = "removed"
+	CloseBanned     CloseReason = "banned"
 )
 
 // Seat is what a participant needs to keep or recover its place.

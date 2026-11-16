@@ -195,7 +195,7 @@ export function LookPicker({
                   {t(photo ? "look.photoChange" : "look.photoSelect")}
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
                     aria-label={t("look.photoSelect")}
                     className="sr-only"
                     onChange={(event) => {

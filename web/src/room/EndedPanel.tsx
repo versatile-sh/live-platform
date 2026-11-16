@@ -16,6 +16,8 @@ export function endedCopy(reason: EndReason): {
       return { title: "ended.superseded.title", body: "ended.superseded.body" };
     case "removed":
       return { title: "ended.removed.title", body: "ended.removed.body" };
+    case "banned":
+      return { title: "ended.banned.title", body: "ended.banned.body" };
     case "dropped-by-server":
       return {
         title: "ended.dropped.title",
