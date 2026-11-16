@@ -123,7 +123,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
                 ))}
               </div>
               {found.length > 0 ? (
-                <ul className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+                <ul className="flex min-h-0 flex-col gap-3 overflow-x-hidden overflow-y-auto pr-1">
                   {found.map((room) => (
                     <RoomRow key={room.slug} room={room} tone="raised" />
                   ))}
