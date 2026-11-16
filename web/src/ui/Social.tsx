@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { compactCount } from "../project/project-store";
 import { useServices } from "../services";
 
@@ -38,6 +39,7 @@ export function Social({ className = "" }: { className?: string }) {
         <Mark path={X} />
         <span aria-hidden="true">{t("social.follow")}</span>
       </a>
+      <ThemeSwitch className={`${LINK} w-9 justify-center px-0`} />
       <div role="group" aria-label={t("social.language")} className="ml-1 flex h-9 items-center rounded-full border border-line-strong p-0.5 font-mono text-xs transition-colors duration-500 group-data-[view=lobby]:border-ink group-data-[view=lobby]:bg-ink">
         {(["en", "pt-BR"] as const).map((option) => (
           <button

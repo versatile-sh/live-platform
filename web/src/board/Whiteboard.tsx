@@ -15,7 +15,7 @@ function clean(elements: readonly BoardElement[]): NonNullable<SceneElements> {
 }
 
 /** The room's shared whiteboard: what I draw goes to the others, and what they draw is merged into mine without entering my undo history. Read only, it shows and takes nothing from me. */
-export default function Whiteboard({ sync, langCode, readOnly = false }: { sync: BoardSync; langCode: string; readOnly?: boolean }) {
+export default function Whiteboard({ sync, langCode, readOnly = false, light = false }: { sync: BoardSync; langCode: string; readOnly?: boolean; light?: boolean }) {
   const [api, setApi] = useState<Api | undefined>();
 
   useEffect(() => {
@@ -35,8 +35,8 @@ export default function Whiteboard({ sync, langCode, readOnly = false }: { sync:
   return (
     <Excalidraw
       excalidrawAPI={setApi}
-      initialData={{ elements: clean(sync.getSnapshot()), appState: { viewBackgroundColor: "#0e1116" } }}
-      theme="dark"
+      initialData={{ elements: clean(sync.getSnapshot()), appState: { viewBackgroundColor: light ? "#ffffff" : "#0e1116" } }}
+      theme={light ? "light" : "dark"}
       langCode={langCode}
       viewModeEnabled={readOnly}
       UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, toggleTheme: false, export: false } }}

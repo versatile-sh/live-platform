@@ -30,7 +30,7 @@ import { useServices } from "../services";
 import type { Notice } from "../session/connection";
 import type { Session, SessionSnapshot } from "../session/session";
 import { Avatar } from "../ui/Avatar";
-import { withMotion } from "../ui/motion";
+import { withIris, withMotion } from "../ui/motion";
 import { CommandPalette } from "../ui/CommandPalette";
 import { Icon, type IconName } from "../ui/icons";
 import { Sheet } from "../ui/Sheet";
@@ -241,7 +241,8 @@ export function RoomView({
   const t = useT();
   const locale = useLocale();
   const navigate = useNavigate();
-  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner, settingsMemory, cameraEffects } = useServices();
+  const { mediaDevices, lookMemory, faceMemory, rtc, voiceCleaner, settingsMemory, cameraEffects, theme } = useServices();
+  const look = useSyncExternalStore(theme.subscribe, theme.getSnapshot);
   const [media] = useState(() =>
     createLocalMedia(mediaDevices, (flags) => session.setMedia(flags), voiceCleaner, settingsMemory.read(), cameraEffects),
   );
@@ -489,7 +490,7 @@ export function RoomView({
                     </div>
                     <div className="min-h-0 w-full flex-1">
                       <Suspense fallback={<p role="status" className="grid h-full place-items-center text-muted">{t("board.loading")}</p>}>
-                        <Whiteboard key={iMayDraw ? "draw" : "view"} sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} readOnly={!iMayDraw} />
+                        <Whiteboard key={`${iMayDraw ? "draw" : "view"}-${look}`} light={look === "light"} sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} readOnly={!iMayDraw} />
                       </Suspense>
                     </div>
                   </>
@@ -913,6 +914,7 @@ export function RoomView({
               : []),
             { id: "board", group: t("palette.group.room"), label: t("more.board"), run: toggleBoard },
             ...(iAmOwner ? [{ id: "quiet", group: t("palette.group.people"), label: t(roomQuiet ? "quiet.unmuteAll" : "quiet.muteAll"), run: () => void session.owner({ op: roomQuiet ? "unmute-all" : "mute-all" }) }] : []),
+            { id: "theme", group: t("palette.group.site"), label: t(look === "dark" ? "theme.toLight" : "theme.toDark"), run: () => withIris({ x: window.innerWidth / 2, y: window.innerHeight / 2 }, theme.toggle) },
             { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
             {
               id: "look",
