@@ -14,10 +14,10 @@ function Said({ mine = false, live = false, children }: { mine?: boolean; live?:
     <li className={`flex ${mine ? "justify-end" : "justify-start"}`}>
       <span
         className={`inline-flex max-w-[22rem] items-center gap-2 px-4 py-2.5 text-[0.9375rem] leading-snug ${
-          mine ? "rounded-[1.25rem] rounded-br-[0.3rem] bg-bubble font-mono text-sm text-on-bubble" : "bubble border border-line-strong bg-card text-fg"
+          mine ? "rounded-[1.25rem] rounded-br-[0.3rem] bg-paper font-mono text-sm text-ink" : "bubble bg-ink text-paper"
         }`}
       >
-        {live ? <span aria-hidden="true" className="pulse size-2 shrink-0 rounded-full bg-on-bubble" /> : null}
+        {live ? <span aria-hidden="true" className="pulse size-2 shrink-0 rounded-full bg-ink" /> : null}
         {children}
       </span>
     </li>
@@ -28,15 +28,15 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className="relative isolate flex flex-col overflow-hidden bg-sunken px-6 py-8 sm:px-10 lg:w-1/2 lg:px-14 lg:py-12">
-      <div aria-hidden="true" className="backdrop-grid pointer-events-none absolute inset-0 -z-10" />
-      <div aria-hidden="true" className="backdrop-beam pointer-events-none absolute inset-0 -z-10" />
-      <Wordmark className="text-lg" />
+    <section className="on-accent relative isolate flex flex-col overflow-hidden bg-bubble px-6 py-8 text-ink sm:px-10 lg:w-1/2 lg:px-14 lg:py-12">
+      <div aria-hidden="true" className="backdrop-glow pointer-events-none absolute inset-0 -z-10" />
+      <div aria-hidden="true" className="backdrop-grid-ink pointer-events-none absolute inset-0 -z-10" />
+      <Wordmark onAccent className="text-xl" />
       <div className="flex flex-1 flex-col justify-center py-12 lg:py-0">
         <h1 className="font-display text-[2.5rem] leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl xl:text-6xl">
           <span className="block">{t("home.line1")}</span>
           <span className="block">{t("home.line2")}</span>
-          <span className="bubble-word mt-[0.34em] inline-block bg-bubble px-[0.5em] py-[0.24em] font-mono text-[0.42em] leading-[1.15] font-medium tracking-[-0.02em] text-on-bubble">{t("home.answer")}</span>
+          <span className="bubble-word mt-[0.34em] inline-block bg-ink px-[0.5em] py-[0.24em] font-mono text-[0.42em] leading-[1.15] font-medium tracking-[-0.02em] text-bubble">{t("home.answer")}</span>
         </h1>
         <ul aria-hidden="true" className="mt-12 hidden max-w-md flex-col gap-2.5 sm:flex">
           <Said>{t("home.chat1")}</Said>
