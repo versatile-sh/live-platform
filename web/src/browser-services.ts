@@ -1,6 +1,7 @@
 import { formatLook, parseLook, randomLook } from "./domain/look";
 import { stageCamera } from "./media/camera-effect";
 import { parseSettings } from "./media/settings";
+import { createTheme } from "./ui/theme";
 import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
@@ -14,6 +15,7 @@ import type { Services } from "./services";
 const NAME_KEY = "live.name";
 const LOOK_KEY = "live.look";
 const FACE_KEY = "live.face";
+const THEME_KEY = "live.theme";
 const SETTINGS_KEY = "live.media";
 const PHOTO_SIDE = 128;
 const PHOTO_MAX_BASE64 = 13_000;
@@ -95,6 +97,21 @@ export function createBrowserServices(): Services {
         }
       },
     },
+    theme: createTheme({
+      read() {
+        const kept = local?.getItem(THEME_KEY);
+        return kept === "dark" || kept === "light" ? kept : undefined;
+      },
+      write(theme) {
+        try {
+          local?.setItem(THEME_KEY, theme);
+        } catch {
+          return;
+        }
+      },
+      systemPrefersLight: () => typeof window.matchMedia === "function" && window.matchMedia("(prefers-color-scheme: light)").matches,
+      root: document.documentElement,
+    }),
     shrinkPhoto,
     settingsMemory: {
       read: () => parseSettings(local?.getItem(SETTINGS_KEY)),
