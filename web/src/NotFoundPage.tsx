@@ -7,7 +7,7 @@ export function NotFoundPage({ kind }: { kind: "invalid-room" | "not-found" }) {
   const t = useT();
   const key = kind === "invalid-room" ? "invalidRoom" : "notFound";
   return (
-    <div className="pt-6">
+    <div className="swap-in pt-6">
       <h1 className="font-display text-3xl font-bold tracking-[-0.044em] sm:text-4xl">{t(`${key}.title`)}</h1>
       <p className="mt-4 mb-8 max-w-xl text-lg text-muted">{t(`${key}.body`)}</p>
       <AppLink href="/" className={button({ variant: "secondary" })}>
