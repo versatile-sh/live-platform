@@ -36,7 +36,7 @@ export default function WorldMap({ counts, selected, onSelect }: WorldMapProps) 
           tabIndex={0}
           aria-pressed={selected === code}
           aria-label={t("lobby.mapCountry", { country: names.of(code) ?? code, count: counts.get(code) ?? 0 })}
-          className={`cursor-pointer stroke-bubble stroke-[0.75] transition-colors duration-300 hover:fill-ink ${selected && selected !== code ? "fill-ink/45" : "fill-ink"}`}
+          className={`country ${selected && selected !== code ? "fill-ink/45 hover:fill-ink" : "fill-ink"}`}
           onClick={() => onSelect(selected === code ? undefined : code)}
           onKeyDown={(event) => onKey(event, code)}
         />
