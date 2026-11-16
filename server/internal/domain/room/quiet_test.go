@@ -85,3 +85,41 @@ func TestMuteAllAlone(t *testing.T) {
 	assert.Len(t, events, 1)
 	assert.False(t, r.Hushed())
 }
+
+func TestLockedBoard(t *testing.T) {
+	r := newRoom(t)
+	ana := joinActive(t, r, "ana", true)
+	bia := joinActive(t, r, "bia", false)
+	data := `{"k":"els","els":[]}`
+	_, ok := r.Draw(bia.ID, 0, data)
+	require.True(t, ok, "everyone draws until the owner says otherwise")
+
+	_, err := r.Quiet(DrawLock, bia.ID, 0)
+	assert.Error(t, err, "only the owner locks the board")
+	_, err = r.Quiet(DrawLock, ana.ID, 0)
+	require.NoError(t, err)
+	assert.True(t, r.Locked())
+	_, ok = r.Draw(bia.ID, 0, data)
+	assert.False(t, ok, "a locked board takes nothing from the others")
+	_, ok = r.Draw(ana.ID, 0, data)
+	assert.True(t, ok, "the owner always draws")
+	caio := joinActive(t, r, "caio", false)
+	assert.True(t, flagsOf(r, caio.ID).Has(FlagNoDraw), "whoever arrives later cannot draw either")
+
+	_, err = r.Quiet(DrawAllow, ana.ID, bia.ID)
+	require.NoError(t, err)
+	_, ok = r.Draw(bia.ID, 0, data)
+	assert.True(t, ok, "whoever the owner lets may draw")
+	_, ok = r.Draw(caio.ID, 0, data)
+	assert.False(t, ok)
+	_, err = r.Quiet(DrawDeny, ana.ID, bia.ID)
+	require.NoError(t, err)
+	_, ok = r.Draw(bia.ID, 0, data)
+	assert.False(t, ok)
+
+	_, err = r.Quiet(DrawFree, ana.ID, 0)
+	require.NoError(t, err)
+	assert.False(t, r.Locked())
+	_, ok = r.Draw(caio.ID, 0, data)
+	assert.True(t, ok)
+}
