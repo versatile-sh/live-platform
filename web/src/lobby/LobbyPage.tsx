@@ -1,75 +1,43 @@
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useSyncExternalStore } from "react";
 
-import { flagEmoji, type RoomSummary } from "../api/rooms";
-import { checkSlug, normalizeSlug } from "../domain/slug";
+import type { RoomSummary } from "../api/rooms";
 import { useT } from "../i18n/I18nProvider";
-import { AppLink, useNavigate } from "../routing/Navigation";
+import { AppLink } from "../routing/Navigation";
 import { useServices } from "../services";
+import { Arrow } from "../ui/Arrow";
 import { Bubble } from "../ui/Bubble";
 import { CAPTION, SURFACE, button } from "../ui/styles";
-import { TextField } from "../ui/TextField";
 
-function GoToRoom() {
-  const t = useT();
-  const navigate = useNavigate();
-  const [value, setValue] = useState("");
-  const [problem, setProblem] = useState<string | undefined>();
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const check = checkSlug(normalizeSlug(value));
-    if (check.ok) navigate(`/${check.slug}`);
-    else setProblem(t(`slug.${check.problem}`));
-  }
-
+function Presence({ count, capacity }: { count: number; capacity: number }) {
   return (
-    <form onSubmit={submit} noValidate className="max-w-xl">
-      <TextField
-        label={t("lobby.goLabel")}
-        hint={t("lobby.goHint")}
-        error={problem}
-        value={value}
-        placeholder={t("lobby.goPlaceholder")}
-        autoComplete="off"
-        autoCapitalize="none"
-        spellCheck={false}
-        onChange={(event) => {
-          setValue(event.target.value);
-          setProblem(undefined);
-        }}
-        trailing={
-          <button type="submit" className={button()}>
-            {t("lobby.goButton")}
-          </button>
-        }
-      />
-    </form>
+    <span aria-hidden="true" className="hidden gap-1 sm:flex">
+      {Array.from({ length: capacity }, (_, seat) => (
+        <span key={seat} className={`size-1.5 rounded-full ${seat < count ? "bg-accent" : "bg-line-strong"}`} />
+      ))}
+    </span>
   );
 }
 
-function RoomCard({ room }: { room: RoomSummary }) {
+function RoomRow({ room }: { room: RoomSummary }) {
   const t = useT();
   const full = room.count >= room.capacity;
   return (
     <li>
-      <AppLink href={`/${room.slug}`} aria-label={t("lobby.roomEnter", { slug: room.slug })} className={`${SURFACE} flex h-28 flex-col justify-between p-4 transition-colors hover:border-accent`}>
-        <span className="truncate font-mono text-base font-medium" translate="no">
+      <AppLink href={`/${room.slug}`} aria-label={t("lobby.roomEnter", { slug: room.slug })} className={`${SURFACE} group flex h-16 items-center gap-4 px-5 transition-colors duration-200 hover:border-fg/50`}>
+        <span className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-[-0.03em]" translate="no">
           {room.slug}
         </span>
-        <span className="flex items-center justify-between gap-2">
+        {full ? <Bubble tone="amber">{t("lobby.roomFull")}</Bubble> : null}
+        {room.country ? (
           <span className={CAPTION}>
-            {room.country ? (
-              <>
-                <span aria-hidden="true">{flagEmoji(room.country)} </span>
-                <span translate="no">{room.country}</span>
-                <span className="sr-only">{t("lobby.country", { code: room.country })}</span>
-              </>
-            ) : null}
+            <span translate="no">{room.country}</span>
+            <span className="sr-only">{t("lobby.country", { code: room.country })}</span>
           </span>
-          <span className="flex items-center gap-2">
-            {full ? <Bubble tone="amber">{t("lobby.roomFull")}</Bubble> : null}
-            <span className={CAPTION}>{t("lobby.roomPeople", { count: room.count, capacity: room.capacity })}</span>
-          </span>
+        ) : null}
+        <Presence count={room.count} capacity={room.capacity} />
+        <span className={`${CAPTION} w-24 text-right tabular-nums`}>{t("lobby.roomPeople", { count: room.count, capacity: room.capacity })}</span>
+        <span className="text-muted transition-colors duration-200 group-hover:text-fg">
+          <Arrow />
         </span>
       </AppLink>
     </li>
@@ -83,22 +51,26 @@ function ListedRooms() {
   const rooms = state.status === "loading" ? [] : state.rooms;
 
   return (
-    <section aria-labelledby="listed" className="mt-12">
-      <h2 id="listed" className="font-display text-xl font-bold tracking-[-0.03em]">
-        {t("lobby.listHeading")}
-      </h2>
-      <p role="status" className={`mt-2 min-h-6 text-sm ${state.status === "failed" ? "text-amber" : "text-muted"}`}>
-        {state.status === "loading" ? t("lobby.loading") : state.status === "failed" ? t("lobby.error") : ""}
+    <section aria-labelledby="listed" className="mx-auto w-full max-w-2xl pt-10">
+      <h1 id="listed" className="font-display text-4xl leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl">
+        {t("lobby.heading")}
+      </h1>
+      <p role="status" className={`mt-3 min-h-6 text-sm ${state.status === "failed" ? "text-amber" : "text-muted"}`}>
+        {state.status === "loading" ? t("lobby.loading") : state.status === "failed" ? t("lobby.error") : rooms.length > 0 ? t("lobby.intro") : ""}
       </p>
-      {state.status !== "loading" && rooms.length === 0 && state.status === "ready" ? (
-        <div className={`${SURFACE} mt-4 max-w-xl p-5`}>
+      {state.status === "ready" && rooms.length === 0 ? (
+        <div className={`${SURFACE} mt-6 p-6`}>
           <p className="font-semibold">{t("lobby.emptyTitle")}</p>
           <p className="mt-2 text-muted">{t("lobby.emptyBody")}</p>
+          <AppLink href="/" className={`${button({ variant: "secondary", size: "sm" })} mt-5 gap-2`}>
+            <Arrow back />
+            {t("common.lobby")}
+          </AppLink>
         </div>
       ) : (
-        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-6 flex flex-col gap-3">
           {rooms.map((room) => (
-            <RoomCard key={room.slug} room={room} />
+            <RoomRow key={room.slug} room={room} />
           ))}
         </ul>
       )}
@@ -106,15 +78,7 @@ function ListedRooms() {
   );
 }
 
-/** The lobby: a way to go to any room by name, and the rooms their owners chose to list. */
+/** The open rooms: the ones their owners chose to list, asked for only when someone comes to see them. */
 export function LobbyPage() {
-  const t = useT();
-  return (
-    <div className="pt-6">
-      <h1 className="font-display text-4xl font-bold tracking-[-0.044em] sm:text-5xl">{t("lobby.heading")}</h1>
-      <p className="mt-4 mb-8 max-w-xl text-lg text-muted">{t("lobby.intro")}</p>
-      <GoToRoom />
-      <ListedRooms />
-    </div>
-  );
+  return <ListedRooms />;
 }
