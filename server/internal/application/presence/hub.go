@@ -23,13 +23,6 @@ func DefaultLiveness() Liveness {
 	return Liveness{UnstableAfter: 5 * time.Second, SuspectAfter: 12 * time.Second}
 }
 
-// Seat is what a participant needs to keep or recover its place.
-type Seat struct {
-	PID    room.PID
-	Gen    uint32
-	Secret [32]byte
-}
-
 // Hub owns the set of live rooms; a slug is free whenever its room is not here.
 type Hub struct {
 	cfg      room.Config
@@ -45,13 +38,13 @@ func NewHub(cfg room.Config, liveness Liveness, now func() time.Time) *Hub {
 }
 
 // Join seats a participant, creating the room when the slug is free; the first to arrive owns it.
-func (h *Hub) Join(slug room.Slug, name string, session outbound.Session) (Seat, error) {
-	return ask(h, slug, true, func(a *actor) (Seat, error) { return a.join(name, session) })
+func (h *Hub) Join(slug room.Slug, name string, session outbound.Session) (room.Seat, error) {
+	return ask(h, slug, true, func(a *actor) (room.Seat, error) { return a.join(name, session) })
 }
 
 // Resume gives a participant its place back on a new connection when the secret matches.
-func (h *Hub) Resume(slug room.Slug, pid room.PID, secret [32]byte, session outbound.Session) (Seat, error) {
-	return ask(h, slug, false, func(a *actor) (Seat, error) { return a.resume(pid, secret, session) })
+func (h *Hub) Resume(slug room.Slug, pid room.PID, secret [32]byte, session outbound.Session) (room.Seat, error) {
+	return ask(h, slug, false, func(a *actor) (room.Seat, error) { return a.resume(pid, secret, session) })
 }
 
 // Touch records that a participant's connection is alive.

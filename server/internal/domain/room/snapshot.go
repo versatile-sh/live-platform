@@ -23,3 +23,10 @@ const (
 	CloseSlow       CloseReason = "slow"
 	CloseRemoved    CloseReason = "removed"
 )
+
+// Seat is what a participant needs to keep or recover its place.
+type Seat struct {
+	PID    PID
+	Gen    uint32
+	Secret [32]byte
+}
