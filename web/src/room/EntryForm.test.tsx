@@ -25,12 +25,11 @@ describe("EntryForm", () => {
       expect(screen.getByText(/does not exist yet. You will create it and own it/)).toBeInTheDocument();
     });
 
-    test("starts public and unlisted with the generated password present but disabled", () => {
+    test("starts public and unlisted, with no password field at all", () => {
       setup(free);
-      expect(screen.getByLabelText("Public", { exact: false })).toBeChecked();
-      expect(screen.getByLabelText("Show in the lobby")).not.toBeChecked();
-      expect(screen.getByLabelText("Password")).toBeDisabled();
-      expect(screen.getByLabelText("Password")).toHaveValue("Kq7mR2xP");
+      expect(screen.getByRole("radio", { name: /Public/ })).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Show in the lobby" })).not.toBeChecked();
+      expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     });
 
     test("creates a public listed room without deriving a password", async () => {
