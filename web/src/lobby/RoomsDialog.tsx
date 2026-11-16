@@ -65,7 +65,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
             <label htmlFor={`${id}-search`} className="sr-only">
               {t("lobby.search")}
             </label>
-            <div className="flex h-11 flex-1 items-center gap-2.5 rounded-full border border-paper/30 px-4 transition-colors duration-200 focus-within:border-paper/70">
+            <div className="bubble flex h-11 flex-1 items-center gap-2.5 border border-paper/30 px-4 transition-colors duration-200 focus-within:border-paper/70">
               <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4 shrink-0 text-paper/60" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <circle cx="7" cy="7" r="4.5" />
                 <path d="M10.5 10.5L14 14" />
@@ -90,7 +90,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
         </header>
 
         {view === "list" ? (
-          <div key="list" className="swap-in min-h-0 flex-1 overflow-y-auto px-6 pb-6 lg:px-8 lg:pb-8">
+          <div key="list" className="swap-from-left min-h-0 flex-1 overflow-y-auto px-6 pb-6 lg:px-8 lg:pb-8">
             {found.length > 0 ? (
               <ul className="grid gap-3 p-1 lg:grid-cols-2 lg:gap-x-16">
                 {found.map((room) => (
@@ -104,7 +104,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
             )}
           </div>
         ) : (
-          <div key="map" className="swap-in grid min-h-0 flex-1 lg:grid-cols-2">
+          <div key="map" className="swap-from-right grid min-h-0 flex-1 lg:grid-cols-2">
             <div className="flex items-center px-6 pb-6 max-lg:hidden lg:px-8 lg:pb-8">
               <Suspense fallback={null}>
                 <WorldMap counts={counts} selected={picked} onSelect={setCountry} />

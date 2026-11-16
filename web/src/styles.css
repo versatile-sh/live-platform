@@ -319,13 +319,13 @@ html[data-motion="forward"]::view-transition-new(root) {
 }
 
 .swap-from-right {
-  animation: swap-side 0.5s var(--ease-settle) both;
-  --swap-from: 2.5rem;
+  animation: swap-side 0.55s var(--ease-settle) both;
+  --swap-from: 4rem;
 }
 
 .swap-from-left {
-  animation: swap-side 0.5s var(--ease-settle) both;
-  --swap-from: -2.5rem;
+  animation: swap-side 0.55s var(--ease-settle) both;
+  --swap-from: -4rem;
 }
 
 @keyframes swap-in {
