@@ -172,6 +172,25 @@ func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
 	return err
 }
 
+func (a *actor) chat(pid room.PID, gen uint32, text string) {
+	if !a.holds(pid, gen) {
+		return
+	}
+	message, ok := a.room.Say(a.now(), pid, text)
+	if !ok {
+		return
+	}
+	var slow []room.PID
+	for id, s := range a.seats {
+		if s.online && !s.session.Chat(message) {
+			slow = append(slow, id)
+		}
+	}
+	for _, id := range slow {
+		a.suspect(id, a.seats[id].gen, room.CloseSlow)
+	}
+}
+
 func (a *actor) holds(pid room.PID, gen uint32) bool {
 	s := a.seats[pid]
 	return s != nil && s.gen == gen
