@@ -7,8 +7,10 @@ servers:
     hosts:
       - hosting
     # The signalling port is not behind kamal-proxy: the tunnel reaches it by this name on the Kamal network.
+    # Media does not pass through the tunnel: browsers reach this one UDP port on the server's own address.
     options:
       network-alias: live-signal
+      publish: "40000:40000/udp"
 
 ssh:
   user: root
@@ -44,6 +46,8 @@ env:
     PUBLIC_ORIGIN: https://live.versatile.sh
     COUNTRY_HEADER: CF-IPCountry
     ADDRESS_HEADER: CF-Connecting-IP
+    MEDIA_UDP_PORT: "40000"
+    MEDIA_PUBLIC_IP: 217.76.62.157
     GITHUB_REPO: versatile-sh/meeting-platform
     OTEL_EXPORTER_OTLP_ENDPOINT: http://otelcol:4318
     CF_ACCESS_TEAM_DOMAIN: versatile-sh.cloudflareaccess.com
