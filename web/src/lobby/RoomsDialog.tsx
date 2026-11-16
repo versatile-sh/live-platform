@@ -95,7 +95,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
             {found.length > 0 ? (
               <ul className="grid gap-3 lg:grid-cols-2 lg:gap-x-16">
                 {found.map((room) => (
-                  <RoomRow key={room.slug} room={room} tone="paper" />
+                  <RoomRow key={room.slug} room={room} tone="raised" />
                 ))}
               </ul>
             ) : (
@@ -125,7 +125,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
               {found.length > 0 ? (
                 <ul className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
                   {found.map((room) => (
-                    <RoomRow key={room.slug} room={room} tone="paper" />
+                    <RoomRow key={room.slug} room={room} tone="raised" />
                   ))}
                 </ul>
               ) : (
