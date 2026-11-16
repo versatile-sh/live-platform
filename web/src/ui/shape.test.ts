@@ -7,7 +7,7 @@ function sources(dir: string): string[] {
 }
 
 test("components take their corners from the bubble family, never from a loose radius", () => {
-  const loose = sources(resolve(import.meta.dirname, "..")).flatMap((file) => [...readFileSync(file, "utf8").matchAll(/rounded-(?:\[[^\]]*\]|[a-z]{1,2}-\[[^\]]*\]|sm|lg|xl|3xl)(?![\w-])/g)].map((match) => `${file}: ${match[0]}`));
+  const loose = sources(resolve(import.meta.dirname, "..")).flatMap((file) => [...readFileSync(file, "utf8").matchAll(/rounded-(?:\[[^\]]*\]|[a-z]{1,2}-\[[^\]]*\]|sm|lg|xl|2xl|3xl)(?![\w-])/g)].map((match) => `${file}: ${match[0]}`));
   expect(loose).toEqual([]);
 });
 
