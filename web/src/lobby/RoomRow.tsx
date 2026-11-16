@@ -19,6 +19,14 @@ export function RoomRow({ room, tone = "ink", compact = false }: { room: RoomSum
         <span className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-[-0.03em]" translate="no">
           {room.slug}
         </span>
+        {room.private ? (
+          <span className={`flex shrink-0 items-center ${colours.soft}`} title={t("lobby.roomPrivate")}>
+            <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 7.5h8v5.5H4zM5.500 7.500V5.500a2.500 2.500 0 0 1 5 0v2" />
+            </svg>
+            <span className="sr-only">{t("lobby.roomPrivate")}</span>
+          </span>
+        ) : null}
         {full ? <span className={`bubble-word px-2 py-0.5 font-mono text-xs ${colours.tag}`}>{t("lobby.roomFull")}</span> : null}
         {room.country ? (
           <span className={`font-mono text-xs ${colours.soft}`}>

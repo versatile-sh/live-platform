@@ -65,7 +65,7 @@ func NewServer(presence inbound.Presence, cfg Config) *Server {
 
 // Run serves on addr until Stop is called.
 func (s *Server) Run(addr string) error {
-	return gnet.Run(s, "tcp://"+addr, gnet.WithMulticore(true), gnet.WithTCPNoDelay(gnet.TCPNoDelay), gnet.WithTCPKeepAlive(30*time.Second), gnet.WithLogLevel(logging.ErrorLevel))
+	return gnet.Run(s, "tcp://"+addr, gnet.WithMulticore(true), gnet.WithReuseAddr(true), gnet.WithTCPNoDelay(gnet.TCPNoDelay), gnet.WithTCPKeepAlive(30*time.Second), gnet.WithLogLevel(logging.ErrorLevel))
 }
 
 // Ready is closed once the server accepts connections.

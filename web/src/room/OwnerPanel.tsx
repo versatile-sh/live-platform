@@ -15,27 +15,18 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
   const services = useServices();
   const [code, setCode] = useState(() => snapshot.password ?? services.generatePassword());
   const [copied, setCopied] = useState(false);
-  const access: Access = !snapshot.private && snapshot.listed ? "public" : "private";
+  const access: Access = snapshot.private ? "private" : "public";
   const link = shareLink(services.origin, slug, snapshot.private ? snapshot.password : undefined);
 
   async function lockWith(next: string) {
     const { verifier } = await services.derive(next, slug);
-    session.owner({ op: "password", verifier }, { private: true, password: next, listed: false });
-  }
-
-  function unlock() {
-    session.owner({ op: "password" }, { private: false, password: undefined });
+    session.owner({ op: "password", verifier }, { private: true, password: next });
   }
 
   function choose(next: Access) {
     if (next === access) return;
-    if (next === "public") {
-      if (snapshot.private) unlock();
-      session.owner({ op: "listed", listed: true }, { listed: true });
-      return;
-    }
-    session.owner({ op: "listed", listed: false }, { listed: false });
-    void lockWith(code);
+    if (next === "private") void lockWith(code);
+    else session.owner({ op: "password" }, { private: false, password: undefined });
   }
 
   async function copy() {
@@ -50,8 +41,8 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
       <AccessSettings
         access={access}
         onAccess={choose}
-        locked={snapshot.private}
-        onLocked={(locked) => (locked ? void lockWith(code) : unlock())}
+        listed={snapshot.listed ?? false}
+        onListed={(listed) => session.owner({ op: "listed", listed }, { listed })}
         code={code}
         onRenew={() => {
           const next = services.generatePassword();
