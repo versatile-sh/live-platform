@@ -4,7 +4,14 @@ import { FLAG } from "../domain/flags";
 export type MediaDevicesPort = {
   user(constraints: MediaStreamConstraints): Promise<MediaStream>;
   display(constraints: DisplayMediaStreamOptions): Promise<MediaStream>;
+  list(): Promise<MediaDeviceInfo[]>;
 };
+
+/** A microphone or camera the browser offers. */
+export type Device = { id: string; label: string };
+
+/** How hard the browser cleans the microphone: not at all, or its own noise and echo removal. */
+export type VoiceFilter = "off" | "standard";
 
 export type MediaKind = "microphone" | "camera" | "screen";
 
@@ -14,6 +21,11 @@ export type LocalMediaSnapshot = {
   camera: MediaStream | undefined;
   screen: MediaStream | undefined;
   hand: boolean;
+  microphones: readonly Device[];
+  cameras: readonly Device[];
+  microphoneId: string | undefined;
+  cameraId: string | undefined;
+  voiceFilter: VoiceFilter;
   busy: MediaKind | undefined;
   problem: { kind: MediaKind; why: "denied" | "unavailable" } | undefined;
 };
@@ -23,10 +35,28 @@ export type LocalMedia = {
   getSnapshot(): LocalMediaSnapshot;
   toggle(kind: MediaKind): Promise<void>;
   toggleHand(): void;
+  /** Reads the microphones and cameras the browser offers; their names appear only after a capture was allowed. */
+  refreshDevices(): Promise<void>;
+  /** Uses another microphone or camera, restarting the capture when it is on. */
+  choose(kind: "microphone" | "camera", id: string): Promise<void>;
+  /** Changes the voice filter, restarting the microphone when it is on. */
+  setVoiceFilter(filter: VoiceFilter): Promise<void>;
   dispose(): void;
 };
 
-const OFF: LocalMediaSnapshot = { microphone: undefined, camera: undefined, screen: undefined, hand: false, busy: undefined, problem: undefined };
+const OFF: LocalMediaSnapshot = {
+  microphone: undefined,
+  camera: undefined,
+  screen: undefined,
+  hand: false,
+  microphones: [],
+  cameras: [],
+  microphoneId: undefined,
+  cameraId: undefined,
+  voiceFilter: "standard",
+  busy: undefined,
+  problem: undefined,
+};
 
 /** The flag word the room is told for a snapshot. */
 export function flagsOf(snapshot: LocalMediaSnapshot): number {
@@ -58,10 +88,29 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
   function capture(kind: MediaKind): Promise<MediaStream> {
     if (!devices) return Promise.reject(new DOMException("no capture on this device", "NotFoundError"));
     if (kind === "screen") return devices.display({ video: true, audio: true });
-    return devices.user(kind === "camera" ? { video: { width: { ideal: 1280 }, height: { ideal: 720 } } } : { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    if (kind === "camera") return devices.user({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
+    const clean = snapshot.voiceFilter === "standard";
+    return devices.user({ audio: { echoCancellation: clean, noiseSuppression: clean, autoGainControl: clean, ...(snapshot.microphoneId ? { deviceId: { exact: snapshot.microphoneId } } : {}) } });
   }
 
-  return {
+  async function refreshDevices() {
+    if (!devices) return;
+    try {
+      const all = await devices.list();
+      const named = (kind: MediaDeviceKind) => all.filter((device) => device.kind === kind && device.deviceId !== "").map((device, index) => ({ id: device.deviceId, label: device.label || `${index + 1}` }));
+      if (!disposed) patch({ microphones: named("audioinput"), cameras: named("videoinput") });
+    } catch {
+      return;
+    }
+  }
+
+  async function restart(kind: "microphone" | "camera") {
+    if (!snapshot[kind]) return;
+    await store.toggle(kind);
+    await store.toggle(kind);
+  }
+
+  const store: LocalMedia = {
     subscribe(listener) {
       listeners.add(listener);
       return () => void listeners.delete(listener);
@@ -88,6 +137,7 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
           }),
         );
         patch({ [kind]: stream, busy: undefined });
+        if (kind !== "screen") void refreshDevices();
       } catch (error) {
         const denied = error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError");
         const cancelled = kind === "screen" && denied;
@@ -97,6 +147,15 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     toggleHand() {
       patch({ hand: !snapshot.hand });
     },
+    refreshDevices,
+    async choose(kind, id) {
+      patch(kind === "microphone" ? { microphoneId: id } : { cameraId: id });
+      await restart(kind);
+    },
+    async setVoiceFilter(filter) {
+      patch({ voiceFilter: filter });
+      await restart("microphone");
+    },
     dispose() {
       disposed = true;
       stop(snapshot.microphone);
@@ -105,4 +164,5 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       snapshot = OFF;
     },
   };
+  return store;
 }

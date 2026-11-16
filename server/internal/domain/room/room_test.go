@@ -27,7 +27,7 @@ func newRoom(t *testing.T) *Room {
 
 func joinActive(t *testing.T, r *Room, name string, owner bool) Participant {
 	t.Helper()
-	p, _, err := r.Join(t0, name, secret(byte(len(name))), owner)
+	p, _, err := r.Join(t0, name, 0, secret(byte(len(name))), owner)
 	require.NoError(t, err)
 	r.MediaUp(p.ID, p.Gen)
 	return p
@@ -57,7 +57,7 @@ func TestSlug(t *testing.T) {
 func TestJoin(t *testing.T) {
 	t.Run("admits in connecting with a deadline for media", func(t *testing.T) {
 		r := newRoom(t)
-		p, events, err := r.Join(t0, "  Ana  ", secret(1), false)
+		p, events, err := r.Join(t0, "  Ana  ", 0, secret(1), false)
 		require.NoError(t, err)
 		assert.Equal(t, "Ana", p.Name)
 		assert.Equal(t, StateConnecting, p.State)
@@ -69,7 +69,7 @@ func TestJoin(t *testing.T) {
 	t.Run("rejects names that are empty, too long or carry control characters", func(t *testing.T) {
 		r := newRoom(t)
 		for _, name := range []string{"", "   ", "a‮b", "a\nb", string(make([]rune, 41))} {
-			_, _, err := r.Join(t0, name, secret(1), false)
+			_, _, err := r.Join(t0, name, 0, secret(1), false)
 			assert.Equal(t, shared.ErrCodeInvalidArgument, shared.CodeOf(err), "%q", name)
 		}
 		assert.Zero(t, r.Count())
@@ -79,12 +79,12 @@ func TestJoin(t *testing.T) {
 		cfg.Capacity = 2
 		r, err := New("bk", cfg, Settings{}, t0)
 		require.NoError(t, err)
-		a, _, _ := r.Join(t0, "a", secret(1), false)
-		_, _, _ = r.Join(t0, "b", secret(2), false)
-		_, _, err = r.Join(t0, "c", secret(3), false)
+		a, _, _ := r.Join(t0, "a", 0, secret(1), false)
+		_, _, _ = r.Join(t0, "b", 0, secret(2), false)
+		_, _, err = r.Join(t0, "c", 0, secret(3), false)
 		assert.Equal(t, shared.ErrCodeConflict, shared.CodeOf(err))
 		r.Leave(t0, a.ID)
-		c, _, err := r.Join(t0, "c", secret(3), false)
+		c, _, err := r.Join(t0, "c", 0, secret(3), false)
 		require.NoError(t, err)
 		assert.Equal(t, a.Slot, c.Slot)
 		assert.NotEqual(t, a.ID, c.ID)
@@ -131,7 +131,7 @@ func TestRemovalBound(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			r := newRoom(t)
-			p, _, err := r.Join(t0, "ana", secret(1), false)
+			p, _, err := r.Join(t0, "ana", 0, secret(1), false)
 			require.NoError(t, err)
 			c.drive(r, p)
 			assert.Empty(t, r.Expire(at(c.alive)))
@@ -203,7 +203,7 @@ func TestOwnership(t *testing.T) {
 	t.Run("passes to the longest-present active participant when the owner goes", func(t *testing.T) {
 		r := newRoom(t)
 		owner := joinActive(t, r, "o", true)
-		stuck, _, _ := r.Join(t0, "st", secret(2), false)
+		stuck, _, _ := r.Join(t0, "st", 0, secret(2), false)
 		heir := joinActive(t, r, "hei", false)
 		joinActive(t, r, "late", false)
 		r.Leave(at(1), owner.ID)
@@ -251,10 +251,10 @@ func TestRelease(t *testing.T) {
 func TestRosterVersionGrowsByOnePerEvent(t *testing.T) {
 	r := newRoom(t)
 	var all []Event
-	a, e, _ := r.Join(t0, "a", secret(1), true)
+	a, e, _ := r.Join(t0, "a", 0, secret(1), true)
 	all = append(all, e...)
 	all = append(all, r.MediaUp(a.ID, a.Gen)...)
-	b, e, _ := r.Join(t0, "b", secret(2), false)
+	b, e, _ := r.Join(t0, "b", 0, secret(2), false)
 	all = append(all, e...)
 	all = append(all, r.Suspect(at(1), b.ID, b.Gen)...)
 	all = append(all, r.Leave(at(2), a.ID)...)
@@ -319,4 +319,17 @@ func TestSettings(t *testing.T) {
 	require.NoError(t, r.SetPassword(owner.ID, nil))
 	require.NoError(t, r.SetListed(owner.ID, true))
 	assert.Equal(t, Summary{Slug: "bk", Listed: true, Country: "BR", Count: 2, Capacity: 10}, r.Summary())
+}
+
+func TestLook(t *testing.T) {
+	assert.Equal(t, Look(0b10_010_0011), NewLook(0b10_010_0011))
+	assert.Equal(t, Look(0), NewLook(5<<7), "a tilt that does not exist")
+	assert.Equal(t, Look(0), NewLook(0xFFFF))
+	r := newRoom(t)
+	p, _, err := r.Join(t0, "ana", NewLook(0x23), secret(1), false)
+	require.NoError(t, err)
+	assert.Equal(t, Look(0x23), r.Roster()[0].Look)
+	assert.Len(t, r.SetLook(p.ID, NewLook(0x31)), 1)
+	assert.Empty(t, r.SetLook(p.ID, NewLook(0x31)), "no event without a change")
+	assert.Equal(t, Look(0x31), r.Roster()[0].Look)
 }

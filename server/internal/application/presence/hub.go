@@ -124,6 +124,15 @@ func (h *Hub) SetMedia(slug room.Slug, pid room.PID, gen uint32, flags room.Flag
 	})
 }
 
+// SetLook changes how a participant appears to the room.
+func (h *Hub) SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look) {
+	h.tell(slug, func(a *actor) {
+		if a.holds(pid, gen) {
+			a.apply(a.room.SetLook(pid, look))
+		}
+	})
+}
+
 // Chat relays a line a participant said to everyone in the room, the speaker included.
 func (h *Hub) Chat(slug room.Slug, pid room.PID, gen uint32, text string) {
 	h.tell(slug, func(a *actor) { a.chat(pid, gen, text) })

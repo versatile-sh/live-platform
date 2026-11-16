@@ -1,5 +1,6 @@
 import type { Person } from "../signal/protocol";
 import { useT } from "../i18n/I18nProvider";
+import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
 
@@ -15,22 +16,19 @@ function attach(stream: MediaStream | undefined) {
 export function Tile({ person, isMe, video }: TileProps) {
   const t = useT();
   const view = describePerson(person);
-  const initial = [...person.name][0]?.toLocaleUpperCase() ?? "?";
-  const muted = !view.flags.includes("microphone");
+    const muted = !view.flags.includes("microphone");
   const hand = view.flags.includes("hand");
 
   return (
     <li
       data-tone={view.tone}
       aria-label={t("room.tile", { name: person.name, state: t(view.stateKey) })}
-      className={`arrive relative isolate flex aspect-video min-h-0 items-center justify-center overflow-hidden rounded-2xl border bg-card ${view.trouble ? "border-amber" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
+      className={`arrive relative isolate flex aspect-video min-h-0 items-center justify-center overflow-hidden rounded-2xl border bg-card ${view.trouble ? "border-muted-light border-dashed" : view.tone === "dashed" ? "border-dashed border-line-strong" : hand ? "border-bubble" : "border-line"}`}
     >
       {video ? (
         <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full object-cover ${isMe ? "-scale-x-100" : ""}`} />
       ) : (
-        <span aria-hidden="true" className={`grid size-[28%] max-h-28 min-h-12 max-w-28 min-w-12 place-items-center rounded-full bg-line-strong font-display text-[clamp(1.25rem,3vw,2.5rem)] font-bold text-fg ${view.trouble ? "opacity-50" : ""}`}>
-          {initial}
-        </span>
+        <Avatar look={person.look} className={`size-[30%] max-h-32 min-h-14 max-w-32 min-w-14 text-[clamp(1.75rem,5vw,4rem)] ${view.trouble ? "opacity-50" : ""}`} />
       )}
 
       <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
@@ -55,7 +53,7 @@ export function Tile({ person, isMe, video }: TileProps) {
         {isMe ? <span className="bubble-word shrink-0 bg-bubble px-2 py-0.5 font-mono text-xs text-on-bubble">{t("room.you")}</span> : null}
         {view.isOwner ? <span className="bubble-word shrink-0 border border-line-strong bg-canvas/70 px-2 py-0.5 font-mono text-xs text-muted">{t("room.owner")}</span> : null}
         {view.trouble || view.tone === "dashed" ? (
-          <span className={`bubble-word flex shrink-0 items-center gap-1.5 px-2 py-0.5 font-mono text-xs ${view.trouble ? "border border-amber bg-canvas/70 text-amber" : "bg-canvas/70 text-muted"}`}>
+          <span className={`bubble-word flex shrink-0 items-center gap-1.5 px-2 py-0.5 font-mono text-xs ${view.trouble ? "border border-fg/40 bg-canvas/80 text-fg" : "bg-canvas/70 text-muted"}`}>
             {view.tone === "dashed" ? <span aria-hidden="true" className="pulse inline-block size-1.5 rounded-full bg-accent" /> : null}
             {t(view.stateKey)}
           </span>
