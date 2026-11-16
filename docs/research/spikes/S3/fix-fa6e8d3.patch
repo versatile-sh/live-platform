@@ -1,0 +1,127 @@
+fa6e8d38a3a61044117628bde1ac8c1318f34379 Limit peer RSA key sizes before signature verification
+2026-10-16 11:48:55 +0300
+
+diff --git a/crypto.go b/crypto.go
+index 8254ff8..f9b12d2 100644
+--- a/crypto.go
++++ b/crypto.go
+@@ -26,6 +26,21 @@ type ecdsaSignature struct {
+ 	R, S *big.Int
+ }
+ 
++// Match crypto/tls's default limit to bound peer-controlled RSA verification work.
++const maxPeerRSAKeyBits = 8192
++
++func parsePeerCertificate(raw []byte) (*x509.Certificate, error) {
++	cert, err := x509.ParseCertificate(raw)
++	if err != nil {
++		return nil, err
++	}
++	if key, ok := cert.PublicKey.(*rsa.PublicKey); ok && key.N.BitLen() > maxPeerRSAKeyBits {
++		return nil, errPeerRSAKeyTooLarge
++	}
++
++	return cert, nil
++}
++
+ func valueKeyMessage(clientRandom, serverRandom, publicKey []byte, namedCurve elliptic.Curve) []byte {
+ 	serverECDHParams := make([]byte, 4)
+ 	serverECDHParams[0] = 3 // named curve
+@@ -179,7 +194,7 @@ func verifyKeySignature(
+ 	if len(rawCertificates) == 0 {
+ 		return errLengthMismatch
+ 	}
+-	certificate, err := x509.ParseCertificate(rawCertificates[0])
++	certificate, err := parsePeerCertificate(rawCertificates[0])
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -298,7 +313,7 @@ func verifyCertificateVerify(
+ 	if len(rawCertificates) == 0 {
+ 		return errLengthMismatch
+ 	}
+-	certificate, err := x509.ParseCertificate(rawCertificates[0])
++	certificate, err := parsePeerCertificate(rawCertificates[0])
+ 	if err != nil {
+ 		return err
+ 	}
+@@ -366,7 +381,7 @@ func loadCerts(rawCertificates [][]byte) ([]*x509.Certificate, error) {
+ 
+ 	certs := make([]*x509.Certificate, 0, len(rawCertificates))
+ 	for _, rawCert := range rawCertificates {
+-		cert, err := x509.ParseCertificate(rawCert)
++		cert, err := parsePeerCertificate(rawCert)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+diff --git a/crypto_test.go b/crypto_test.go
+index 495957d..0c4fbaa 100644
+--- a/crypto_test.go
++++ b/crypto_test.go
+@@ -12,6 +12,7 @@ import (
+ 	"crypto/rsa"
+ 	"crypto/x509"
+ 	"encoding/pem"
++	"fmt"
+ 	"math/big"
+ 	"testing"
+ 
+@@ -577,3 +578,45 @@ func TestHandshakeSignatureSchemeBinding(t *testing.T) {
+ 		})
+ 	}
+ }
++
++func TestPeerRSAKeySizeLimit(t *testing.T) {
++	issuer, err := ecdsa.GenerateKey(cryptoelliptic.P256(), rand.Reader)
++	require.NoError(t, err)
++	template := &x509.Certificate{SerialNumber: big.NewInt(1)}
++	issuerDER, err := x509.CreateCertificate(rand.Reader, template, template, issuer.Public(), issuer)
++	require.NoError(t, err)
++	for _, bits := range []int{2048, 8191, 8192, 8193, 131072} {
++		t.Run(fmt.Sprint(bits), func(t *testing.T) {
++			// An attacker needs only a public modulus, not an expensive RSA keypair.
++			modulus := new(big.Int).Lsh(big.NewInt(1), uint(bits-1)) //nolint:gosec // fixed positive test sizes
++			modulus.Add(modulus, big.NewInt(1))
++			key := &rsa.PublicKey{N: modulus, E: 65537}
++			der, certErr := x509.CreateCertificate(rand.Reader, template, template, key, issuer)
++			require.NoError(t, certErr)
++			_, parseErr := loadCerts([][]byte{der})
++			if bits > maxPeerRSAKeyBits {
++				require.ErrorIs(t, parseErr, errPeerRSAKeyTooLarge)
++			} else {
++				require.NoError(t, parseErr)
++			}
++			for _, algorithm := range []signature.Algorithm{signature.RSA, signature.RSA_PSS_RSAE_SHA256} {
++				keyErr := verifyKeySignature([]byte("handshake"), nil, hash.SHA256, algorithm, [][]byte{der})
++				verifyErr := verifyCertificateVerify([]byte("handshake"), hash.SHA256, algorithm, nil, [][]byte{der})
++				expected := errKeySignatureMismatch
++				if bits > maxPeerRSAKeyBits {
++					expected = errPeerRSAKeyTooLarge
++				}
++				require.ErrorIs(t, keyErr, expected)
++				require.ErrorIs(t, verifyErr, expected)
++			}
++			if bits > maxPeerRSAKeyBits {
++				// Also reject oversized intermediate keys before x509 chain verification.
++				chain := [][]byte{issuerDER, der}
++				_, clientErr := verifyClientCert(chain, nil, nil)
++				_, serverErr := verifyServerCert(chain, nil, "", nil)
++				require.ErrorIs(t, clientErr, errPeerRSAKeyTooLarge)
++				require.ErrorIs(t, serverErr, errPeerRSAKeyTooLarge)
++			}
++		})
++	}
++}
+diff --git a/errors.go b/errors.go
+index 5875502..49d03d7 100644
+--- a/errors.go
++++ b/errors.go
+@@ -108,6 +108,8 @@ var (
+ 		Err: errors.New("client requested zero or more elliptic curves that are not supported by the server"),
+ 	}
+ 	//nolint:err113
++	errPeerRSAKeyTooLarge = &FatalError{Err: errors.New("peer RSA key exceeds 8192 bits")}
++	//nolint:err113
+ 	errServerSelectedUnofferedCurve = &FatalError{
+ 		Err: errors.New("server selected an elliptic curve not offered by the client"),
+ 	}

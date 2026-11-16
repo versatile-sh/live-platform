@@ -1,0 +1,77 @@
+=== Symbol Results ===
+
+Vulnerability #1: GO-2026-6859
+    HTTP/1 server crash due to MaxBytesReader header race in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6859
+  Standard library
+    Found in: net/http@go1.27.3
+    Fixed in: net/http@go1.27.4
+    Vulnerable symbols found:
+      #1: http.CanonicalHeaderKey
+      #2: http.Client.CloseIdleConnections
+      #3: http.Client.Do
+      #4: http.Client.Get
+      #5: http.Client.Head
+      Use '-show traces' to see the other 118 found symbols
+
+Vulnerability #2: GO-2026-6617
+    HTTP/2 server crash due to HPACK encoder race in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6617
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.59.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Vulnerable symbols found:
+      #1: http2.ConnectionError.Error
+      #2: http2.ErrCode.String
+      #3: http2.FrameHeader.String
+      #4: http2.FrameType.String
+      #5: http2.Framer.ReadFrame
+      Use '-show traces' to see the other 25 found symbols
+
+Vulnerability #3: GO-2026-6612
+    Double flow control refund on HTTP/2 server streams in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6612
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.59.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Vulnerable symbols found:
+      #1: http2.ConnectionError.Error
+      #2: http2.ErrCode.String
+      #3: http2.FrameHeader.String
+      #4: http2.FrameType.String
+      #5: http2.Framer.ReadFrame
+      Use '-show traces' to see the other 25 found symbols
+
+Vulnerability #4: GO-2026-6611
+    Excessive CPU consumption from repeated initial window changes in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6611
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.59.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Vulnerable symbols found:
+      #1: http2.ConnectionError.Error
+      #2: http2.ErrCode.String
+      #3: http2.FrameHeader.String
+      #4: http2.FrameType.String
+      #5: http2.Framer.ReadFrame
+      Use '-show traces' to see the other 25 found symbols
+
+Vulnerability #5: GO-2026-6603
+    HTTP/2 server memory exhaustion due to Trailer headers in net/http
+  More info: https://pkg.go.dev/vuln/GO-2026-6603
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.59.0
+    Fixed in: golang.org/x/net@v0.60.0
+    Vulnerable symbols found:
+      #1: http2.ConnectionError.Error
+      #2: http2.ErrCode.String
+      #3: http2.FrameHeader.String
+      #4: http2.FrameType.String
+      #5: http2.Framer.ReadFrame
+      Use '-show traces' to see the other 25 found symbols
+
+Your code is affected by 5 vulnerabilities from 1 module and the Go standard library.
+This scan also found 1 vulnerability in packages you import and 4
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
+Use '-show verbose' for more details.
