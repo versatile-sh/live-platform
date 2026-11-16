@@ -76,6 +76,20 @@ func (c *conn) Photo(pid room.PID, jpeg []byte) {
 	}
 }
 
+// Media queues a media signal; one that cannot be queued is dropped and the participant's media path will time out.
+func (c *conn) Media(signal room.MediaSignal) {
+	frame := textFrame(encodeMedia(signal))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	switch {
+	case c.gone || c.phase == phaseEnding:
+	case c.phase != phaseJoined:
+		c.held = append(c.held, frame)
+	case c.pending.Load() <= c.server.cfg.MaxPending:
+		c.send(frame)
+	}
+}
+
 // Chat queues a message and reports false when the connection has fallen too far behind.
 func (c *conn) Chat(message room.ChatMessage) bool {
 	frame := textFrame(encodeChat(message))
@@ -228,6 +242,12 @@ func (c *conn) dispatch(f clientFrame) {
 		c.send(hbFrame)
 	case "media":
 		p.SetMedia(c.slug, c.seat.PID, c.seat.Gen, room.Flags(f.Flags))
+	case "rtc":
+		if (f.Role != room.MediaRolePublish && f.Role != room.MediaRoleSubscribe) || (f.Kind != room.MediaKindOffer && f.Kind != room.MediaKindAnswer && f.Kind != room.MediaKindICE) || len(f.Sources) > 8 {
+			c.fail(CloseBadFrame, "malformed media signal")
+			return
+		}
+		p.MediaSignal(c.slug, c.seat.PID, c.seat.Gen, room.MediaSignal{Role: f.Role, Kind: f.Kind, SDP: f.SDP, Candidate: f.Candidate, Sources: f.Sources})
 	case "look":
 		face, err := room.NewFace(f.Face)
 		if err != nil {

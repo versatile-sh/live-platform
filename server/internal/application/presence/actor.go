@@ -25,6 +25,7 @@ type actor struct {
 	inbox chan func(*actor)
 	gone  []room.Departure
 	shots map[room.PID][]byte
+	wires chan func()
 
 	summary atomic.Pointer[room.Summary]
 }
@@ -32,6 +33,14 @@ type actor struct {
 func newActor(h *Hub, r *room.Room) *actor {
 	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, shots: map[room.PID][]byte{}, inbox: make(chan func(*actor), inboxSize)}
 	a.publish()
+	if h.media != nil {
+		a.wires = make(chan func(), inboxSize)
+		go func() {
+			for op := range a.wires {
+				op()
+			}
+		}()
+	}
 	return a
 }
 
@@ -49,6 +58,9 @@ func (a *actor) run() {
 		a.sweep()
 		a.publish()
 		if a.room.ReleaseDue(a.now()) && a.hub.release(a) {
+			if a.wires != nil {
+				close(a.wires)
+			}
 			return
 		}
 		timer.Reset(a.untilNextWake())
@@ -113,6 +125,7 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
 	a.showPhotos(session)
+	a.wire(p.ID, p.Gen, session)
 	return room.Seat{PID: p.ID, Gen: p.Gen, Secret: secret}, nil
 }
 
@@ -132,6 +145,7 @@ func (a *actor) resume(pid room.PID, secret [32]byte, session outbound.Session) 
 	*s = seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
 	a.apply(events)
 	a.showPhotos(session)
+	a.wire(p.ID, p.Gen, session)
 	return room.Seat{PID: p.ID, Gen: p.Gen, Secret: next}, nil
 }
 
@@ -194,6 +208,28 @@ func (a *actor) chat(pid room.PID, gen uint32, text string) {
 	}
 }
 
+func (a *actor) wire(pid room.PID, gen uint32, session outbound.Session) {
+	if a.wires == nil {
+		return
+	}
+	slug, plane := a.room.Slug(), a.hub.media
+	select {
+	case a.wires <- func() { plane.Attach(slug, pid, gen, session.Media) }:
+	default:
+	}
+}
+
+func (a *actor) unwire(pid room.PID) {
+	if a.wires == nil {
+		return
+	}
+	slug, plane := a.room.Slug(), a.hub.media
+	select {
+	case a.wires <- func() { plane.Detach(slug, pid) }:
+	default:
+	}
+}
+
 func (a *actor) photo(pid room.PID, gen uint32, jpeg []byte) {
 	if !a.holds(pid, gen) || room.CheckPhoto(jpeg) != nil {
 		return
@@ -241,6 +277,7 @@ func (a *actor) apply(events []room.Event) {
 		}
 		delete(a.seats, e.PID)
 		delete(a.shots, e.PID)
+		a.unwire(e.PID)
 	}
 	a.broadcast()
 }

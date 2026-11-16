@@ -282,7 +282,7 @@ func TestSignalling(t *testing.T) {
 			{"unknown frame type", nil, func(c *client) { c.join("ana"); c.send(`{"t":"nope"}`) }, CloseBadFrame},
 			{"frame above the size limit", nil, func(c *client) {
 				c.join("ana")
-				c.send(`{"t":"hb","name":"` + strings.Repeat("x", 17<<10) + `"}`)
+				require.NoError(c.t, ws.WriteHeader(c.conn, ws.Header{Fin: true, OpCode: ws.OpText, Masked: true, Length: 65<<10 + 1}))
 			}, ws.StatusMessageTooBig},
 			{"flood", func(c *Config) { c.FramesPerSec, c.FrameBurst = 1, 3 }, func(c *client) {
 				c.join("ana")

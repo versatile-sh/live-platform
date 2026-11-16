@@ -30,6 +30,7 @@ type Hub struct {
 	cfg      room.Config
 	liveness Liveness
 	now      func() time.Time
+	media    outbound.MediaPlane
 	mu       sync.RWMutex
 	actors   map[room.Slug]*actor
 }
@@ -37,6 +38,16 @@ type Hub struct {
 // NewHub builds a hub whose rooms share one configuration.
 func NewHub(cfg room.Config, liveness Liveness, now func() time.Time) *Hub {
 	return &Hub{cfg: cfg, liveness: liveness, now: now, actors: map[room.Slug]*actor{}}
+}
+
+// UseMedia connects the media plane; without one, participants never get a media path of their own.
+func (h *Hub) UseMedia(plane outbound.MediaPlane) { h.media = plane }
+
+// MediaSignal hands a participant's media signal to the media plane, which checks the connection it came from.
+func (h *Hub) MediaSignal(slug room.Slug, pid room.PID, gen uint32, signal room.MediaSignal) {
+	if h.media != nil {
+		h.media.Signal(slug, pid, gen, signal)
+	}
 }
 
 // Join seats a participant, creating the room when the slug is free; the first to arrive owns it.
