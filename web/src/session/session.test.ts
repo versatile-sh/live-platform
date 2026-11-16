@@ -38,15 +38,15 @@ describe("Session#start", () => {
       const { session, sockets } = setup({ name: "Ana", verifier: "v", listed: true });
       session.start();
       sockets[0]!.serverOpen();
-      expect(sentFrames(sockets[0]!)).toEqual([{ t: "join", slug: "demo", name: "Ana", verifier: "v" }]);
+      expect(sentFrames(sockets[0]!)).toEqual([{ t: "join", slug: "demo", name: "Ana", verifier: "v", listed: true }]);
       expect(session.getSnapshot().connection).toEqual({ phase: "joining", resuming: false });
     });
 
-    test("does not send listed for a private room", () => {
-      const { session, sockets } = setup({ name: "Ana", verifier: "v", listed: true });
+    test("sends the listing and the look for a private room too", () => {
+      const { session, sockets } = setup({ name: "Ana", verifier: "v", listed: false, look: 35 });
       session.start();
       sockets[0]!.serverOpen();
-      expect(sentFrames(sockets[0]!)[0]).not.toHaveProperty("listed");
+      expect(sentFrames(sockets[0]!)[0]).toMatchObject({ verifier: "v", listed: false, look: 35 });
     });
 
     test("stores the seat once joined", () => {

@@ -20,6 +20,7 @@ export type Services = {
   mediaDevices: MediaDevicesPort | undefined;
   entryIntent: EntryIntent;
   nameMemory: { read(): string; write(name: string): void };
+  lookMemory: { read(): number; write(look: number): void };
   origin: string;
   clipboard: { write(text: string): Promise<boolean> };
   readPasswordHash(): string;

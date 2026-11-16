@@ -12,7 +12,7 @@ export const NOTICE_MS = 6000;
 const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 
 /** What a person gave to enter a room. A verifier makes the room private. */
-export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string };
+export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: number };
 
 /** One line said in the room, as this page heard it. */
 export type ChatLine = { id: number; pid: number; name: string; text: string; at: number };
@@ -49,6 +49,8 @@ export type Session = {
   /** Stops the session; a participant who is in the room leaves it. */
   dispose(): void;
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
+  /** Changes how I appear to the room. */
+  setLook(look: number): void;
   /** Says a line to the room; false when it could not be sent. */
   say(text: string): boolean;
   /** Tells the room what I am sending (microphone, camera, screen, hand); it is told again after a reconnection. */
@@ -272,7 +274,8 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       slug,
       name: joining.name,
       ...(joining.verifier === undefined ? {} : { verifier: joining.verifier }),
-      ...(joining.listed === undefined || joining.verifier !== undefined ? {} : { listed: joining.listed }),
+      ...(joining.listed === undefined ? {} : { listed: joining.listed }),
+      ...(joining.look ? { look: joining.look } : {}),
     };
   }
 
@@ -317,6 +320,9 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       noticeTimers.clear();
       closeLink();
       if (snapshot.connection.phase !== "ended") clearSeat(storage, slug);
+    },
+    setLook(look) {
+      link?.send({ t: "look", look });
     },
     say(text) {
       return link?.send({ t: "chat", text }) ?? false;

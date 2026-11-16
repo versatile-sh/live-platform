@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { checkName } from "../domain/name";
 import { checkSlug, normalizeSlug } from "../domain/slug";
@@ -93,6 +93,7 @@ function EnterRoom() {
     const derived = withPassword ? await services.derive(code, slug.slug) : undefined;
     services.entryIntent.put(slug.slug, {
       name: who.name,
+      look: services.lookMemory.read(),
       listed,
       ...(derived ? { verifier: derived.verifier, password: code } : {}),
     });
@@ -171,11 +172,16 @@ function EnterRoom() {
 export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "entry"; panel?: ReactNode }) {
   const t = useT();
   const [track, setTrack] = useState({ view, stop: view === "lobby" ? 1 : 0 });
+  const [leavingDoorway, setLeavingDoorway] = useState(false);
+  const doorway = useRef<ReactNode>(null);
+  if (view === "entry") doorway.current = panel;
   let stop = track.stop;
   if (track.view !== view) {
     stop = view === "lobby" ? 1 : view === "entry" && track.view === "lobby" ? 2 : 0;
     setTrack({ view, stop });
+    setLeavingDoorway(track.view === "entry");
   }
+  const back = leavingDoorway && view !== "entry";
   const lobby = view === "lobby";
   const leftLobby = view === "entry" && stop === 2;
   const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
@@ -198,7 +204,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         <Social className="justify-end" />
         <div className="relative flex flex-1 items-center justify-center py-8">
           {view === "entry" ? null : (
-            <div inert={view !== "home"} className={`flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) ${view === "home" ? "" : `${HIDDEN} max-lg:hidden`}`}>
+            <div inert={view !== "home"} className={`flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) ${back && view === "home" ? "slide-in-left" : ""} ${view === "home" ? "" : `${HIDDEN} max-lg:hidden`}`}>
               <EnterRoom />
             </div>
           )}
@@ -207,9 +213,15 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
               <LobbyPage active={lobby} />
             </div>
           ) : null}
-          {view === "entry" ? (
-            <div className="ride-in no-scrollbar flex w-full lg:absolute lg:inset-0 lg:overflow-y-auto">
-              <div className="m-auto flex w-full justify-center py-2">{panel}</div>
+          {view === "entry" || back ? (
+            <div
+              inert={view !== "entry"}
+              className={`no-scrollbar flex w-full lg:absolute lg:inset-0 lg:overflow-y-auto ${view === "entry" ? "ride-in" : "slide-out-right max-lg:hidden"}`}
+              onAnimationEnd={() => {
+                if (view !== "entry") setLeavingDoorway(false);
+              }}
+            >
+              <div className="m-auto flex w-full justify-center py-2">{view === "entry" ? panel : doorway.current}</div>
             </div>
           ) : null}
         </div>

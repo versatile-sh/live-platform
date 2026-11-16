@@ -90,7 +90,7 @@ describe("RoomPage", () => {
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
-      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: false });
+      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: false, look: 34 });
     });
   });
 
@@ -366,6 +366,7 @@ describe("RoomPage", () => {
             return stream;
           },
           display: async () => stream,
+          list: async () => [{ kind: "audioinput", deviceId: "mic-2", label: "Desk microphone" } as MediaDeviceInfo],
         },
       });
       await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
@@ -376,11 +377,57 @@ describe("RoomPage", () => {
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 17 });
     });
 
+    test("the microphone options list the devices and change the voice filter", async () => {
+      const track = { stop: () => undefined, addEventListener: () => undefined };
+      const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;
+      const asked: MediaStreamConstraints[] = [];
+      await inCall({
+        mediaDevices: {
+          user: async (constraints) => {
+            asked.push(constraints);
+            return stream;
+          },
+          display: async () => stream,
+          list: async () => [{ kind: "audioinput", deviceId: "mic-1", label: "Built-in microphone" } as MediaDeviceInfo, { kind: "audioinput", deviceId: "mic-2", label: "Desk microphone" } as MediaDeviceInfo],
+        },
+      });
+      await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
+      await userEvent.click(screen.getByRole("button", { name: "Microphone options" }));
+      const options = within(screen.getByRole("dialog", { name: "Microphone options" }));
+      await userEvent.click(await options.findByRole("radio", { name: "Desk microphone" }));
+      await waitFor(() => expect(asked.at(-1)).toMatchObject({ audio: { deviceId: { exact: "mic-2" }, noiseSuppression: true } }));
+      await userEvent.click(options.getByRole("button", { name: "Off" }));
+      await waitFor(() => expect(asked.at(-1)).toMatchObject({ audio: { noiseSuppression: false, echoCancellation: false } }));
+    });
+
+    test("choosing a face, a colour and a tilt tells the room at once", async () => {
+      const { socket } = await inCall();
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active", look: 34 }), person(2, "Bia", { state: "active" })], gone: [] });
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await userEvent.click(screen.getByRole("radio", { name: "Face 5" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: (34 & ~0xf) | 4 });
+      await userEvent.click(screen.getByRole("radio", { name: "Colour 1" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: 34 & 0xf });
+    });
+
+    test("the side panel closes and reopens, and switches between the chat and the people", async () => {
+      await inCall();
+      const panel = () => screen.getByRole("complementary");
+      expect(panel()).toHaveAccessibleName("Chat");
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      expect(panel()).toHaveAccessibleName("People");
+      await userEvent.click(screen.getByRole("button", { name: "Close the panel" }));
+      expect(screen.getByRole("button", { name: "People" })).toHaveAttribute("aria-pressed", "false");
+      await userEvent.click(screen.getByRole("button", { name: "Chat" }));
+      expect(panel()).toHaveAccessibleName("Chat");
+    });
+
     test("says in words when the browser refuses the camera", async () => {
       await inCall({
         mediaDevices: {
           user: async () => Promise.reject(new DOMException("no", "NotAllowedError")),
           display: async () => Promise.reject(new DOMException("no", "NotAllowedError")),
+          list: async () => [],
         },
       });
       await userEvent.click(screen.getByRole("button", { name: "Turn camera on" }));

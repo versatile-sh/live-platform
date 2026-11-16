@@ -47,6 +47,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     services.forgetHash();
     onEnter({
       name: who.name,
+      look: services.lookMemory.read(),
       ...(derived ? { verifier: derived.verifier, password: code.trim() } : {}),
       ...(creating ? { listed } : {}),
     });
