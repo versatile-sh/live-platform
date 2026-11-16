@@ -125,12 +125,17 @@ func (h *Hub) SetMedia(slug room.Slug, pid room.PID, gen uint32, flags room.Flag
 }
 
 // SetLook changes how a participant appears to the room.
-func (h *Hub) SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look) {
+func (h *Hub) SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look, face string) {
 	h.tell(slug, func(a *actor) {
 		if a.holds(pid, gen) {
-			a.apply(a.room.SetLook(pid, look))
+			a.apply(a.room.SetLook(pid, look, face))
 		}
 	})
+}
+
+// SetPhoto shows a participant's photo to the room for as long as they are in it, or takes it away when empty.
+func (h *Hub) SetPhoto(slug room.Slug, pid room.PID, gen uint32, jpeg []byte) {
+	h.tell(slug, func(a *actor) { a.photo(pid, gen, jpeg) })
 }
 
 // Chat relays a line a participant said to everyone in the room, the speaker included.

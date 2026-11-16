@@ -23,6 +23,7 @@ type fakeSession struct {
 	gone   []room.Departure
 	closed room.CloseReason
 	said   []room.ChatMessage
+	photos map[room.PID]int
 	stuck  bool
 }
 
@@ -53,6 +54,22 @@ func (f *fakeSession) heard() []room.ChatMessage {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]room.ChatMessage(nil), f.said...)
+}
+
+func (f *fakeSession) Photo(pid room.PID, jpeg []byte) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.photos == nil {
+		f.photos = map[room.PID]int{}
+	}
+	f.photos[pid] = len(jpeg)
+}
+
+func (f *fakeSession) photoOf(pid room.PID) (int, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n, ok := f.photos[pid]
+	return n, ok
 }
 
 func (f *fakeSession) Close(reason room.CloseReason) {
@@ -344,5 +361,19 @@ func TestHub(t *testing.T) {
 		assert.Equal(t, "ana", said.Name)
 		assert.Equal(t, "hello", said.Text)
 		assert.Empty(t, outsider.heard())
+	})
+
+	t.Run("a photo is shown to the room, to whoever arrives later, and goes with its owner", func(t *testing.T) {
+		h := newCalmHub()
+		jpeg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3}
+		ana, _ := enter(t, h, "ana")
+		_, biaSession := enter(t, h, "bia")
+		h.SetPhoto("bk", ana.PID, ana.Gen, []byte("<svg/>"))
+		h.SetPhoto("bk", ana.PID, ana.Gen, jpeg)
+		require.Eventually(t, func() bool { n, ok := biaSession.photoOf(ana.PID); return ok && n == len(jpeg) }, wait, tick)
+		_, caioSession := enter(t, h, "caio")
+		require.Eventually(t, func() bool { n, ok := caioSession.photoOf(ana.PID); return ok && n == len(jpeg) }, wait, tick)
+		h.SetPhoto("bk", ana.PID, ana.Gen, nil)
+		require.Eventually(t, func() bool { n, ok := biaSession.photoOf(ana.PID); return ok && n == 0 }, wait, tick)
 	})
 }
