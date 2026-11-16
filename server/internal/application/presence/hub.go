@@ -44,14 +44,14 @@ func (h *Hub) Join(slug room.Slug, entry room.Entry, session outbound.Session) (
 	return ask(h, slug, &entry, func(a *actor) (room.Seat, error) { return a.join(entry, session) })
 }
 
-// Status returns what anyone may know about a room, or false when the slug is free.
+// Status returns what anyone may know about a room, or false and the room a claim would create when the slug is free.
 func (h *Hub) Status(slug room.Slug) (room.Summary, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if a := h.actors[slug]; a != nil {
 		return *a.summary.Load(), true
 	}
-	return room.Summary{}, false
+	return room.Summary{Slug: slug, Capacity: h.cfg.Capacity}, false
 }
 
 // Lobby returns the listed rooms, fullest first.
