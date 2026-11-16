@@ -1,3 +1,4 @@
+import { createEntryIntent } from "./session/intent";
 import { createProjectStore, loadStars } from "./project/project-store";
 import { createRoomsApi } from "./api/rooms";
 import { derive, generatePassword } from "./domain/password";
@@ -43,6 +44,7 @@ export function createBrowserServices(): Services {
     socket: platformSocket(),
     signalUrl: signalUrl(window.location),
     seatStorage: session ?? noStorage,
+    entryIntent: createEntryIntent(),
     nameMemory: {
       read: () => local?.getItem(NAME_KEY) ?? "",
       write(name) {

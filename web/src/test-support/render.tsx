@@ -1,3 +1,4 @@
+import { createEntryIntent } from "../session/intent";
 import { PROJECT_LINKS } from "../project/project-store";
 import { act, render } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -56,6 +57,7 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     socket: factory,
     signalUrl: "ws://test/ws",
     seatStorage: memoryStorage(),
+    entryIntent: createEntryIntent(),
     nameMemory: { read: () => names.value, write: (name) => void (names.value = name) },
     origin: "https://live.test",
     clipboard: {
