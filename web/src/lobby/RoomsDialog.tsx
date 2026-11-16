@@ -40,7 +40,7 @@ export function RoomsDialog({ rooms, start, onClose }: RoomsDialogProps) {
       onClick={(event) => {
         if (event.target === dialog.current) onClose();
       }}
-      className="rooms-dialog m-auto h-[min(44rem,calc(100dvh-3rem))] w-[min(76rem,calc(100vw-3rem))] max-w-none overflow-hidden rounded-[1.5rem] bg-ink p-0 text-paper backdrop:bg-ink/70"
+      className="rooms-dialog m-auto h-[min(44rem,calc(100dvh-3rem))] w-[min(76rem,calc(100vw-3rem))] max-w-none overflow-hidden bubble-sent bg-ink p-0 text-paper backdrop:bg-ink/70"
     >
       <div className="relative isolate flex h-full flex-col">
         <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-1/2 bg-bubble lg:block" />

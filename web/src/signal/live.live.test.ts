@@ -162,6 +162,22 @@ describe("the lv.1 server", () => {
     });
   });
 
+  describe("when someone draws on the whiteboard", () => {
+    test("the others receive the piece as it was sent, and a malformed one is refused", async () => {
+      const slug = slugOf("board");
+      const ana = connect({ t: "join", slug, name: "Ana" });
+      const me = await ana.frame("joined");
+      const bia = connect({ t: "join", slug, name: "Bia" });
+      await bia.frame("joined");
+      ana.link.send({ t: "board", board: JSON.stringify({ k: "els", els: [{ id: "a", version: 1, versionNonce: 7 }] }) });
+      expect(await bia.frame("board")).toEqual({ t: "board", pid: me.pid, data: { k: "els", els: [{ id: "a", version: 1, versionNonce: 7 }] } });
+      ana.link.send({ t: "board", board: "[1]" });
+      expect(await ana.frame("error")).toMatchObject({ code: "INVALID_ARGUMENT" });
+      ana.link.send({ t: "leave" });
+      bia.link.send({ t: "leave" });
+    });
+  });
+
   describe("when a private room is listed", () => {
     test("it shows in the lobby marked private", async () => {
       const slug = slugOf("listed");

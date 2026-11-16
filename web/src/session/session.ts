@@ -55,6 +55,10 @@ export type Session = {
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
   /** Sends a media signal to the server; false when it could not be sent. */
   sendRtc(signal: RtcSignal): boolean;
+  /** Sends a piece of the whiteboard to the others in the room, or to one of them. */
+  sendBoard(data: object, to?: number): boolean;
+  /** Hears pieces of the whiteboard from the others. */
+  onBoard(listener: (from: number, data: unknown) => void): () => void;
   /** Hears the server's media signals, and each time my place in the room is (re)established, when media must start over. */
   onRtc(listener: (event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void): () => void;
   /** Changes how I appear to the room: colour and tilt, and the characters of my face. */
@@ -102,6 +106,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let generation = 0;
   let leaving = false;
   let resuming = false;
+  const boardListeners = new Set<(from: number, data: unknown) => void>();
   const rtcListeners = new Set<(event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void>();
   let mediaFlags = 0;
   let beatAt = 0;
@@ -213,6 +218,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       if (frame.t === "joined") onJoined(frame);
       else if (frame.t === "roster") dispatch({ type: "roster", frame });
       else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at, ...(frame.to ? { to: frame.to } : {}) }].slice(-CHAT_KEPT) });
+      else if (frame.t === "board") boardListeners.forEach((listener) => listener(frame.pid, frame.data));
       else if (frame.t === "rtc") {
         const { t: _t, ...signal } = frame;
         rtcListeners.forEach((listener) => listener({ kind: "signal", signal }));
@@ -349,6 +355,13 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       noticeTimers.clear();
       closeLink();
       if (snapshot.connection.phase !== "ended") clearSeat(storage, slug);
+    },
+    sendBoard(data, to) {
+      return link?.send({ t: "board", board: JSON.stringify(data), ...(to ? { to } : {}) }) ?? false;
+    },
+    onBoard(listener) {
+      boardListeners.add(listener);
+      return () => void boardListeners.delete(listener);
     },
     sendRtc(signal) {
       return link?.send({ t: "rtc", ...signal }) ?? false;

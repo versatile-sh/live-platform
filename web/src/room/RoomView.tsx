@@ -1,4 +1,6 @@
 import {
+  Suspense,
+  lazy,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -7,7 +9,8 @@ import {
 
 import { hasFlag } from "../domain/flags";
 import { shareLink } from "../domain/share-link";
-import { useChooseLocale, useT } from "../i18n/I18nProvider";
+import { createBoardSync } from "../board/board-sync";
+import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
 import {
   createLocalMedia,
@@ -35,6 +38,8 @@ import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
 import { PeoplePanel } from "./PeoplePanel";
 import { Tile } from "./Tile";
+
+const Whiteboard = lazy(() => import("../board/Whiteboard"));
 
 type RoomViewProps = {
   slug: string;
@@ -92,7 +97,7 @@ function DeviceList({
             return (
               <label
                 key={device.id}
-                className="flex min-h-10 cursor-pointer items-center gap-3 rounded-xl px-2.5 text-sm transition-colors duration-200 hover:bg-fg/8 has-checked:bg-fg/10 has-focus-visible:outline-2 has-focus-visible:outline-fg/55"
+                className="flex min-h-10 cursor-pointer items-center gap-3 bubble px-2.5 text-sm transition-colors duration-200 hover:bg-fg/8 has-checked:bg-fg/10 has-focus-visible:outline-2 has-focus-visible:outline-fg/55"
               >
                 <input
                   type="radio"
@@ -227,6 +232,7 @@ export function RoomView({
   onEnterAgain,
 }: RoomViewProps) {
   const t = useT();
+  const locale = useLocale();
   const navigate = useNavigate();
   const { mediaDevices, lookMemory, faceMemory, rtc } = useServices();
   const [media] = useState(() =>
@@ -240,17 +246,26 @@ export function RoomView({
     roomMedia.subscribe,
     roomMedia.getSnapshot,
   );
+  const [board] = useState(() => createBoardSync((message, to) => session.sendBoard(message, to)));
+  const [boardOpen, setBoardOpen] = useState(false);
   useEffect(() => {
-    const stop = session.onRtc((event) =>
-      event.kind === "seated"
-        ? roomMedia.restart()
-        : roomMedia.signal(event.signal),
-    );
+    const stop = session.onRtc((event) => {
+      if (event.kind === "signal") return roomMedia.signal(event.signal);
+      roomMedia.restart();
+      board.hello();
+    });
+    const stopBoard = session.onBoard((from, data) => {
+      const { connection } = session.getSnapshot();
+      if (connection.phase !== "joined" && connection.phase !== "reconnecting") return;
+      board.remote(from, data, connection.me, connection.roster.people.map((person) => person.pid).filter((pid) => pid !== connection.me));
+    });
     return () => {
       stop();
+      stopBoard();
+      board.stop();
       roomMedia.dispose();
     };
-  }, [session, roomMedia]);
+  }, [session, roomMedia, board]);
   useEffect(() => {
     const tracks: Partial<Record<Source, MediaStreamTrack>> = {};
     const add = (source: Source, track: MediaStreamTrack | undefined) => {
@@ -289,6 +304,7 @@ export function RoomView({
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (!event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof Element && event.target.closest("[data-board]")) return;
       const key = event.key.toLowerCase();
       const act =
         !event.altKey && !event.shiftKey && key === "k"
@@ -473,6 +489,21 @@ export function RoomView({
           aria-label={t("room.peopleHeading", { slug })}
           className="relative flex min-w-0 flex-1 items-center justify-center"
         >
+          {boardOpen ? (
+            <div data-board role="region" aria-label={t("board.label")} className="swap-in absolute inset-0 z-10 flex flex-col overflow-hidden rounded-2xl border border-line-strong bg-card">
+              <div className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
+                <h2 className="font-display text-base font-bold tracking-[-0.03em]">{t("board.label")}</h2>
+                <button type="button" aria-label={t("board.close")} className="grid size-9 place-items-center rounded-full text-muted transition-colors duration-200 hover:bg-fg/10 hover:text-fg" onClick={() => setBoardOpen(false)}>
+                  <Icon name="minimize" className="size-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <Suspense fallback={<p role="status" className="grid h-full place-items-center text-muted">{t("board.loading")}</p>}>
+                  <Whiteboard sync={board} langCode={locale === "pt-BR" ? "pt-BR" : "en"} />
+                </Suspense>
+              </div>
+            </div>
+          ) : null}
           {people.length === 0 ? (
             <p className="text-muted">{t("room.gettingReady")}</p>
           ) : shownPeople.length === 0 &&
@@ -495,7 +526,7 @@ export function RoomView({
                     playsInline
                     className="absolute inset-0 -z-10 size-full object-contain"
                   />
-                  <span className="absolute bottom-2.5 left-2.5 rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold">
+                  <span className="absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold">
                     {t("room.yourScreen")}
                   </span>
                 </li>
@@ -513,7 +544,7 @@ export function RoomView({
                     className="absolute inset-0 -z-10 size-full object-contain"
                   />
                   <span
-                    className="absolute bottom-2.5 left-2.5 rounded-lg bg-canvas/70 px-2.5 py-1 text-sm font-semibold"
+                    className="absolute bottom-2.5 left-2.5 bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold"
                     translate="no"
                   >
                     {t("room.screenOf", { name: person.name })}
@@ -697,6 +728,7 @@ export function RoomView({
                   },
                 ]
               : []),
+            { id: "board", group: t("palette.group.room"), label: t("more.board"), run: () => setBoardOpen((open) => !open) },
             {
               id: "look",
               group: t("palette.group.room"),
@@ -841,7 +873,7 @@ export function RoomView({
                 <button
                   type="button"
                   role="menuitem"
-                  className="flex h-10 w-full items-center rounded-xl px-3 text-left text-sm transition-colors duration-200 hover:bg-fg/8"
+                  className="flex h-10 w-full items-center bubble px-3 text-left text-sm transition-colors duration-200 hover:bg-fg/8"
                   onClick={() => {
                     setPersonMenu(undefined);
                     run();
@@ -1054,6 +1086,12 @@ export function RoomView({
                         () => setSheet("look"),
                       ] as const,
                       [
+                        "more.board",
+                        "board",
+                        undefined,
+                        () => setBoardOpen((open) => !open),
+                      ] as const,
+                      [
                         "more.visibility",
                         "eye",
                         undefined,
@@ -1077,7 +1115,7 @@ export function RoomView({
                       <button
                         type="button"
                         role="menuitem"
-                        className="flex h-11 w-full items-center gap-3 rounded-xl px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
+                        className="flex h-11 w-full items-center gap-3 bubble px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
                         onClick={() => {
                           setMenu(undefined);
                           run();
@@ -1095,6 +1133,8 @@ export function RoomView({
                                     ? "face"
                                     : icon === "search"
                                       ? "search"
+                                      : icon === "board"
+                                        ? "board"
                                       : "keyboard"
                           }
                           className="size-4 text-accent"
