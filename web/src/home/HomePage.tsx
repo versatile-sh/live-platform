@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent, type ReactNode } from "react";
 
 import { checkName } from "../domain/name";
 import { checkSlug, normalizeSlug } from "../domain/slug";
@@ -9,7 +9,8 @@ import { AccessSettings, type Access } from "../room/AccessSettings";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
 import { Social } from "../ui/Social";
-import { FIELD, button } from "../ui/styles";
+import { Field } from "../ui/Field";
+import { button } from "../ui/styles";
 import { Wordmark } from "../ui/Wordmark";
 
 const SWAP = "transition-colors duration-700";
@@ -68,7 +69,6 @@ function EnterRoom() {
   const navigate = useNavigate();
   const services = useServices();
   const { origin, nameMemory } = services;
-  const id = useId();
   const [pane, setPane] = useState<"room" | "settings">("room");
   const [name, setName] = useState(() => nameMemory.read());
   const [room, setRoom] = useState("");
@@ -117,52 +117,39 @@ function EnterRoom() {
       <div className="-mx-1 overflow-hidden px-1">
         <div data-pane={pane} className="flex w-[200%] transition-transform duration-500 ease-(--ease-glide) data-[pane=settings]:-translate-x-1/2">
           <div inert={pane !== "room"} className="w-1/2 pr-4 transition-opacity duration-300 inert:opacity-0">
-            <label htmlFor={`${id}-name`} className="text-sm font-semibold">
-              {t("entry.nameLabel")}
-            </label>
-            <input
-              id={`${id}-name`}
+            <Field
+              label={t("entry.nameLabel")}
+              hint={t("home.nameHint")}
+              error={problems.name}
+              className="mb-5"
               value={name}
               autoComplete="nickname"
               maxLength={40}
-              aria-invalid={problems.name ? true : undefined}
-              aria-describedby={`${id}-name-note`}
-              className={`${FIELD} mt-1.5`}
               onChange={(event) => {
                 setName(event.target.value);
                 setProblems(({ room: kept }) => (kept ? { room: kept } : {}));
               }}
             />
-            <p id={`${id}-name-note`} className={`mt-1.5 mb-5 min-h-5 text-sm ${problems.name ? "text-amber" : "text-muted"}`}>
-              {problems.name ?? t("home.nameHint")}
-            </p>
-
-            <label htmlFor={`${id}-room`} className="text-sm font-semibold">
-              {t("lobby.goLabel")}
-            </label>
-            <div className="mt-1.5 flex h-11 items-center rounded-xl border border-muted-light bg-canvas pl-3.5 transition-colors duration-200 focus-within:border-fg/50 has-aria-invalid:border-amber">
-              <span aria-hidden="true" className="shrink-0 font-mono text-sm text-muted select-none" translate="no">
-                <span className="hidden min-[26rem]:inline">{new URL(origin).host}</span>/
-              </span>
-              <input
-                id={`${id}-room`}
-                value={room}
-                placeholder={t("lobby.goPlaceholder")}
-                autoComplete="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                aria-invalid={problems.room ? true : undefined}
-                aria-describedby={`${id}-room-note`}
-                className="h-full min-w-0 flex-1 bg-transparent pr-3.5 pl-0.5 font-mono text-sm text-fg placeholder:text-muted-light focus-visible:outline-none"
-                onChange={(event) => {
-                  setRoom(event.target.value);
-                  setProblems(({ name: kept }) => (kept ? { name: kept } : {}));
-                }}
-              />
-            </div>
-            <p id={`${id}-room-note`} className={`mt-1.5 min-h-5 text-sm ${problems.room ? "text-amber" : "text-muted"}`}>
-              {problems.room ?? t("home.addressHint")}
-            </p>
+            <Field
+              label={t("lobby.goLabel")}
+              hint={t("home.addressHint")}
+              error={problems.room}
+              mono
+              prefix={
+                <>
+                  <span className="hidden min-[26rem]:inline">{new URL(origin).host}</span>/
+                </>
+              }
+              value={room}
+              placeholder={t("lobby.goPlaceholder")}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              onChange={(event) => {
+                setRoom(event.target.value);
+                setProblems(({ name: kept }) => (kept ? { name: kept } : {}));
+              }}
+            />
           </div>
 
           <div inert={pane !== "settings"} className="w-1/2 pl-4 transition-opacity duration-300 inert:opacity-0">
