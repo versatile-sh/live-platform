@@ -24,11 +24,11 @@ function VersatileLogo() {
   );
 }
 
-/** The logotype: `live` speaks from inside a bubble, then the company logo as the brand kit draws it. */
-export function Wordmark({ className = "" }: { className?: string }) {
+/** The logotype: `live` speaks from inside a bubble, then the company logo as the brand kit draws it. On the accent the bubble turns to ink. */
+export function Wordmark({ className = "", onAccent = false }: { className?: string; onAccent?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-[0.55em] ${className}`} translate="no">
-      <span className="bubble-word inline-block bg-bubble px-[0.52em] py-[0.32em] font-mono text-[0.8em] leading-none font-medium text-on-bubble">live</span>
+      <span className={`bubble-word inline-block px-[0.52em] py-[0.32em] font-mono text-[0.8em] leading-none font-medium ${onAccent ? "bg-ink text-bubble" : "bg-bubble text-on-bubble"}`}>live</span>
       <VersatileLogo />
     </span>
   );
