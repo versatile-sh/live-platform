@@ -38,7 +38,18 @@ export function AccessSettings({ access, onAccess, listed, onListed, code, onRen
         </div>
       </fieldset>
 
-      <div className="mt-4 h-[4.25rem]">{access === "private" ? <div className="swap-in">{<RoomCode code={code} onRenew={onRenew} />}</div> : <p className="swap-in pt-1 text-sm text-muted">{t("home.publicNote")}</p>}</div>
+      <div className={`grid transition-[grid-template-rows,opacity] duration-500 ease-(--ease-glide) ${access === "private" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+        <div inert={access !== "private"} className="overflow-hidden">
+          <div className="pt-4">
+            <RoomCode code={code} onRenew={onRenew} />
+          </div>
+        </div>
+      </div>
+      <div className={`grid transition-[grid-template-rows,opacity] duration-500 ease-(--ease-glide) ${access === "public" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+        <div className="overflow-hidden">
+          <p className="pt-4 text-sm text-muted">{t("home.publicNote")}</p>
+        </div>
+      </div>
 
       <div className="mt-4">
         <Switch checked={listed} onChange={onListed} hint={t(access === "private" ? "home.listedPrivateHint" : "home.listedHint")}>

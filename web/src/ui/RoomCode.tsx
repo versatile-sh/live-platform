@@ -11,8 +11,8 @@ export function RoomCode({ code, onRenew }: { code: string; onRenew(): void }) {
   const { clipboard } = useServices();
   const [copied, setCopied] = useState(false);
   return (
-    <div className="bubble flex items-center justify-between gap-3 border border-line-strong bg-ink py-3 pr-3 pl-5 text-paper">
-      <output aria-label={t("entry.passwordLabel")} className="font-mono text-2xl font-bold tracking-[0.12em]" translate="no">
+    <div className="bubble flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-line-strong bg-ink py-3 pr-3 pl-5 text-paper">
+      <output aria-label={t("entry.passwordLabel")} className="font-mono text-xl font-bold tracking-[0.1em] whitespace-nowrap" translate="no">
         {code}
       </output>
       <span className="flex gap-1.5">

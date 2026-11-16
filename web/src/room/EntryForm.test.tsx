@@ -25,7 +25,7 @@ describe("EntryForm", () => {
       expect(screen.getByText(/This name is free/)).toBeInTheDocument();
       expect(screen.getByRole("radio", { name: /Public/ })).toBeChecked();
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
-      expect(screen.queryByLabelText("Room code")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
     });
 
     test("creates a public listed room without deriving anything", async () => {
@@ -33,7 +33,7 @@ describe("EntryForm", () => {
       const derive = vi.spyOn(services, "derive");
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: 34, face: "^_^", listed: true }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true }));
       expect(derive).not.toHaveBeenCalled();
     });
 
@@ -44,7 +44,7 @@ describe("EntryForm", () => {
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: 34, face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: false }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: false }));
     });
 
     test("draws a new code on request and copies the one shown", async () => {
@@ -66,7 +66,7 @@ describe("EntryForm", () => {
       expect(screen.queryByRole("radio")).not.toBeInTheDocument();
       await userEvent.type(screen.getByLabelText("Your name"), "Bia");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Bia", look: 34, face: "^_^" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Bia", look: "ff9ec7-0e1116-0", face: "^_^" }));
     });
 
     test("explains a missing name and does not enter", async () => {
@@ -98,7 +98,7 @@ describe("EntryForm", () => {
       await userEvent.type(screen.getByLabelText("Your name"), "Bia");
       await userEvent.type(screen.getByLabelText("Room code"), "8abh-23hk");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Bia", look: 34, face: "^_^", verifier: "v:demo:8abh-23hk", password: "8abh-23hk" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Bia", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8abh-23hk", password: "8abh-23hk" }));
     });
 
     test("requires the code", async () => {
