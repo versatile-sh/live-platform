@@ -6,17 +6,16 @@ import { describePerson } from "./person";
 import { button } from "../ui/styles";
 import { hasFlag } from "../domain/flags";
 
-type PeoplePanelProps = { people: readonly Person[]; me: number | undefined; canModerate: boolean; onRemove(pid: number): void; onBan(pid: number): void; onQuiet(op: "mute-all" | "unmute-all"): void; onVoice(pid: number, op: "mute" | "allow"): void; onTransfer(pid: number): void; photos: Readonly<Record<number, string>>; onEditLook(): void };
+type PeoplePanelProps = { people: readonly Person[]; me: number | undefined; canModerate: boolean; quiet: boolean; onRemove(pid: number): void; onBan(pid: number): void; onQuiet(op: "mute-all" | "unmute-all"): void; onVoice(pid: number, op: "mute" | "allow"): void; onTransfer(pid: number): void; photos: Readonly<Record<number, string>>; onEditLook(): void };
 
 const XS = button({ variant: "secondary", size: "xs" });
 
 /** Everyone in the room as a list: who they are, what they are doing, and, for the owner, what can be done about them. */
-export function PeoplePanel({ people, me, canModerate, onRemove, onBan, onQuiet, onVoice, onTransfer, photos, onEditLook }: PeoplePanelProps) {
+export function PeoplePanel({ people, me, canModerate, quiet, onRemove, onBan, onQuiet, onVoice, onTransfer, photos, onEditLook }: PeoplePanelProps) {
   const t = useT();
-  const quiet = people.some((person) => hasFlag(person.flags, "muted"));
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {canModerate && people.length > 1 ? (
+      {canModerate ? (
         <div className="flex shrink-0 items-center justify-between gap-3 px-3 pt-3">
           <p className="min-w-0 text-[0.8125rem] leading-snug text-muted">{t(quiet ? "quiet.on" : "quiet.off")}</p>
           <button type="button" className={button({ variant: quiet ? "accent" : "secondary", size: "sm" })} onClick={() => onQuiet(quiet ? "unmute-all" : "mute-all")}>

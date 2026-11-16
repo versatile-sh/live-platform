@@ -537,7 +537,7 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "People" }));
       await userEvent.click(screen.getByRole("button", { name: "Mute everyone" }));
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "mute-all" });
-      await send(socket, { t: "roster", v: 9, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { flags: 256 | 16, state: "active" })], gone: [] });
+      await send(socket, { t: "roster", v: 9, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { flags: 256 | 16, state: "active" })], gone: [], quiet: true });
       expect(screen.getByText(/asks to speak/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Let everyone speak" })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Let Bia speak" }));

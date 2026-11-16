@@ -37,13 +37,13 @@ func (r *Room) MuteAll(by PID) ([]Event, error) {
 	if err := r.ownerOnly(by); err != nil {
 		return nil, err
 	}
-	r.quiet = true
-	return r.each(func(p *Participant) Flags {
+	events := r.each(func(p *Participant) Flags {
 		if p.Flags.Has(FlagOwner) {
 			return p.Flags
 		}
 		return p.Flags&^FlagMicrophone | FlagMuted
-	}), nil
+	})
+	return r.hush(true, by, events), nil
 }
 
 // UnmuteAll lets the owner give the microphone back to everyone; nobody's microphone is turned on for them.
@@ -51,8 +51,7 @@ func (r *Room) UnmuteAll(by PID) ([]Event, error) {
 	if err := r.ownerOnly(by); err != nil {
 		return nil, err
 	}
-	r.quiet = false
-	return r.each(func(p *Participant) Flags { return p.Flags &^ FlagMuted }), nil
+	return r.hush(false, by, r.each(func(p *Participant) Flags { return p.Flags &^ FlagMuted })), nil
 }
 
 // Mute lets the owner silence one participant.
@@ -74,6 +73,17 @@ func (r *Room) Allow(by, target PID) ([]Event, error) {
 		return nil, err
 	}
 	return r.reflag(p, p.Flags&^(FlagMuted|FlagHand)), nil
+}
+
+// Hushed reports whether the owner muted the room, so that whoever arrives is muted too.
+func (r *Room) Hushed() bool { return r.quiet }
+
+func (r *Room) hush(quiet bool, by PID, events []Event) []Event {
+	if r.quiet != quiet && len(events) == 0 {
+		events = append(events, r.emit(EventChanged, by, ""))
+	}
+	r.quiet = quiet
+	return events
 }
 
 // Silenced lists the participants whose microphone the room does not carry.

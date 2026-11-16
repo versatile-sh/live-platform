@@ -303,7 +303,7 @@ export const en = {
   "quiet.muteAll": "Mute everyone",
   "quiet.unmuteAll": "Let everyone speak",
   "quiet.off": "Everyone may use their microphone.",
-  "quiet.on": "Microphones are off. Whoever raises a hand asks you to speak.",
+  "quiet.on": "Microphones are off, also for whoever arrives. A raised hand asks you to speak.",
   "quiet.muted": "muted by the owner",
   "quiet.asking": "asks to speak",
   "quiet.mute": "Mute {name}",

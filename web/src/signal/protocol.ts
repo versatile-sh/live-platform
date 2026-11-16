@@ -16,7 +16,7 @@ export type Departure = { pid: number; reason: GoneReason };
 
 export type ServerFrame =
   | { t: "joined"; pid: number; gen: number; secret: string }
-  | { t: "roster"; v: number; people: Person[]; gone: Departure[] }
+  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean }
   | { t: "error"; code: ErrorCode; message: string }
   | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number }
   | { t: "photo"; pid: number; data: string }
@@ -93,7 +93,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       const people = parseList(raw.people, parsePerson);
       const gone = parseList(raw.gone, parseDeparture);
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
-      return { t: "roster", v: raw.v, people, gone };
+      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}) };
     }
     case "board":
       return typeof raw.pid === "number" ? { t: "board", pid: raw.pid, data: raw.data } : undefined;

@@ -11,6 +11,7 @@ type Snapshot struct {
 	Version      uint64
 	Participants []Participant
 	Gone         []Departure
+	Quiet        bool
 }
 
 // CloseReason says why the server ended a participant's connection.

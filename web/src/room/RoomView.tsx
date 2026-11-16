@@ -400,6 +400,7 @@ export function RoomView({
       remote[person.pid]?.screen &&
       sees(person.pid).screen,
   );
+  const roomQuiet = inRoom && connection.roster.quiet === true;
   const iAmMuted = me !== undefined && hasFlag(me.flags, "muted");
   const [wasMuted, setWasMuted] = useState(iAmMuted);
   const [prompt, setPrompt] = useState<"may-speak" | "camera-hidden" | undefined>();
@@ -759,6 +760,7 @@ export function RoomView({
                   people={people}
                   me={myPid}
                   canModerate={iAmOwner}
+                  quiet={roomQuiet}
                   onRemove={(pid) => session.owner({ op: "remove", pid })}
                   onBan={(pid) => session.owner({ op: "ban", pid })}
                   onQuiet={(op) => session.owner({ op })}
@@ -844,7 +846,7 @@ export function RoomView({
                 ]
               : []),
             { id: "board", group: t("palette.group.room"), label: t("more.board"), run: toggleBoard },
-            ...(iAmOwner ? [{ id: "quiet", group: t("palette.group.people"), label: t(people.some((person) => hasFlag(person.flags, "muted")) ? "quiet.unmuteAll" : "quiet.muteAll"), run: () => void session.owner({ op: people.some((person) => hasFlag(person.flags, "muted")) ? "unmute-all" : "mute-all" }) }] : []),
+            ...(iAmOwner ? [{ id: "quiet", group: t("palette.group.people"), label: t(roomQuiet ? "quiet.unmuteAll" : "quiet.muteAll"), run: () => void session.owner({ op: roomQuiet ? "unmute-all" : "mute-all" }) }] : []),
             { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
             {
               id: "look",
