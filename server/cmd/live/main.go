@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
+	"github.com/versatile-sh/live/server/internal/adapters/page"
 	"github.com/versatile-sh/live/server/internal/adapters/signal"
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
@@ -24,6 +25,14 @@ func main() {
 
 	mux := http.NewServeMux()
 	httpapi.Register(mux, hub)
+	if dir := os.Getenv("WEB_DIR"); dir != "" {
+		web, err := page.Handler(os.DirFS(dir))
+		if err != nil {
+			log.Error("web directory unusable", "error", err.Error())
+			os.Exit(1)
+		}
+		mux.Handle("GET /", web)
+	}
 	mux.HandleFunc("GET /up", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
 	server := &http.Server{
