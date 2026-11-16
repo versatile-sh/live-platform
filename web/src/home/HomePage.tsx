@@ -246,47 +246,53 @@ function EnterRoom() {
 /** The home, in two halves: what the product is, told as a conversation, and a panel on the right. The panel is the form that takes you into a room, the open rooms (the lime half slides across and they arrive on it), or whatever a room needs to ask before letting someone in. */
 export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "entry"; panel?: ReactNode }) {
   const t = useT();
+  const [track, setTrack] = useState({ view, stop: view === "lobby" ? 1 : 0 });
+  let stop = track.stop;
+  if (track.view !== view) {
+    stop = view === "lobby" ? 1 : view === "entry" && track.view === "lobby" ? 2 : 0;
+    setTrack({ view, stop });
+  }
   const lobby = view === "lobby";
+  const leftLobby = view === "entry" && stop === 2;
+  const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
+
   return (
-    <div data-view={view} className="group relative isolate flex flex-1 flex-col overflow-hidden bg-canvas lg:min-h-0 lg:flex-row">
-      <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[150%] transition-transform duration-700 ease-(--ease-glide) group-data-[view=lobby]:-translate-x-1/3 lg:flex">
-        <div className="relative w-1/3 bg-bubble">
-          <div className="backdrop-glow absolute inset-0" />
-          <div className="backdrop-grid-ink absolute inset-0" />
-        </div>
-        <div className="w-1/3 bg-canvas" />
-        <div className="relative w-1/3 bg-bubble">
-          <div className="backdrop-glow absolute inset-0" />
-          <div className="backdrop-grid-ink absolute inset-0" />
-        </div>
+    <div data-view={view} data-stop={stop} className="group relative isolate flex flex-1 flex-col overflow-hidden bg-canvas lg:min-h-0 lg:flex-row">
+      <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 lg:flex">
+        {[0, 1].map((pair) => (
+          <div key={pair} className="flex w-1/2">
+            <div className="relative w-1/2 bg-bubble">
+              <div className="backdrop-glow absolute inset-0" />
+              <div className="backdrop-grid-ink absolute inset-0" />
+            </div>
+            <div className="w-1/2 bg-canvas" />
+          </div>
+        ))}
       </div>
       <Pitch />
       <div className={`no-scrollbar relative flex flex-1 flex-col px-6 py-8 group-data-[view=lobby]:bg-bubble sm:px-10 lg:min-h-0 lg:overflow-y-auto lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${SWAP}`}>
         <Social className="justify-end" />
         <div className="relative flex flex-1 items-center justify-center py-8">
-          {view === "entry" ? (
-            <div className="arrive flex w-full justify-center">{panel}</div>
-          ) : (
-            <div inert={lobby} className="flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) group-data-[view=lobby]:pointer-events-none group-data-[view=lobby]:-translate-x-24 group-data-[view=lobby]:opacity-0 max-lg:group-data-[view=lobby]:hidden">
+          {view === "entry" ? null : (
+            <div inert={view !== "home"} className={`flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) ${view === "home" ? "" : `${HIDDEN} max-lg:hidden`}`}>
               <EnterRoom />
             </div>
           )}
-          {lobby ? (
-            <div className="ride-in flex w-full justify-center lg:absolute lg:inset-0 lg:items-start lg:pt-[6vh]">
-              <LobbyPage />
+          {lobby || leftLobby ? (
+            <div inert={!lobby} className={`ride-in flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) lg:absolute lg:inset-0 lg:items-start lg:pt-[6vh] ${lobby ? "" : `${HIDDEN} max-lg:hidden`}`}>
+              <LobbyPage active={lobby} />
             </div>
           ) : null}
+          {view === "entry" ? <div className="ride-in flex w-full justify-center lg:absolute lg:inset-0 lg:items-center">{panel}</div> : null}
         </div>
-        {view === "entry" ? null : (
-          <AppLink
-            href={lobby ? "/" : "/lobby"}
-            className="mx-auto inline-flex h-10 w-56 shrink-0 items-center justify-center gap-2 rounded-full border border-line-strong text-sm font-semibold text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg group-data-[view=lobby]:border-ink group-data-[view=lobby]:bg-ink group-data-[view=lobby]:text-paper group-data-[view=lobby]:hover:opacity-85"
-          >
-            {lobby ? <Arrow back /> : null}
-            {t(lobby ? "lobby.back" : "home.seeRooms")}
-            {lobby ? null : <Arrow />}
-          </AppLink>
-        )}
+        <AppLink
+          href={lobby ? "/" : view === "entry" ? (leftLobby ? "/lobby" : "/") : "/lobby"}
+          className="mx-auto inline-flex h-10 w-56 shrink-0 items-center justify-center gap-2 rounded-full border border-line-strong text-sm font-semibold text-muted transition-colors duration-500 hover:border-fg/50 hover:text-fg group-data-[view=lobby]:border-ink group-data-[view=lobby]:bg-ink group-data-[view=lobby]:text-paper group-data-[view=lobby]:hover:opacity-85"
+        >
+          {view === "home" ? null : <Arrow back />}
+          {t(lobby ? "lobby.back" : view === "entry" ? "home.back" : "home.seeRooms")}
+          {view === "home" ? <Arrow /> : null}
+        </AppLink>
       </div>
     </div>
   );
