@@ -27,13 +27,15 @@ const (
 )
 
 type clientFrame struct {
-	T      string `json:"t"`
-	Slug   string `json:"slug"`
-	Name   string `json:"name"`
-	PID    uint32 `json:"pid"`
-	Secret string `json:"secret"`
-	Flags  uint16 `json:"flags"`
-	Op     string `json:"op"`
+	T        string `json:"t"`
+	Slug     string `json:"slug"`
+	Name     string `json:"name"`
+	PID      uint32 `json:"pid"`
+	Secret   string `json:"secret"`
+	Flags    uint16 `json:"flags"`
+	Op       string `json:"op"`
+	Verifier string `json:"verifier"`
+	Listed   bool   `json:"listed"`
 }
 
 type person struct {
@@ -102,6 +104,14 @@ func decodeSecret(raw string) ([32]byte, bool) {
 	}
 	copy(out[:], b)
 	return out, true
+}
+
+func decodeVerifier(raw string) (*room.Verifier, bool) {
+	if raw == "" {
+		return nil, true
+	}
+	v, ok := decodeSecret(raw)
+	return (*room.Verifier)(&v), ok
 }
 
 func closeCode(reason room.CloseReason) ws.StatusCode {

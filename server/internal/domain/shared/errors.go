@@ -13,6 +13,8 @@ const (
 	ErrCodeConflict               = "CONFLICT"
 	ErrCodeInvalidStateTransition = "INVALID_STATE_TRANSITION"
 	ErrCodeInvariantViolation     = "INVARIANT_VIOLATION"
+	ErrCodePermissionDenied       = "PERMISSION_DENIED"
+	ErrCodeRateLimited            = "RATE_LIMITED"
 )
 
 // DomainError is the only error type that leaves the domain.

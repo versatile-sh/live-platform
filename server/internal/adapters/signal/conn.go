@@ -29,6 +29,7 @@ type conn struct {
 	server   *Server
 	raw      gnet.Conn
 	upgraded atomic.Bool
+	country  string
 	limiter  bucket
 	late     *time.Timer
 	pending  atomic.Int64
@@ -170,7 +171,11 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 	}
 	switch hello.T {
 	case "join":
-		seat, err := c.server.presence.Join(slug, hello.Name, c)
+		proof, ok := decodeVerifier(hello.Verifier)
+		if !ok {
+			return "", room.Seat{}, shared.NewDomainError(shared.ErrCodeInvalidArgument, "verifier is 32 bytes in base64url", nil)
+		}
+		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Proof: proof, Listed: hello.Listed, Country: c.country}, c)
 		return slug, seat, err
 	case "resume":
 		if secret, ok := decodeSecret(hello.Secret); ok {
@@ -209,6 +214,15 @@ func (c *conn) owner(f clientFrame) {
 		err = c.server.presence.Remove(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
 	case "transfer":
 		err = c.server.presence.Transfer(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
+	case "listed":
+		err = c.server.presence.SetListed(c.slug, c.seat.PID, c.seat.Gen, f.Listed)
+	case "password":
+		verifier, ok := decodeVerifier(f.Verifier)
+		if !ok {
+			c.fail(CloseBadFrame, "verifier is 32 bytes in base64url")
+			return
+		}
+		err = c.server.presence.SetPassword(c.slug, c.seat.PID, c.seat.Gen, verifier)
 	default:
 		c.fail(CloseBadFrame, "unknown owner action")
 		return
