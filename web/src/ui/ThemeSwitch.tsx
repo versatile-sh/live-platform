@@ -21,7 +21,7 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
 
   return (
     <button type="button" aria-label={t(current === "dark" ? "theme.toLight" : "theme.toDark")} title={t(current === "dark" ? "theme.toLight" : "theme.toDark")} className={className} onClick={press}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 text-fg group-data-[view=lobby]:text-paper" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d={current === "dark" ? SUN : MOON} />
       </svg>
     </button>
