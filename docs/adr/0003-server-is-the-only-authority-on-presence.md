@@ -12,4 +12,6 @@ The product exists because rooms kept ghosts. One actor per room owns every part
 ## Consequences
 
 - The cap exists because the first design failed: with UDP blocked and the socket alive, a participant resumed, failed media and resumed again forever (`docs/research/spikes/S1`, case `dropudp`). Any change to the timers must re-run that matrix.
-- The bound measured with an 8 s grace was 20.34 s on Go stand-in clients. The bound for the 4 s grace is published only after the matrix runs with it, and after browsers are killed and frozen for real.
+- Timers: 4 s grace, 8 s cap outside active, silence threshold 12 s. Measured on Go stand-in clients, 20 repetitions per case (`docs/research/spikes/S1b`): the worst case was 16.32 s (UDP only dropped), a killed process left in 4.2 s, and a 15-minute run under 2% packet loss removed nobody. The removal bound is **17 s** for those clients.
+- A resume started at the edge of the grace on a 300 ms round trip can arrive too late and be refused; the participant then rejoins.
+- Not measured: real browsers killed and frozen, a real NAT or TURN, round trips above 300 ms. The bound is not published to users before the browser run.
