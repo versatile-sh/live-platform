@@ -18,15 +18,15 @@ export function Segmented<T extends string>({ label, options, value, onChange, t
   const colours = TONE[tone];
   const second = value === options[1].value;
   return (
-    <div role="group" aria-label={label} data-second={second} className={`group/seg relative flex h-10 rounded-full border p-1 ${colours.frame} ${className}`}>
-      <span aria-hidden="true" className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-full transition-transform duration-500 ease-(--ease-glide) group-data-[second=true]/seg:translate-x-full ${colours.thumb}`} />
+    <div role="group" aria-label={label} data-second={second} className={`group/seg bubble-word relative flex h-10 border p-1 ${colours.frame} ${className}`}>
+      <span aria-hidden="true" className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] [border-radius:inherit] transition-transform duration-500 ease-(--ease-glide) group-data-[second=true]/seg:translate-x-full ${colours.thumb}`} />
       {options.map((option) => (
         <button
           key={option.value}
           type="button"
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`relative z-10 h-full flex-1 rounded-full px-4 text-sm font-semibold transition-colors duration-300 ${colours.idle} ${colours.active}`}
+          className={`relative z-10 h-full flex-1 [border-radius:inherit] px-4 text-sm font-semibold transition-colors duration-300 ${colours.idle} ${colours.active}`}
         >
           {option.text}
         </button>

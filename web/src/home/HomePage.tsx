@@ -23,7 +23,7 @@ function Said({ mine = false, live = false, children }: { mine?: boolean; live?:
       <span
         className={`inline-flex max-w-[22rem] items-center gap-2 border px-4 py-2.5 text-[0.9375rem] leading-snug ${SWAP} ${
           mine
-            ? "rounded-[1.25rem] rounded-br-[0.3rem] border-transparent bg-paper font-mono text-sm text-ink group-data-[view=lobby]:bg-bubble"
+            ? "bubble-sent border-transparent bg-paper font-mono text-sm text-ink group-data-[view=lobby]:bg-bubble"
             : "bubble border-transparent bg-ink text-paper group-data-[view=lobby]:border-line-strong group-data-[view=lobby]:bg-card"
         }`}
       >

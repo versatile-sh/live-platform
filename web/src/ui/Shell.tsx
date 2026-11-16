@@ -20,7 +20,7 @@ export function Shell({ children, bare = false }: { children: ReactNode; bare?: 
     <div className="relative isolate flex min-h-dvh flex-col overflow-x-clip">
       <div aria-hidden="true" className="backdrop-grid pointer-events-none absolute inset-x-0 top-0 -z-10 h-[44rem]" />
       <div aria-hidden="true" className="backdrop-beam pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem]" />
-      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-10 focus:rounded-lg focus:bg-card focus:px-3 focus:py-2">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-10 focus:bubble-word focus:bg-card focus:px-3 focus:py-2">
         {t("app.skip")}
       </a>
       <header className="mx-auto flex h-20 w-full max-w-6xl shrink-0 items-center justify-between px-5 sm:px-8">

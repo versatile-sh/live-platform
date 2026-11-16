@@ -51,7 +51,7 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
         }}
       />
       <p className="mt-6 mb-1.5 text-sm font-semibold">{t("owner.linkLabel")}</p>
-      <p className="truncate rounded-xl border border-line-strong bg-canvas px-3.5 py-2.5 font-mono text-sm text-muted" translate="no">
+      <p className="bubble truncate border border-line-strong bg-canvas px-3.5 py-2.5 font-mono text-sm text-muted" translate="no">
         {link}
       </p>
       <button type="button" className={`${button({ size: "sm" })} mt-3 self-start`} onClick={() => void copy()}>

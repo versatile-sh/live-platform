@@ -100,14 +100,30 @@ body {
   }
 }
 
-.bubble {
+.bubble,
+.bubble-sent {
   border-radius: var(--radius-bubble);
+}
+
+.bubble {
   border-bottom-left-radius: var(--radius-tail);
 }
 
+.bubble-sent {
+  border-bottom-right-radius: var(--radius-tail);
+}
+
+.bubble-word,
+.bubble-word-sent {
+  border-radius: 0.9em;
+}
+
 .bubble-word {
-  border-radius: 0.42em;
-  border-bottom-left-radius: 0.1em;
+  border-bottom-left-radius: 0.2em;
+}
+
+.bubble-word-sent {
+  border-bottom-right-radius: 0.2em;
 }
 
 .backdrop-grid {
