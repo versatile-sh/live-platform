@@ -10,7 +10,7 @@ type LookPickerProps = {
   face: string | undefined;
   name: string;
   photo: string | undefined;
-  onChange(look: string, face: string): void;
+  onSave(look: string, face: string): void;
   onPhoto(data: string): void;
 };
 
@@ -59,14 +59,19 @@ function Box({ children }: { children: ReactNode }) {
   return <div className={BOX}>{children}</div>;
 }
 
-/** Lets a participant choose how they appear: the characters of their face (typed or picked), the colour of the disc and of the face, a full turn, or a photo that lasts only while they are in the room. Each choice takes effect at once. */
-export function LookPicker({ look, face, name, photo, onChange, onPhoto }: LookPickerProps) {
+/** Lets a participant choose how they appear: the characters of their face (typed or picked), the colour of the disc and of the face, a full turn, or a photo that lasts only while they are in the room. The room is told only when they save; a photo goes at once. */
+export function LookPicker({ look: savedLook, face: savedFace, name, photo, onSave, onPhoto }: LookPickerProps) {
   const t = useT();
   const id = useId();
   const { shrinkPhoto } = useServices();
   const [failed, setFailed] = useState(false);
+  const [draft, setDraft] = useState({ look: formatLook(parseLook(savedLook)), face: savedFace ?? "" });
+  const look = draft.look;
+  const face = draft.face;
   const current = parseLook(look);
-  const typed = face ?? "";
+  const typed = face;
+  const changed = look !== formatLook(parseLook(savedLook)) || face !== (savedFace ?? "");
+  const onChange = (nextLook: string, nextFace: string) => setDraft({ look: nextLook, face: nextFace });
   const change = (next: Partial<typeof current>) => onChange(formatLook({ ...current, ...next }), typed);
 
   async function pick(file: File | undefined) {
@@ -161,6 +166,15 @@ export function LookPicker({ look, face, name, photo, onChange, onPhoto }: LookP
           ))}
         </div>
       </Box>
+
+      <div className="flex items-center justify-end gap-3">
+        <p aria-live="polite" className="text-[0.8125rem] text-muted">
+          {changed ? t("look.unsaved") : ""}
+        </p>
+        <button type="button" disabled={!changed} className="bubble-word h-11 bg-bubble px-6 text-sm font-semibold text-on-bubble transition-opacity duration-200 disabled:opacity-40" onClick={() => onSave(look, face)}>
+          {t("look.save")}
+        </button>
+      </div>
     </div>
   );
 }

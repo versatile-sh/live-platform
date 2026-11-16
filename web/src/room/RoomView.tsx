@@ -486,10 +486,11 @@ export function RoomView({ slug, session, snapshot, onEnterAgain }: RoomViewProp
             face={me.face}
             name={me.name}
             photo={snapshot.photos[me.pid]}
-            onChange={(look, face) => {
+            onSave={(look, face) => {
               lookMemory.write(look);
               faceMemory.write(face);
               session.setLook(look, face);
+              setSheet(undefined);
             }}
             onPhoto={session.setPhoto}
           />

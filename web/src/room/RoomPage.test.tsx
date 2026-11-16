@@ -395,21 +395,23 @@ describe("RoomPage", () => {
       await waitFor(() => expect(asked.at(-1)).toMatchObject({ audio: { noiseSuppression: false, echoCancellation: false } }));
     });
 
-    test("typing a face, picking its colours, turning it or picking a preset tells the room at once", async () => {
+    test("the look is edited freely and the room is told once, when I save", async () => {
       const { socket } = await inCall();
       await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active", look: "ff9ec7-0e1116-0", face: "^_^" }), person(2, "Bia", { state: "active" })], gone: [] });
       await userEvent.click(screen.getByRole("button", { name: "People" }));
       await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+      const sentBefore = socket.sent.length;
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
       await userEvent.click(within(screen.getByRole("radiogroup", { name: "Disc colour" })).getByRole("radio", { name: "#c6f432" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: "c6f432-0e1116-0", face: "^_^" });
       await userEvent.click(within(screen.getByRole("radiogroup", { name: "Face colour" })).getByRole("radio", { name: "#f5f5f2" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ look: "ff9ec7-f5f5f2-0" });
       await userEvent.click(screen.getByRole("button", { name: "Tilt to the left" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ look: "ff9ec7-0e1116-345" });
       await userEvent.click(screen.getByRole("button", { name: "(•‿•)" }));
-      expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ t: "look", face: "(•‿•)" });
       await userEvent.type(screen.getByLabelText("Face"), "!");
-      expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ t: "look", face: "^_^!" });
+      expect(socket.sent.length).toBe(sentBefore);
+      await userEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(socket.sent.length).toBe(sentBefore + 1);
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "look", look: "c6f432-f5f5f2-345", face: "(•‿•)!" });
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     });
 
     test("a photo is shrunk, sent to the room, shown when the room echoes it, and can be removed", async () => {
