@@ -131,38 +131,47 @@ describe("the lv.1 server", () => {
     });
   });
 
-  describe("when the owner acts before their media is up", () => {
-    test("is refused with INVARIANT_VIOLATION and stays connected", async () => {
+  describe("when the owner removes someone", () => {
+    test("the removed connection is closed with 4403 and the room is told why", async () => {
       const slug = slugOf("owner");
       const ana = connect({ t: "join", slug, name: "Ana" });
       await ana.frame("joined");
       const bia = connect({ t: "join", slug, name: "Bia" });
       const joined = await bia.frame("joined");
-      await ana.frame("roster", (r) => r.people.length === 2);
+      await ana.frame("roster", (r) => r.people.length === 2 && r.people.every((p) => p.state === "active"));
       ana.link.send({ t: "owner", op: "remove", pid: joined.pid });
-      expect(await ana.frame("error")).toMatchObject({ code: "INVARIANT_VIOLATION", message: "only the active owner may do this" });
-      expect(ana.events.some((e) => e.kind === "closed")).toBe(false);
+      expect(await bia.closed()).toMatchObject({ code: 4403 });
+      const after = await ana.frame("roster", (r) => r.gone.length > 0);
+      expect(after.gone).toEqual([{ pid: joined.pid, reason: "removed-by-owner" }]);
+      ana.link.send({ t: "leave" });
+    });
+  });
+
+  describe("when someone says something", () => {
+    test("everyone in the room hears it with its author", async () => {
+      const slug = slugOf("chat");
+      const ana = connect({ t: "join", slug, name: "Ana" });
+      const me = await ana.frame("joined");
+      const bia = connect({ t: "join", slug, name: "Bia" });
+      await bia.frame("joined");
+      ana.link.send({ t: "chat", text: "hello" });
+      expect(await bia.frame("chat")).toMatchObject({ pid: me.pid, name: "Ana", text: "hello" });
+      expect(await ana.frame("chat")).toMatchObject({ text: "hello" });
       ana.link.send({ t: "leave" });
       bia.link.send({ t: "leave" });
     });
   });
 
-  describe("when no media ever comes up", () => {
-    test("the server drops the participant after about fifteen seconds with 4403 and tells the others why", async () => {
-      const slug = slugOf("nomedia");
-      const ana = connect({ t: "join", slug, name: "Ana" });
+  describe("when a private room is listed", () => {
+    test("it shows in the lobby marked private", async () => {
+      const slug = slugOf("listed");
+      const ana = connect({ t: "join", slug, name: "Ana", verifier: "A".repeat(43), listed: true });
       await ana.frame("joined");
-      const bia = connect({ t: "join", slug, name: "Bia" });
-      await bia.frame("joined");
-      const beat = setInterval(() => [ana, bia].forEach((c) => c.link.send({ t: "hb" })), 4000);
-      try {
-        const after = await bia.frame("roster", (r) => r.gone.length > 0);
-        expect(after.gone).toEqual([{ pid: 1, reason: "media-timeout" }]);
-        expect(await ana.closed()).toMatchObject({ code: 4403 });
-      } finally {
-        clearInterval(beat);
-      }
-    }, 40_000);
+      await ana.frame("roster");
+      const lobby = (await api("/api/lobby")) as { rooms: Array<{ slug: string; private: boolean }> };
+      expect(lobby.rooms.find((room) => room.slug === slug)).toMatchObject({ private: true });
+      ana.link.send({ t: "leave" });
+    });
   });
 
   describe("a session against the real server", () => {

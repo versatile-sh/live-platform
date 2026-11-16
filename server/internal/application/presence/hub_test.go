@@ -268,7 +268,7 @@ func TestHub(t *testing.T) {
 		assert.Equal(t, 10, admitted)
 	})
 
-	t.Run("the first entry decides the room; a private room asks everyone for the password and stays out of the lobby", func(t *testing.T) {
+	t.Run("the first entry decides the room; a private room asks everyone for the password and may still be listed", func(t *testing.T) {
 		h := newCalmHub()
 		password, wrong := room.Verifier{7}, room.Verifier{8}
 		_, err := h.Join("bk", room.Entry{Name: "ana", Proof: &password, Listed: true, Country: "BR"}, &fakeSession{})
@@ -283,7 +283,9 @@ func TestHub(t *testing.T) {
 			s, ok := h.Status("bk")
 			return ok && s.Private && s.Count == 2 && s.Country == "BR"
 		}, wait, tick)
-		assert.Empty(t, h.Lobby())
+		listed := h.Lobby()
+		require.Len(t, listed, 1)
+		assert.True(t, listed[0].Private)
 		_, ok := h.Status("free")
 		assert.False(t, ok)
 	})

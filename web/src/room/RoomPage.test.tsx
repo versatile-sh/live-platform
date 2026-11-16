@@ -86,11 +86,11 @@ describe("RoomPage", () => {
 
     test("sends the join with the listed choice", async () => {
       const { services } = await setup();
-      await userEvent.click(await screen.findByLabelText("Show in the lobby"));
+      await userEvent.click(await screen.findByRole("switch", { name: /Show in open rooms/ }));
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
-      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: true });
+      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: false });
     });
   });
 
@@ -181,7 +181,7 @@ describe("RoomPage", () => {
     test("returns to the form with the reason and keeps the typed name", async () => {
       const { services } = await setup({ kind: "ok", room: { ...free, exists: true, private: true, count: 1 } });
       await userEvent.type(await screen.findByLabelText("Your name"), "Eve");
-      await userEvent.type(screen.getByLabelText("Password"), "wrongpass1");
+      await userEvent.type(screen.getByLabelText("Room code"), "wrongpass1");
       await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
@@ -276,41 +276,34 @@ describe("RoomPage", () => {
       expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
     });
 
-    test("making the room public lists it, and its link is plain", async () => {
+    test("a public room has a plain link, and the open rooms switch sends the listing", async () => {
       const { socket, services } = await asOwner();
       await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
-      await userEvent.click(screen.getByRole("radio", { name: /Public/ }));
-      expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: true }]);
       await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
       expect(services.copied.at(-1)).toBe("https://live.test/demo");
+      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
+      expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: false }]);
     });
 
-    test("making it private again unlists it and locks it with a room code that the link carries", async () => {
+    test("making it private locks it with a room code that the link carries, without touching the listing", async () => {
       const { socket, services } = await asOwner();
       await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
-      await userEvent.click(screen.getByRole("radio", { name: /Public/ }));
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-      await waitFor(() =>
-        expect(sent(socket, 2)).toEqual([
-          { t: "owner", op: "listed", listed: false },
-          { t: "owner", op: "password", verifier: "v:demo:8ABH-23HK" },
-        ]),
-      );
-      expect(await screen.findByLabelText("Password")).toHaveTextContent("8ABH-23HK");
+      await waitFor(() => expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password", verifier: "v:demo:8ABH-23HK" }]));
+      expect(await screen.findByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
       await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
       expect(services.copied.at(-1)).toBe("https://live.test/demo#8ABH-23HK");
       expect(screen.getByText(/after the # sign/)).toBeInTheDocument();
     });
 
-    test("turning the password off sends an owner frame with no verifier, and a new code sends its verifier", async () => {
+    test("a new code sends its verifier, and going back to public sends an owner frame with none", async () => {
       const { socket, services } = await asOwner();
       await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
-      await userEvent.click(screen.getByRole("switch", { name: "Ask for a password" }));
-      await waitFor(() => expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password", verifier: "v:demo:8ABH-23HK" }]));
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       services.generatePassword = () => "9XYZ-45QR";
       await userEvent.click(await screen.findByRole("button", { name: "New" }));
       await waitFor(() => expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password", verifier: "v:demo:9XYZ-45QR" }]));
-      await userEvent.click(screen.getByRole("switch", { name: "Ask for a password" }));
+      await userEvent.click(screen.getByRole("radio", { name: /Public/ }));
       expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password" }]);
     });
 
