@@ -16,9 +16,6 @@ export function RoomCode({ code, onRenew }: { code: string; onRenew(): void }) {
         {code}
       </output>
       <span className="flex gap-1.5">
-        <button type="button" className={SMALL} onClick={() => void clipboard.write(code).then((done) => setCopied(done))}>
-          {copied ? t("entry.copied") : t("entry.copy")}
-        </button>
         <button
           type="button"
           className={SMALL}
@@ -28,6 +25,9 @@ export function RoomCode({ code, onRenew }: { code: string; onRenew(): void }) {
           }}
         >
           {t("home.newCode")}
+        </button>
+        <button type="button" className={`${SMALL} w-[4.5rem]`} onClick={() => void clipboard.write(code).then((done) => setCopied(done))}>
+          {copied ? t("entry.copied") : t("entry.copy")}
         </button>
       </span>
     </div>
