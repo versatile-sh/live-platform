@@ -1,7 +1,9 @@
 import { Suspense, lazy, useState, useSyncExternalStore } from "react";
 
 import { useLocale, useT } from "../i18n/I18nProvider";
+import { AppLink } from "../routing/Navigation";
 import { useServices } from "../services";
+import { Arrow } from "../ui/Arrow";
 import { Segmented } from "../ui/Segmented";
 import { RoomRow } from "./RoomRow";
 import { RoomsDialog } from "./RoomsDialog";
@@ -16,6 +18,20 @@ function Expand() {
     <svg aria-hidden="true" viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5l-5 5M2.5 13.5l5-5" />
     </svg>
+  );
+}
+
+function Nobody({ className = "" }: { className?: string }) {
+  const t = useT();
+  return (
+    <div className={`bubble bg-ink p-6 text-paper ${className}`}>
+      <p className="font-display text-xl font-bold tracking-[-0.03em]">{t("lobby.emptyTitle")}</p>
+      <p className="mt-2 text-paper/70">{t("lobby.emptyBody")}</p>
+      <AppLink href="/" className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-bubble px-5 text-sm font-semibold text-ink transition-opacity duration-200 hover:opacity-85">
+        {t("lobby.emptyAction")}
+        <Arrow />
+      </AppLink>
+    </div>
   );
 }
 
@@ -41,7 +57,9 @@ export function LobbyPage() {
         : view === "map"
           ? counts.size > 0
             ? t("lobby.mapHint")
-            : t("lobby.mapNone")
+            : rooms.length > 0
+              ? t("lobby.mapNone")
+              : ""
           : rooms.length > 0
             ? t("lobby.intro")
             : "";
@@ -73,6 +91,7 @@ export function LobbyPage() {
             <Suspense fallback={null}>
               <WorldMap counts={counts} selected={picked} onSelect={setCountry} />
             </Suspense>
+            {state.status === "ready" && rooms.length === 0 ? <Nobody className="arrive absolute inset-x-0 top-1/2 mx-auto w-full max-w-md -translate-y-1/2" /> : null}
             {picked ? (
               <div role="dialog" aria-label={t("lobby.mapPicked", { country: names.of(picked) ?? picked })} className="arrive bubble absolute inset-x-0 bottom-0 mx-auto flex max-h-full w-full max-w-md flex-col bg-paper p-3 text-ink">
                 <div className="flex items-center justify-between gap-3 px-2 pb-2">
@@ -93,18 +112,17 @@ export function LobbyPage() {
               </div>
             ) : null}
           </div>
-          <button type="button" className={`${MORE} mt-4`} onClick={() => setDialog("map")}>
-            <Expand />
-            {t("lobby.expandMap")}
-          </button>
+          {rooms.length > 0 ? (
+            <button type="button" className={`${MORE} mt-4`} onClick={() => setDialog("map")}>
+              <Expand />
+              {t("lobby.expandMap")}
+            </button>
+          ) : null}
         </div>
       ) : (
         <div key="list" className="swap-from-left mt-6">
           {state.status === "ready" && rooms.length === 0 ? (
-            <div className="bubble bg-ink p-6 text-paper">
-              <p className="font-semibold">{t("lobby.emptyTitle")}</p>
-              <p className="mt-2 text-paper/70">{t("lobby.emptyBody")}</p>
-            </div>
+            <Nobody />
           ) : (
             <>
               <ul className="flex flex-col gap-3">
