@@ -4,8 +4,8 @@ import { useT } from "../i18n/I18nProvider";
 import { useServices } from "../services";
 import { withIris } from "./motion";
 
-const SUN = "M12 4V2M12 22v-2M4 12H2M22 12h-2M6.300 6.300L4.900 4.900M19.100 19.100l-1.400-1.400M6.300 17.700l-1.400 1.400M19.100 4.900l-1.400 1.400M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z";
-const MOON = "M20 14.500A8 8 0 0 1 9.500 4a8 8 0 1 0 10.500 10.500z";
+const SUN = "M12 2.5v3M12 18.500v3M2.500 12h3M18.500 12h3M5.300 5.300l2.100 2.100M16.600 16.600l2.100 2.100M5.300 18.700l2.100-2.100M16.600 7.400l2.100-2.100M12 16.500a4.500 4.500 0 1 0 0-9 4.500 4.500 0 0 0 0 9z";
+const MOON = "M20.500 14.200A8.500 8.500 0 0 1 9.800 3.500a8.500 8.500 0 1 0 10.700 10.700z";
 
 /** Switches between the dark and the light look; the new one opens as a circle from where the button was pressed. */
 export function ThemeSwitch({ className = "" }: { className?: string }) {
@@ -21,7 +21,7 @@ export function ThemeSwitch({ className = "" }: { className?: string }) {
 
   return (
     <button type="button" aria-label={t(current === "dark" ? "theme.toLight" : "theme.toDark")} title={t(current === "dark" ? "theme.toLight" : "theme.toDark")} className={className} onClick={press}>
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 text-fg group-data-[view=lobby]:text-paper" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d={current === "dark" ? SUN : MOON} />
       </svg>
     </button>
