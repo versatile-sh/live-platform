@@ -315,6 +315,8 @@ func (c *conn) owner(f clientFrame) {
 		err = c.server.presence.Remove(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
 	case "ban":
 		err = c.server.presence.Ban(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
+	case "mute-all", "unmute-all", "mute", "allow":
+		err = c.server.presence.Quiet(c.slug, c.seat.PID, c.seat.Gen, room.QuietOp(f.Op), room.PID(f.PID))
 	case "transfer":
 		err = c.server.presence.Transfer(c.slug, c.seat.PID, c.seat.Gen, room.PID(f.PID))
 	case "listed":

@@ -3,6 +3,7 @@ package sfu
 import (
 	"encoding/json"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -167,6 +168,30 @@ func TestEngine(t *testing.T) {
 	t.Run("someone who arrives later is sent what is already published", func(t *testing.T) {
 		caio := enter(t, engine, 3)
 		require.Eventually(t, func() bool { stream, ok := caio.hears("camera"); return ok && stream == "1:camera" }, wait, 20*time.Millisecond)
+	})
+
+	t.Run("a silenced participant's microphone is not carried to the others, and is again once let speak", func(t *testing.T) {
+		dani := enter(t, engine, 4)
+		var packets atomic.Int64
+		dani.sub.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+			for {
+				if _, _, err := remote.ReadRTP(); err != nil {
+					return
+				}
+				if remote.StreamID() == "1:microphone" {
+					packets.Add(1)
+				}
+			}
+		})
+		ana.publish("microphone")
+		require.Eventually(t, func() bool { return packets.Load() > 3 }, wait, 20*time.Millisecond)
+		engine.Silence("bk", 1, true)
+		time.Sleep(150 * time.Millisecond)
+		before := packets.Load()
+		time.Sleep(300 * time.Millisecond)
+		assert.LessOrEqual(t, packets.Load()-before, int64(1), "nothing more arrives while silenced")
+		engine.Silence("bk", 1, false)
+		require.Eventually(t, func() bool { return packets.Load() > before+3 }, wait, 20*time.Millisecond)
 	})
 
 	t.Run("signals from a connection the participant no longer holds are ignored", func(t *testing.T) {
