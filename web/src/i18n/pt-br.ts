@@ -305,7 +305,7 @@ export const ptBR: Record<MessageKey, string> = {
   "quiet.muteAll": "Mutar todos",
   "quiet.unmuteAll": "Liberar todos para falar",
   "quiet.off": "Todos podem usar o microfone.",
-  "quiet.on": "Microfones desligados. Quem levantar a mão pede a você para falar.",
+  "quiet.on": "Microfones desligados, também para quem chegar. Mão levantada pede a palavra.",
   "quiet.muted": "mutado pelo dono",
   "quiet.asking": "pede para falar",
   "quiet.mute": "Mutar {name}",

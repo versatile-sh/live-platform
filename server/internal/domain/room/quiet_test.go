@@ -67,3 +67,21 @@ func TestOwnershipClearsMute(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, FlagOwner, flagsOf(r, bia.ID), "a new owner is not muted by the room")
 }
+
+func TestMuteAllAlone(t *testing.T) {
+	r := newRoom(t)
+	ana := joinActive(t, r, "ana", true)
+	events, err := r.MuteAll(ana.ID)
+	require.NoError(t, err)
+	assert.Len(t, events, 1, "the room is told even with nobody else to mute")
+	assert.True(t, r.Hushed())
+	again, err := r.MuteAll(ana.ID)
+	require.NoError(t, err)
+	assert.Empty(t, again)
+	bia := joinActive(t, r, "bia", false)
+	assert.True(t, flagsOf(r, bia.ID).Has(FlagMuted))
+	events, err = r.UnmuteAll(ana.ID)
+	require.NoError(t, err)
+	assert.Len(t, events, 1)
+	assert.False(t, r.Hushed())
+}

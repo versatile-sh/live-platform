@@ -23,11 +23,11 @@ export type VoiceChain = { denoise: boolean; strength: number; balanced: boolean
 /** Passes a microphone's voice through a chain in this browser; absent where the browser cannot. */
 export type VoiceCleaner = (raw: MediaStream, chain: VoiceChain) => Promise<CleanedVoice>;
 
-/** A camera with what is behind the person out of focus: the changed picture, a way to change how much without a new picture, and the way to stop. */
-export type CameraChange = { stream: MediaStream; set(effect: Exclude<CameraEffect, "none">): void; release(): void };
+/** A camera drawn onto a picture that stays the same while its background is put out of focus, changed or put back. */
+export type CameraChange = { stream: MediaStream; set(effect: CameraEffect): void; release(): void };
 
-/** Puts the background of a camera out of focus in this browser; absent where the browser cannot. */
-export type CameraEffects = (raw: MediaStream, effect: Exclude<CameraEffect, "none">) => Promise<CameraChange>;
+/** Starts drawing a camera so that its background can be put out of focus in this browser; absent where the browser cannot. */
+export type CameraEffects = (raw: MediaStream, effect: CameraEffect) => Promise<CameraChange>;
 
 export type MediaKind = "microphone" | "camera" | "screen";
 
@@ -183,15 +183,14 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     const raw = rawCamera;
     const effect = snapshot.settings.cameraEffect;
     if (!shown || !raw) return;
-    if (effect !== "none" && changer && shown === changer.stream) {
+    if (changer && shown === changer.stream) {
       changer.set(effect);
       return;
     }
-    changer?.release();
-    releases.delete(shown);
     const next = await dress(raw);
+    if (next === raw) return;
     if (disposed || snapshot.camera !== shown) {
-      if (next !== raw) releases.get(next)?.();
+      releases.get(next)?.();
       return;
     }
     next.getTracks().forEach((track) =>
