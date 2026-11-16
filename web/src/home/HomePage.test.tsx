@@ -39,30 +39,29 @@ describe("HomePage", () => {
     expect(pathname.visited).toEqual([]);
   });
 
-  test("a private room carries a room code by default, and none when the owner turns it off", async () => {
+  test("a private room carries the room code shown, and is shown in the open rooms unless turned off", async () => {
     const pathname = fakePathname();
     const services = fakeServices({ generatePassword: () => "8ABH-23HK" });
     renderWithApp(<HomePage />, { pathname, services });
     await userEvent.type(screen.getByLabelText("Your name"), "Ana");
     await userEvent.type(screen.getByLabelText("Room name"), "secret");
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Room code")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-    expect(screen.getByLabelText("Password")).toHaveTextContent("8ABH-23HK");
+    expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
     await userEvent.click(screen.getByRole("button", { name: /Enter/ }));
     await waitFor(() => expect(pathname.visited).toEqual(["/secret"]));
-    expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", listed: false, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
+    expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
   });
 
-  test("a private room without a password is only unlisted", async () => {
+  test("a room can be kept out of the open rooms", async () => {
     const pathname = fakePathname();
     const services = fakeServices();
     renderWithApp(<HomePage />, { pathname, services });
     await userEvent.type(screen.getByLabelText("Your name"), "Ana");
     await userEvent.type(screen.getByLabelText("Room name"), "quiet");
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-    await userEvent.click(screen.getByRole("switch", { name: "Ask for a password" }));
+    await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
     await userEvent.click(screen.getByRole("button", { name: /Enter/ }));
     await waitFor(() => expect(pathname.visited).toEqual(["/quiet"]));
     expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", listed: false });

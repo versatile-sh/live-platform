@@ -295,8 +295,9 @@ func TestPrivateRoom(t *testing.T) {
 
 func TestSettings(t *testing.T) {
 	v := Verifier{1}
-	_, err := NewSettings(&v, true, "")
-	assert.Equal(t, shared.ErrCodeInvalidArgument, shared.CodeOf(err), "a private room is never listed")
+	listedPrivate, err := NewSettings(&v, true, "")
+	require.NoError(t, err, "a private room may be listed")
+	assert.True(t, listedPrivate.Private && listedPrivate.Listed)
 	for country, ok := range map[string]bool{"": true, "BR": true, "br": false, "BRA": false, "B1": false} {
 		_, err := NewSettings(nil, true, country)
 		assert.Equal(t, ok, err == nil, country)
@@ -312,8 +313,9 @@ func TestSettings(t *testing.T) {
 	assert.Equal(t, shared.ErrCodeInvariantViolation, shared.CodeOf(r.SetPassword(guest.ID, &v)))
 	require.NoError(t, r.SetPassword(owner.ID, &v))
 	assert.True(t, r.Summary().Private)
-	assert.False(t, r.Summary().Listed, "making a room private unlists it")
-	assert.Error(t, r.SetListed(owner.ID, true))
+	assert.True(t, r.Summary().Listed, "a password does not change whether the room is listed")
+	require.NoError(t, r.SetListed(owner.ID, false))
+	assert.False(t, r.Summary().Listed)
 	require.NoError(t, r.SetPassword(owner.ID, nil))
 	require.NoError(t, r.SetListed(owner.ID, true))
 	assert.Equal(t, Summary{Slug: "bk", Listed: true, Country: "BR", Count: 2, Capacity: 10}, r.Summary())

@@ -73,11 +73,11 @@ function EnterRoom() {
   const [name, setName] = useState(() => nameMemory.read());
   const [room, setRoom] = useState("");
   const [access, setAccess] = useState<Access>("public");
-  const [locked, setLocked] = useState(true);
+  const [listed, setListed] = useState(true);
   const [code, setCode] = useState(() => services.generatePassword());
   const [problems, setProblems] = useState<{ name?: string; room?: string }>({});
   const [working, setWorking] = useState(false);
-  const withPassword = access === "private" && locked;
+  const withPassword = access === "private";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -93,7 +93,7 @@ function EnterRoom() {
     const derived = withPassword ? await services.derive(code, slug.slug) : undefined;
     services.entryIntent.put(slug.slug, {
       name: who.name,
-      listed: access === "public",
+      listed,
       ...(derived ? { verifier: derived.verifier, password: code } : {}),
     });
     navigate(`/${slug.slug}`);
@@ -166,7 +166,7 @@ function EnterRoom() {
           </div>
 
           <div inert={pane !== "settings"} className="w-1/2 pl-4 transition-opacity duration-300 inert:opacity-0">
-            <AccessSettings access={access} onAccess={setAccess} locked={locked} onLocked={setLocked} code={code} onRenew={() => setCode(services.generatePassword())} />
+            <AccessSettings access={access} onAccess={setAccess} listed={listed} onListed={setListed} code={code} onRenew={() => setCode(services.generatePassword())} />
           </div>
         </div>
       </div>
@@ -220,7 +220,11 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
               <LobbyPage active={lobby} />
             </div>
           ) : null}
-          {view === "entry" ? <div className="ride-in flex w-full justify-center lg:absolute lg:inset-0 lg:items-center">{panel}</div> : null}
+          {view === "entry" ? (
+            <div className="ride-in no-scrollbar flex w-full lg:absolute lg:inset-0 lg:overflow-y-auto">
+              <div className="m-auto flex w-full justify-center py-2">{panel}</div>
+            </div>
+          ) : null}
         </div>
         <AppLink
           href={lobby ? "/" : view === "entry" ? (leftLobby ? "/lobby" : "/") : "/lobby"}
