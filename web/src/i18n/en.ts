@@ -1,7 +1,7 @@
 /** The English dictionary; it defines the keys every other language must have. */
 export const en = {
   "app.skip": "Skip to content",
-  "app.home": "versatile.sh live, back to the start",
+  "app.home": "live, by versatile: back to the start",
   "app.loading": "Loading",
 
   "app.rooms": "Open rooms",
