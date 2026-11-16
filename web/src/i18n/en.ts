@@ -25,6 +25,7 @@ export const en = {
   "home.addressHint": "Lowercase letters, numbers and hyphens.",
   "home.seeRooms": "See open rooms",
 
+  "lobby.back": "Back to enter a room",
   "lobby.heading": "Open rooms",
   "lobby.intro": "Share a screen, your voice and your camera from a link. No account, nothing to install.",
   "lobby.goLabel": "Room name",

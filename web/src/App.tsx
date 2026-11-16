@@ -1,5 +1,4 @@
 import { HomePage } from "./home/HomePage";
-import { LobbyPage } from "./lobby/LobbyPage";
 import { NotFoundPage } from "./NotFoundPage";
 import { usePathname } from "./routing/Navigation";
 import { resolveRoute } from "./routing/pathname-store";
@@ -10,16 +9,8 @@ import { Shell } from "./ui/Shell";
 export function App() {
   const route = resolveRoute(usePathname());
   return (
-    <Shell bare={route.kind === "home"}>
-      {route.kind === "home" ? (
-        <HomePage />
-      ) : route.kind === "lobby" ? (
-        <LobbyPage />
-      ) : route.kind === "room" ? (
-        <RoomPage key={route.slug} slug={route.slug} />
-      ) : (
-        <NotFoundPage kind={route.kind} />
-      )}
+    <Shell bare={route.kind === "home" || route.kind === "lobby"}>
+      {route.kind === "home" || route.kind === "lobby" ? <HomePage view={route.kind} /> : route.kind === "room" ? <RoomPage key={route.slug} slug={route.slug} /> : <NotFoundPage kind={route.kind} />}
     </Shell>
   );
 }
