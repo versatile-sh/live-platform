@@ -66,8 +66,10 @@ describe("createPathnameStore", () => {
 
 describe("resolveRoute", () => {
   test.each([
-    ["/", { kind: "lobby" }],
-    ["", { kind: "lobby" }],
+    ["/", { kind: "home" }],
+    ["/lobby", { kind: "lobby" }],
+    ["/lobby/", { kind: "lobby" }],
+    ["", { kind: "home" }],
     ["/standup", { kind: "room", slug: "standup" }],
     ["/standup/", { kind: "room", slug: "standup" }],
     ["/team-42", { kind: "room", slug: "team-42" }],

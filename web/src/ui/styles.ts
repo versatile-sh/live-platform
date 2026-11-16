@@ -17,8 +17,8 @@ export const QUIET_LINK = "cursor-pointer underline decoration-line-strong under
 type ButtonOptions = { variant?: "primary" | "secondary" | "quiet"; size?: "sm" | "md" };
 
 const BUTTON_VARIANT = {
-  primary: "bg-bubble text-on-bubble hover:opacity-90 focus-visible:opacity-90 disabled:opacity-60",
-  secondary: "border border-muted-light text-fg hover:border-accent hover:text-accent focus-visible:border-accent disabled:opacity-60",
+  primary: "bg-fg text-canvas hover:opacity-90 focus-visible:opacity-90 disabled:opacity-60",
+  secondary: "border border-line-strong text-fg hover:border-fg/60 focus-visible:border-fg/60 disabled:opacity-60",
   quiet: "text-muted hover:bg-fg/8 hover:text-fg focus-visible:bg-fg/8 focus-visible:text-fg disabled:opacity-60",
 } as const;
 

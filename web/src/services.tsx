@@ -3,6 +3,7 @@ import { createContext, use, type ReactNode } from "react";
 import type { RoomsApi } from "./api/rooms";
 import type { Derived, RandomBytes } from "./domain/password";
 import type { LobbyStore } from "./lobby/lobby-store";
+import type { ProjectStore } from "./project/project-store";
 import type { SeatStorage } from "./session/seat";
 import type { SocketFactory } from "./signal/link";
 
@@ -10,6 +11,7 @@ import type { SocketFactory } from "./signal/link";
 export type Services = {
   roomsApi: RoomsApi;
   lobby: LobbyStore;
+  project: ProjectStore;
   socket: SocketFactory;
   signalUrl: string;
   seatStorage: SeatStorage;
