@@ -20,7 +20,6 @@ import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
 import {
   createLocalMedia,
-  type Device,
   type LocalMedia,
   type LocalMediaSnapshot,
   type MediaKind,
@@ -39,12 +38,16 @@ import { Wordmark } from "../ui/Wordmark";
 import { ChatPanel } from "./ChatPanel";
 import { ConnectionCard } from "./ConnectionCard";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { DeviceList } from "./DeviceList";
 import { EndedPanel } from "./EndedPanel";
+import { InviteCard } from "./InviteCard";
 import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
+import { MoreMenu, type MoreItem } from "./MoreMenu";
 import { PeoplePanel } from "./PeoplePanel";
 import { Tile } from "./Tile";
 import { CHIP, DOCK, ICON_BUTTON, button } from "../ui/styles";
+import { useCopy } from "../ui/useCopy";
 
 const Whiteboard = lazy(() => import("../board/Whiteboard"));
 const BoardPreview = lazy(() => import("../board/BoardPreview"));
@@ -71,53 +74,6 @@ function Caret() {
     >
       <path d="M4 10l4-4 4 4" />
     </svg>
-  );
-}
-
-function DeviceList({
-  label,
-  devices,
-  chosen,
-  onChoose,
-}: {
-  label: string;
-  devices: readonly Device[];
-  chosen: string | undefined;
-  onChoose(id: string): void;
-}) {
-  const t = useT();
-  return (
-    <fieldset className="min-w-0">
-      <legend className="mb-1.5 text-sm font-semibold">{label}</legend>
-      {devices.length === 0 ? (
-        <p className="text-sm text-muted">{t("menu.noDevices")}</p>
-      ) : (
-        <div className="flex max-h-44 flex-col gap-0.5 overflow-y-auto">
-          {devices.map((device, index) => {
-            const checked = chosen ? chosen === device.id : index === 0;
-            return (
-              <label
-                key={device.id}
-                className="flex min-h-10 cursor-pointer items-center gap-3 bubble px-2.5 text-sm transition-colors duration-200 hover:bg-fg/8 has-checked:bg-fg/10 has-focus-visible:outline-2 has-focus-visible:outline-fg/55"
-              >
-                <input
-                  type="radio"
-                  name={label}
-                  className="sr-only"
-                  checked={checked}
-                  onChange={() => onChoose(device.id)}
-                />
-                <span
-                  aria-hidden="true"
-                  className={`size-2.5 shrink-0 rounded-full ${checked ? "bg-bubble" : "border border-muted-light"}`}
-                />
-                <span className="min-w-0 flex-1 truncate">{device.label}</span>
-              </label>
-            );
-          })}
-        </div>
-      )}
-    </fieldset>
   );
 }
 
@@ -334,11 +290,9 @@ export function RoomView({
     settingsMemory.write({ ...local.settings, ...change });
     void media.setSettings(change);
   };
-  const [side, setSide] = useState<Side | undefined>("chat");
+  const [side, setSide] = useState<Side | undefined>(() => (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 47.99rem)").matches ? undefined : "chat"));
   const [shown, setShown] = useState<Side>("chat");
-  const [menu, setMenu] = useState<
-    "microphone" | "camera" | "more" | undefined
-  >();
+  const [menu, setMenu] = useState<"microphone" | "camera" | undefined>();
   const [sheet, setSheet] = useState<
     "shortcuts" | "look" | "visibility" | "media" | undefined
   >();
@@ -350,7 +304,10 @@ export function RoomView({
   const [readUpTo, setReadUpTo] = useState<Readonly<Record<number, number>>>({});
   const [palette, setPalette] = useState(false);
   const choose = useChooseLocale();
-  const { clipboard, origin } = useServices();
+  const { origin } = useServices();
+  const link = shareLink(origin, slug, snapshot.private ? snapshot.password : undefined);
+  const { result: invited, copy } = useCopy();
+  const invite = () => void copy(link);
   const [peer, setPeer] = useState<number | undefined>();
   const sees = (pid: number): Seeing => seeing[pid] ?? SEE_ALL;
   const see = (pid: number, change: Partial<Seeing>) =>
@@ -417,6 +374,7 @@ export function RoomView({
     if (line.id > (readUpTo[line.pid] ?? 0) && line.pid !== reading) unreadFrom[line.pid] = (unreadFrom[line.pid] ?? 0) + 1;
   }
   if (reading !== undefined && (lastFrom[reading] ?? 0) > (readUpTo[reading] ?? 0)) setReadUpTo({ ...readUpTo, [reading]: lastFrom[reading]! });
+  const alone = me !== undefined && people.length === 1;
   const whispers = people.filter((person) => (unreadFrom[person.pid] ?? 0) > 0);
   const shownPeople = people.filter((person) => sees(person.pid).tile);
   const screens = people.filter(
@@ -590,14 +548,14 @@ export function RoomView({
     label: string,
   ) {
     return (
-      <div className="relative flex items-center rounded-full bg-card pr-1">
+      <div className="relative flex items-center rounded-full bg-card sm:pr-1">
         {button}
         <button
           type="button"
           aria-expanded={menu === kind}
           aria-label={label}
           title={label}
-          className={DOCK.caret}
+          className={`${DOCK.caret} max-sm:hidden`}
           onClick={() => {
             void media.refreshDevices();
             setMenu(menu === kind ? undefined : kind);
@@ -645,6 +603,26 @@ export function RoomView({
     );
   }
 
+  const openSettings = () => {
+    void media.refreshDevices();
+    setSheet("media");
+  };
+  const moreGroups: readonly (readonly MoreItem[])[] = [
+    [
+      { id: "hand", label: t(local.hand ? "dock.handDown" : "dock.handUp"), icon: "hand", keys: "Ctrl+Alt+H", run: media.toggleHand },
+      { id: "board", label: t("more.board"), icon: "board", checked: boardShown, run: toggleBoard },
+      ...(iAmOwner ? [{ id: "settings", label: t("side.settings"), icon: "settings" as const, run: () => setSide("settings") }] : []),
+    ],
+    [
+      { id: "media", label: t("more.media"), icon: "settings", run: openSettings },
+      { id: "look", label: t("more.look"), icon: "face", run: () => setSheet("look") },
+      { id: "visibility", label: t("more.visibility"), icon: "eye", run: () => setSheet("visibility") },
+      { id: "connection", label: t("more.connection"), icon: "signal", run: () => setStats((open) => !open) },
+      { id: "shortcuts", label: t("more.shortcuts"), icon: "keyboard", run: () => setSheet("shortcuts") },
+      { id: "palette", label: t("more.palette"), icon: "search", keys: "Ctrl+K", run: () => setPalette(true) },
+    ],
+  ];
+
   if (connection.phase === "ended") {
     return (
       <div className="m-auto w-full max-w-xl px-6 py-10">
@@ -667,9 +645,9 @@ export function RoomView({
 
   return (
     <div className="page-forward flex h-dvh min-h-0 flex-col bg-canvas">
-      <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 px-5">
-        <Wordmark className="text-sm" />
-        <div className="flex max-w-[60vw] items-center gap-3">
+      <header className="grid h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-4 sm:px-5">
+        <Wordmark className="text-sm max-sm:hidden" />
+        <div className="flex min-w-0 items-center gap-3 sm:max-w-[60vw]">
           <h1
             className="min-w-0 truncate font-display text-lg font-bold tracking-[-0.03em]"
             translate="no"
@@ -677,6 +655,13 @@ export function RoomView({
             {slug}
           </h1>
           <ConnectionStatus connection={connection} />
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
+          <div role="group" aria-label={t("dock.panels")} className="bubble flex items-center gap-1 border border-line-strong bg-card p-1">
+            {toggle("people", "people", t("side.people"), people.length, true)}
+            {toggle("chat", "chat", t("side.chat"), unread)}
+          </div>
+          <MoreMenu groups={moreGroups} />
         </div>
       </header>
 
@@ -699,7 +684,10 @@ export function RoomView({
               ) : null}
             </div>
           ) : (
-            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length)}`}>{frames.map((frame) => frame.render("grid"))}</ul>
+            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length + (alone ? 1 : 0))}`}>
+              {frames.map((frame) => frame.render("grid"))}
+              {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
+            </ul>
           )}
           {Object.entries(remote).flatMap(([pid, sources]) =>
             Number(pid) === myPid
@@ -745,9 +733,12 @@ export function RoomView({
               </li>
             ))}
             {iAmMuted ? (
-              <li className="swap-in bubble pointer-events-auto flex items-center gap-2.5 border border-line-strong bg-card px-4 py-2.5 text-sm">
+              <li className="swap-in bubble pointer-events-auto flex flex-wrap items-center gap-2.5 border border-line-strong bg-card px-4 py-2.5 text-sm">
                 <Icon name="micOff" className="size-4 shrink-0 text-accent" />
                 <span>{t(roomQuiet ? "quiet.youRoom" : "quiet.youOne")}</span>
+                <button type="button" className={button({ variant: "accent", size: "xs" })} onClick={media.toggleHand}>
+                  {t(local.hand ? "dock.handDown" : "dock.handUp")}
+                </button>
               </li>
             ) : null}
             {prompt ? (
@@ -782,7 +773,7 @@ export function RoomView({
         <aside
           aria-label={t(`side.${shown}`)}
           inert={!side}
-          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 md:-mt-11 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
+          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
         >
           <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden bubble-sent border border-line bg-card max-md:w-full">
             <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
@@ -916,7 +907,7 @@ export function RoomView({
             { id: "board", group: t("palette.group.room"), label: t("more.board"), run: toggleBoard },
             ...(iAmOwner ? [{ id: "quiet", group: t("palette.group.people"), label: t(roomQuiet ? "quiet.unmuteAll" : "quiet.muteAll"), run: () => void session.owner({ op: roomQuiet ? "unmute-all" : "mute-all" }) }] : []),
             { id: "theme", group: t("palette.group.site"), label: t(look === "dark" ? "theme.toLight" : "theme.toDark"), run: () => withIris({ x: window.innerWidth / 2, y: window.innerHeight / 2 }, theme.toggle) },
-            { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
+            { id: "media", group: t("palette.group.room"), label: t("more.media"), run: openSettings },
             {
               id: "look",
               group: t("palette.group.room"),
@@ -945,14 +936,7 @@ export function RoomView({
               id: "link",
               group: t("palette.group.room"),
               label: t("palette.copyLink"),
-              run: () =>
-                void clipboard.write(
-                  shareLink(
-                    origin,
-                    slug,
-                    snapshot.private ? snapshot.password : undefined,
-                  ),
-                ),
+              run: invite,
             },
             ...people
               .filter((person) => person.pid !== myPid)
@@ -1082,7 +1066,16 @@ export function RoomView({
 
       {sheet === "media" ? (
         <Sheet title={t("more.media")} closeLabel={t("more.close")} onClose={() => setSheet(undefined)} wide>
-          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
+          <MediaSettings
+            settings={local.settings}
+            filter={local.voiceFilter}
+            strongAvailable={voiceCleaner !== undefined}
+            effectsAvailable={cameraEffects !== undefined}
+            devices={local}
+            onDevice={(kind, id) => void media.choose(kind, id)}
+            onFilter={(filter) => void media.setVoiceFilter(filter)}
+            onChange={changeSettings}
+          />
         </Sheet>
       ) : null}
       {sheet === "shortcuts" ? (
@@ -1186,191 +1179,22 @@ export function RoomView({
         </Sheet>
       ) : null}
 
-      <footer className="grid h-20 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 px-5">
-        <div
-          role="toolbar"
-          aria-label={t("dock.label")}
-          className="col-start-2 flex items-center gap-2.5"
-        >
-          {withOptions(
-            "microphone",
-            control("microphone", "mic", "micOff", [
-              t("dock.micOn"),
-              t("dock.micOff"),
-            ]),
-            t("dock.micMenu"),
-          )}
-          {withOptions(
-            "camera",
-            control("camera", "camera", "cameraOff", [
-              t("dock.cameraOn"),
-              t("dock.cameraOff"),
-            ]),
-            t("dock.cameraMenu"),
-          )}
-          {control("screen", "screen", "screen", [
-            t("dock.screenOn"),
-            t("dock.screenOff"),
-          ])}
-          <button
-            type="button"
-            aria-pressed={local.hand}
-            aria-label={t(local.hand ? "dock.handDown" : "dock.handUp")}
-            title={t(local.hand ? "dock.handDown" : "dock.handUp")}
-            className={`${DOCK.round} ${local.hand ? DOCK.on : DOCK.idle}`}
-            onClick={media.toggleHand}
-          >
-            <Icon name="hand" />
+      <footer className="relative flex h-20 shrink-0 items-center justify-center px-3 sm:px-5">
+        <p role="status" className={`pointer-events-none absolute inset-x-0 bottom-full mx-auto w-fit max-w-[calc(100vw-1.5rem)] text-center text-sm break-all ${invited === "idle" ? "" : "arrive bubble border border-bubble bg-card px-4 py-2"}`}>
+          {invited === "copied" ? t("invite.copied") : invited === "failed" ? t("invite.failed", { link }) : ""}
+        </p>
+        <div role="toolbar" aria-label={t("dock.label")} className="flex items-center gap-2 sm:gap-2.5">
+          {withOptions("microphone", control("microphone", "mic", "micOff", [t("dock.micOn"), t("dock.micOff")]), t("dock.micMenu"))}
+          {withOptions("camera", control("camera", "camera", "cameraOff", [t("dock.cameraOn"), t("dock.cameraOff")]), t("dock.cameraMenu"))}
+          {control("screen", "screen", "screen", [t("dock.screenOn"), t("dock.screenOff")])}
+          <button type="button" className={`${button({ variant: "secondary", size: "lg" })} max-sm:px-3.5`} onClick={invite}>
+            <Icon name="invite" />
+            <span className="max-sm:sr-only">{t("invite.button")}</span>
           </button>
-          <button type="button" aria-pressed={boardShown} aria-label={t("more.board")} title={t("more.board")} className={`${DOCK.round} ${boardShown ? DOCK.on : DOCK.idle}`} onClick={toggleBoard}>
-            <Icon name="board" />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              aria-expanded={menu === "more"}
-              aria-label={t("more.label")}
-              title={t("more.label")}
-              className={`${DOCK.round} ${menu === "more" ? DOCK.open : DOCK.idle}`}
-              onClick={() => setMenu(menu === "more" ? undefined : "more")}
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="currentColor"
-              >
-                <circle cx="6" cy="12" r="1.6" />
-                <circle cx="12" cy="12" r="1.6" />
-                <circle cx="18" cy="12" r="1.6" />
-              </svg>
-            </button>
-            {menu === "more" ? (
-              <>
-                <button
-                  type="button"
-                  aria-label={t("menu.close")}
-                  className="fixed inset-0 z-20 cursor-default"
-                  onClick={() => setMenu(undefined)}
-                />
-                <ul
-                  role="menu"
-                  aria-label={t("more.label")}
-                  className="swap-in bubble absolute bottom-[calc(100%+0.75rem)] left-1/2 z-30 flex w-72 -translate-x-1/2 flex-col border border-line-strong bg-card p-2 text-left"
-                >
-                  {(
-                    [
-                      ...(iAmOwner
-                        ? [
-                            [
-                              "more.access",
-                              "settings",
-                              undefined,
-                              () => setSide("settings"),
-                            ] as const,
-                          ]
-                        : []),
-                      [
-                        "more.palette",
-                        "search",
-                        "Ctrl+K",
-                        () => setPalette(true),
-                      ] as const,
-                      [
-                        "more.look",
-                        "look",
-                        undefined,
-                        () => setSheet("look"),
-                      ] as const,
-                      [
-                        "more.board",
-                        "board",
-                        undefined,
-                        toggleBoard,
-                      ] as const,
-                      ["more.media", "settings", undefined, () => setSheet("media")] as const,
-                      [
-                        "more.visibility",
-                        "eye",
-                        undefined,
-                        () => setSheet("visibility"),
-                      ] as const,
-                      [
-                        "more.connection",
-                        "people",
-                        undefined,
-                        () => setStats((shown) => !shown),
-                      ] as const,
-                      [
-                        "more.shortcuts",
-                        "chat",
-                        "Ctrl+/",
-                        () => setSheet("shortcuts"),
-                      ] as const,
-                    ] as const
-                  ).map(([label, icon, keys, run]) => (
-                    <li key={label} role="none">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="flex h-11 w-full items-center gap-3 bubble px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
-                        onClick={() => {
-                          setMenu(undefined);
-                          run();
-                        }}
-                      >
-                        <Icon
-                          name={
-                            icon === "settings"
-                              ? "settings"
-                              : icon === "people"
-                                ? "signal"
-                                : icon === "eye"
-                                  ? "eye"
-                                  : icon === "look"
-                                    ? "face"
-                                    : icon === "search"
-                                      ? "search"
-                                      : icon === "board"
-                                        ? "board"
-                                      : "keyboard"
-                          }
-                          className="size-4 text-accent"
-                        />
-                        <span className="flex-1 text-left">{t(label)}</span>
-                        {keys ? (
-                          <kbd className="rounded-md border border-line-strong px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted">
-                            {keys}
-                          </kbd>
-                        ) : null}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className={`${button({ size: "lg" })} ml-1`}
-            onClick={leave}
-          >
+          <button type="button" className={`${button({ size: "lg" })} max-sm:px-3.5`} onClick={leave}>
             <Icon name="leave" />
-            {t("room.leave")}
+            <span className="max-sm:sr-only">{t("room.leave")}</span>
           </button>
-        </div>
-        <div className="flex items-center justify-end">
-          <div
-            role="group"
-            aria-label={t("dock.panels")}
-            className="bubble flex items-center gap-1 border border-line-strong bg-card p-1"
-          >
-            {iAmOwner
-              ? toggle("settings", "settings", t("side.settings"))
-              : null}
-            {toggle("people", "people", t("side.people"), people.length, true)}
-            {toggle("chat", "chat", t("side.chat"), unread)}
-          </div>
         </div>
       </footer>
     </div>

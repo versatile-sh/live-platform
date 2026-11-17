@@ -20,75 +20,146 @@ describe("HomePage", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Compartilhe qualquer coisa.Assista de qualquer lugar.");
   });
 
-  test("remembers the name typed here for the room it leads to", async () => {
-    const pathname = fakePathname();
-    const services = fakeServices();
-    renderWithApp(<HomePage />, { pathname, services });
-    await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-    await userEvent.type(screen.getByLabelText("Room name"), "standup{enter}");
-    await waitFor(() => expect(pathname.visited).toEqual(["/standup"]));
-    expect(services.nameMemory.read()).toBe("Ana");
-    expect(services.entryIntent.read("standup")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true });
+  describe("the create button", () => {
+    const drawn = /^\/[2-9a-hj-np-z]{4}-[2-9a-hj-np-z]{4}$/;
+
+    test("with a remembered name, one click enters a new room with a name drawn for it", async () => {
+      const pathname = fakePathname();
+      const services = fakeServices({ nameMemory: { read: () => "Ana", write: () => undefined } });
+      renderWithApp(<HomePage />, { pathname, services });
+      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await waitFor(() => expect(pathname.visited).toHaveLength(1));
+      const [path = ""] = pathname.visited;
+      expect(path).toMatch(drawn);
+      expect(services.entryIntent.read(path.slice(1))).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true });
+    });
+
+    test("without a name, one click opens the new room's door, which asks for it", async () => {
+      const pathname = fakePathname();
+      const services = fakeServices();
+      renderWithApp(<HomePage />, { pathname, services });
+      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      expect(pathname.visited).toHaveLength(1);
+      expect(pathname.visited[0]).toMatch(drawn);
+      expect(services.entryIntent.read(pathname.visited[0]!.slice(1))).toBeUndefined();
+    });
   });
 
-  test("asks for a name before going anywhere", async () => {
-    const pathname = fakePathname();
-    renderWithApp(<HomePage />, { pathname });
-    await userEvent.type(screen.getByLabelText("Room name"), "standup{enter}");
-    expect(screen.getByLabelText("Your name")).toBeInvalid();
-    expect(pathname.visited).toEqual([]);
-  });
+  describe("More options", () => {
+    const more = () => screen.getByRole("button", { name: "More options" });
 
-  test("a private room carries the room code shown, and is shown in the open rooms unless turned off", async () => {
-    const pathname = fakePathname();
-    const services = fakeServices({ generatePassword: () => "8ABH-23HK" });
-    renderWithApp(<HomePage />, { pathname, services });
-    await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-    await userEvent.type(screen.getByLabelText("Room name"), "secret");
-    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
-    await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-    expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
-    await userEvent.click(screen.getByRole("button", { name: /Enter/ }));
-    await waitFor(() => expect(pathname.visited).toEqual(["/secret"]));
-    expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
-  });
+    test("start closed and open on a click, with the room's name and who may enter", async () => {
+      renderWithApp(<HomePage />);
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByLabelText("Room name").closest("[inert]")).not.toBeNull();
+      await userEvent.click(more());
+      expect(more()).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByLabelText("Room name").closest("[inert]")).toBeNull();
+      expect(screen.getByRole("radio", { name: /Public/ })).toBeChecked();
+    });
 
-  test("a room can be kept out of the open rooms", async () => {
-    const pathname = fakePathname();
-    const services = fakeServices();
-    renderWithApp(<HomePage />, { pathname, services });
-    await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-    await userEvent.type(screen.getByLabelText("Room name"), "quiet");
-    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
-    await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-    await userEvent.click(screen.getByRole("button", { name: /Enter/ }));
-    await waitFor(() => expect(pathname.visited).toEqual(["/quiet"]));
-    expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false });
-  });
+    test("remember the name typed there for the room it leads to", async () => {
+      const pathname = fakePathname();
+      const services = fakeServices();
+      renderWithApp(<HomePage />, { pathname, services });
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.type(screen.getByLabelText("Room name"), "standup{enter}");
+      await waitFor(() => expect(pathname.visited).toEqual(["/standup"]));
+      expect(services.nameMemory.read()).toBe("Ana");
+      expect(services.entryIntent.read("standup")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true });
+    });
 
-  test("leads to the open rooms without asking the server for them", () => {
-    renderWithApp(<HomePage />);
-    expect(screen.getByRole("link", { name: "See open rooms" })).toHaveAttribute("href", "/lobby");
-  });
-
-  describe("the room name field", () => {
-    test("goes to the room for a valid name, normalising case", async () => {
+    test("ask for a name before a private room is made", async () => {
       const pathname = fakePathname();
       renderWithApp(<HomePage />, { pathname });
+      await userEvent.click(more());
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      expect(screen.getByLabelText("Your name")).toBeInvalid();
+      expect(pathname.visited).toEqual([]);
+    });
+
+    test("a private room carries the room code shown, and is shown in the open rooms unless turned off", async () => {
+      const pathname = fakePathname();
+      const services = fakeServices({ generatePassword: () => "8ABH-23HK" });
+      renderWithApp(<HomePage />, { pathname, services });
+      expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.type(screen.getByLabelText("Room name"), "secret");
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
+      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await waitFor(() => expect(pathname.visited).toEqual(["/secret"]));
+      expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
+    });
+
+    test("a room can be kept out of the open rooms", async () => {
+      const pathname = fakePathname();
+      const services = fakeServices();
+      renderWithApp(<HomePage />, { pathname, services });
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.type(screen.getByLabelText("Room name"), "quiet");
+      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
+      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await waitFor(() => expect(pathname.visited).toEqual(["/quiet"]));
+      expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false });
+    });
+
+    test("go to the room typed, normalising case", async () => {
+      const pathname = fakePathname();
+      renderWithApp(<HomePage />, { pathname });
+      await userEvent.click(more());
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
       await userEvent.type(screen.getByLabelText("Room name"), "  Stand-Up{enter}");
       await waitFor(() => expect(pathname.visited).toEqual(["/stand-up"]));
     });
 
-    test("explains an invalid name and does not navigate", async () => {
+    test("explain a room name the site cannot use, and open to show it", async () => {
       const pathname = fakePathname();
       renderWithApp(<HomePage />, { pathname });
-      await userEvent.type(screen.getByLabelText("Room name"), "api{enter}");
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Room name"), "api");
+      await userEvent.click(more());
+      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      expect(more()).toHaveAttribute("aria-expanded", "true");
       expect(screen.getByLabelText("Room name")).toBeInvalid();
       expect(screen.getByText("The site keeps that name. Pick another one.")).toBeInTheDocument();
       expect(pathname.visited).toEqual([]);
     });
+  });
+
+  describe("joining from a link", () => {
+    test("goes to the room of a pasted link, keeping its room code", async () => {
+      const pathname = fakePathname();
+      renderWithApp(<HomePage />, { pathname });
+      await userEvent.type(screen.getByLabelText("Link or room name"), "https://live.test/standup#8ABH-23HK{enter}");
+      expect(pathname.visited).toEqual(["/standup#8ABH-23HK"]);
+    });
+
+    test("goes to a room by its name alone", async () => {
+      const pathname = fakePathname();
+      renderWithApp(<HomePage />, { pathname });
+      await userEvent.type(screen.getByLabelText("Link or room name"), "Standup");
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      expect(pathname.visited).toEqual(["/standup"]);
+    });
+
+    test("explains what cannot be a room and stays", async () => {
+      const pathname = fakePathname();
+      renderWithApp(<HomePage />, { pathname });
+      await userEvent.type(screen.getByLabelText("Link or room name"), "live.test/lobby{enter}");
+      expect(screen.getByLabelText("Link or room name")).toBeInvalid();
+      expect(screen.getByText("The site keeps that name. Pick another one.")).toBeInTheDocument();
+      expect(pathname.visited).toEqual([]);
+    });
+  });
+
+  test("leads to the open rooms without asking the server for them", () => {
+    renderWithApp(<HomePage />);
+    expect(screen.getByRole("link", { name: "See open rooms" })).toHaveAttribute("href", "/lobby");
   });
 
   describe("the conveyor", () => {

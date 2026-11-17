@@ -33,6 +33,11 @@ async function socketOf(services: { sockets: FakeSocket[] }, index = 0): Promise
   return services.sockets[index]!;
 }
 
+async function fromMore(name: string | RegExp, role: "menuitem" | "menuitemcheckbox" = "menuitem") {
+  await userEvent.click(screen.getByRole("button", { name: "More options" }));
+  await userEvent.click(screen.getByRole(role, { name }));
+}
+
 const send = (socket: FakeSocket, frame: unknown) => act(() => socket.serverSend(frame));
 const joinAs = (socket: FakeSocket, pid = 1, secret = "s1") =>
   act(() => {
@@ -83,7 +88,8 @@ describe("RoomPage", () => {
 
     test("sends the join with the listed choice", async () => {
       const { services } = await setup();
-      await userEvent.click(await screen.findByRole("switch", { name: /Show in open rooms/ }));
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
@@ -91,10 +97,37 @@ describe("RoomPage", () => {
     });
   });
 
+  describe("when I am alone in the room", () => {
+    async function alone() {
+      const ctx = await setup();
+      await submitName("Ana");
+      const socket = await socketOf(ctx.services);
+      await joinAs(socket);
+      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32, state: "active" })], gone: [] });
+      return { ...ctx, socket };
+    }
+
+    test("the stage invites someone with the room's link, and copies it on a click", async () => {
+      const { services } = await alone();
+      expect(screen.getByRole("heading", { name: "Nobody else is here yet" })).toBeInTheDocument();
+      expect(screen.getByText("https://live.test/demo")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      expect(services.copied).toEqual(["https://live.test/demo"]);
+      expect(screen.getByRole("button", { name: "Link copied" })).toBeInTheDocument();
+    });
+
+    test("the invitation gives way when someone arrives", async () => {
+      const { socket } = await alone();
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { state: "active" })], gone: [] });
+      expect(screen.queryByRole("heading", { name: "Nobody else is here yet" })).not.toBeInTheDocument();
+      expect(screen.getByRole("listitem", { name: /Bia, connected/ })).toBeInTheDocument();
+    });
+  });
+
   describe("when people change", () => {
     async function inRoom() {
       const ctx = await setup({ kind: "ok", room: { ...free, exists: true, count: 1 } });
-      await submitName("Ana", "Enter room");
+      await submitName("Ana", "Enter");
       const socket = await socketOf(ctx.services);
       await joinAs(socket, 2);
       await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });
@@ -179,7 +212,7 @@ describe("RoomPage", () => {
       const { services } = await setup({ kind: "ok", room: { ...free, exists: true, private: true, count: 1 } });
       await userEvent.type(await screen.findByLabelText("Your name"), "Eve");
       await userEvent.type(screen.getByLabelText("Room code"), "wrongpass1");
-      await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
       await send(socket, { t: "error", code: "PERMISSION_DENIED", message: "needs password" });
@@ -266,28 +299,31 @@ describe("RoomPage", () => {
 
     test("do not appear for someone who is not the owner", async () => {
       const ctx = await setup({ kind: "ok", room: { ...free, exists: true, count: 1 } });
-      await submitName("Bia", "Enter room");
+      await submitName("Bia", "Enter");
       const socket = await socketOf(ctx.services);
       await joinAs(socket, 2);
       await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });
       await screen.findAllByText("Ana");
-      expect(screen.queryByRole("button", { name: "Room settings" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      expect(screen.queryByRole("menuitem", { name: "Room settings" })).not.toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
       await userEvent.click(screen.getByRole("button", { name: "People" }));
       expect(screen.queryByRole("button", { name: /Remove/ })).not.toBeInTheDocument();
     });
 
     test("a public room has a plain link, and the open rooms switch sends the listing", async () => {
       const { socket, services } = await asOwner();
-      await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
+      await fromMore("Room settings");
       await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
       expect(services.copied.at(-1)).toBe("https://live.test/demo");
+      expect(screen.getByRole("button", { name: "Link copied" })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: false }]);
     });
 
     test("making it private locks it with a room code that the link carries, without touching the listing", async () => {
       const { socket, services } = await asOwner();
-      await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
+      await fromMore("Room settings");
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       await waitFor(() => expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password", verifier: "v:demo:8ABH-23HK" }]));
       expect(await screen.findByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
@@ -298,7 +334,7 @@ describe("RoomPage", () => {
 
     test("a new code sends its verifier, and going back to public sends an owner frame with none", async () => {
       const { socket, services } = await asOwner();
-      await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
+      await fromMore("Room settings");
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       services.generatePassword = () => "9XYZ-45QR";
       await userEvent.click(await screen.findByRole("button", { name: "New" }));
@@ -327,6 +363,65 @@ describe("RoomPage", () => {
     }
 
     const panels = () => within(screen.getByRole("group", { name: "Side panels" }));
+
+    test("keeps only the microphone, the camera, the screen, invite and leave on the bar", async () => {
+      await inCall();
+      const bar = within(screen.getByRole("toolbar", { name: "Call controls" }));
+      expect(bar.getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual([
+        "Turn microphone on",
+        "Microphone options",
+        "Turn camera on",
+        "Camera options",
+        "Share your screen",
+        "Invite",
+        "Leave",
+      ]);
+    });
+
+    test("groups everything else under More options, with the owner's room settings", async () => {
+      await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      const menu = within(screen.getByRole("menu", { name: "More options" }));
+      expect(menu.getByRole("menuitem", { name: /Raise your hand/ })).toBeInTheDocument();
+      expect(menu.getByRole("menuitemcheckbox", { name: "Whiteboard" })).toBeInTheDocument();
+      for (const name of ["Room settings", "Sound and video settings", "How you appear", "Visibility options", "Connection quality", "Keyboard shortcuts", /Search for something to do/]) {
+        expect(menu.getByRole("menuitem", { name })).toBeInTheDocument();
+      }
+    });
+
+    test("closes More options on Escape and gives the focus back to its button", async () => {
+      await inCall();
+      const more = screen.getByRole("button", { name: "More options" });
+      await userEvent.click(more);
+      expect(screen.getByRole("menuitem", { name: /Raise your hand/ })).toHaveFocus();
+      await userEvent.keyboard("{Escape}");
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(more).toHaveAttribute("aria-expanded", "false");
+      expect(more).toHaveFocus();
+    });
+
+    test("invite copies the room's link and says so where it can be seen", async () => {
+      const { services } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "Invite" }));
+      expect(services.copied.at(-1)).toBe("https://live.test/demo");
+      expect(screen.getByText("Link copied")).toBeVisible();
+    });
+
+    test("invite shows the link to copy by hand when the browser will not copy", async () => {
+      await inCall({ clipboard: { write: async () => false } });
+      await userEvent.click(screen.getByRole("button", { name: "Invite" }));
+      expect(screen.getByText("The browser did not copy it. Copy this link: https://live.test/demo")).toBeInTheDocument();
+    });
+
+    test("on a phone, starts with the side panel closed so the stage shows", async () => {
+      vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("max-width") }));
+      try {
+        await inCall();
+        expect(panels().getByRole("button", { name: "Chat" })).toHaveAttribute("aria-pressed", "false");
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
 
     test("shows the room name, the chat open, and no way to other rooms", async () => {
       await inCall();
@@ -375,7 +470,7 @@ describe("RoomPage", () => {
       await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 1 }));
       expect(asked[0]).toHaveProperty("audio");
       expect(screen.getByRole("button", { name: "Turn microphone off" })).toHaveAttribute("aria-pressed", "true");
-      await userEvent.click(screen.getByRole("button", { name: "Raise your hand" }));
+      await fromMore(/Raise your hand/);
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 17 });
     });
 
@@ -461,13 +556,39 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: /Sound and video settings/ }));
       const sheet = within(screen.getByRole("dialog", { name: "Sound and video settings" }));
-      await userEvent.click(sheet.getByRole("switch", { name: /Push to talk/ }));
+      await userEvent.click(sheet.getByRole("switch", { name: /Share the computer's sound/ }));
+      await userEvent.click(sheet.getByRole("button", { name: "Advanced" }));
+      await userEvent.click(sheet.getByRole("switch", { name: /Talk only while holding a key/ }));
       await userEvent.click(sheet.getByRole("radio", { name: "Left Alt" }));
       await userEvent.click(sheet.getByRole("radio", { name: "1440p · 60 fps" }));
-      await userEvent.click(sheet.getByRole("switch", { name: /Noise gate/ }));
-      expect(written.at(-1)).toMatchObject({ pushToTalk: true, talkKey: "AltLeft", screenQuality: "1440p60", gate: true });
+      await userEvent.click(sheet.getByRole("switch", { name: /Cut the noise when you are not talking/ }));
+      expect(written.at(-1)).toMatchObject({ screenAudio: false, pushToTalk: true, talkKey: "AltLeft", screenQuality: "1440p60", gate: true });
       expect(sheet.getByRole("radio", { name: "1440p · 60 fps" })).toHaveAttribute("aria-checked", "true");
-      expect(sheet.getByRole("slider", { name: "Gate opens at" })).toBeEnabled();
+      expect(sheet.getByRole("slider", { name: "How loud you must talk to be heard" })).toBeEnabled();
+    });
+
+    test("settings show the basics first, with the devices, and keep the finer controls under Advanced", async () => {
+      const chosen: MediaStreamConstraints[] = [];
+      const track = { stop: () => undefined, addEventListener: () => undefined };
+      const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;
+      await inCall({
+        mediaDevices: {
+          user: async (constraints) => (chosen.push(constraints), stream),
+          display: async () => stream,
+          list: async () => [{ kind: "audioinput", deviceId: "mic-1", label: "Built-in microphone" } as MediaDeviceInfo, { kind: "audioinput", deviceId: "mic-2", label: "Desk microphone" } as MediaDeviceInfo],
+        },
+      });
+      await fromMore("Sound and video settings");
+      const sheet = within(screen.getByRole("dialog", { name: "Sound and video settings" }));
+      expect(sheet.getByRole("heading", { name: "Basic" })).toBeInTheDocument();
+      expect(sheet.getByRole("radiogroup", { name: "Clean up background noise" })).toBeInTheDocument();
+      const advanced = sheet.getByRole("button", { name: "Advanced" });
+      expect(advanced).toHaveAttribute("aria-expanded", "false");
+      expect(sheet.getByRole("switch", { name: /Cut the noise when you are not talking/ }).closest("[inert]")).not.toBeNull();
+      await userEvent.click(await sheet.findByRole("radio", { name: "Desk microphone" }));
+      await userEvent.click(sheet.getByRole("button", { name: "Close" }));
+      await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
+      await waitFor(() => expect(chosen.at(-1)).toMatchObject({ audio: { deviceId: { exact: "mic-2" } } }));
     });
 
     test("the keyboard shortcuts are listed and work", async () => {
@@ -499,9 +620,8 @@ describe("RoomPage", () => {
     test("the whiteboard is offered in the menu and what the others draw is heard even while it is closed", async () => {
       const { socket } = await inCall();
       await send(socket, { t: "board", pid: 2, data: { k: "els", els: [{ id: "a", version: 1, versionNonce: 1 }] } });
-      expect(screen.getByRole("button", { name: "Whiteboard" })).toHaveAttribute("aria-pressed", "false");
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      expect(screen.getByRole("menuitem", { name: /Whiteboard/ })).toBeInTheDocument();
+      expect(screen.getByRole("menuitemcheckbox", { name: "Whiteboard" })).toHaveAttribute("aria-checked", "false");
     });
 
     test("a click on a person brings them to the front with the others beside, and another click sends them back", async () => {
@@ -528,7 +648,7 @@ describe("RoomPage", () => {
       await userEvent.click(within(boardFrame).getByRole("button", { name: "Close the whiteboard for me" }));
       expect(screen.queryByRole("listitem", { name: "Whiteboard" })).not.toBeInTheDocument();
       expect(socket.sent.length).toBe(sentBefore);
-      await userEvent.click(screen.getByRole("button", { name: "Whiteboard" }));
+      await fromMore("Whiteboard", "menuitemcheckbox");
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 128 });
       expect(screen.getByRole("listitem", { name: "Whiteboard" })).toBeInTheDocument();
     });
@@ -550,6 +670,8 @@ describe("RoomPage", () => {
       await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 256, state: "active" }), person(2, "Bia", { flags: 32, state: "active" })], gone: [] });
       await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
       expect(screen.getByText("The owner muted the room. Raise your hand to ask to speak.")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Raise your hand" }));
+      expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 16 });
       await send(socket, { t: "roster", v: 4, people: [person(1, "Ana", { flags: 0, state: "active" }), person(2, "Bia", { flags: 32, state: "active" })], gone: [] });
       expect(screen.getByText("The owner let you speak. Your microphone is still off.")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "Not now" }));
@@ -558,7 +680,7 @@ describe("RoomPage", () => {
 
     test("the owner keeps the whiteboard to those they let draw, and the others see it read only", async () => {
       const { socket } = await inCall();
-      await userEvent.click(screen.getByRole("button", { name: "Whiteboard" }));
+      await fromMore("Whiteboard", "menuitemcheckbox");
       await userEvent.click(screen.getByRole("button", { name: "Only who I let draws" }));
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "lock-board" });
       await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 32 | 128, state: "active" }), person(2, "Bia", { flags: 512, state: "active" })], gone: [], locked: true });

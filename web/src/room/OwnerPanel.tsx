@@ -5,6 +5,7 @@ import { useT } from "../i18n/I18nProvider";
 import { useServices } from "../services";
 import type { Session, SessionSnapshot } from "../session/session";
 import { button } from "../ui/styles";
+import { useCopy } from "../ui/useCopy";
 import { AccessSettings, type Access } from "./AccessSettings";
 
 type OwnerPanelProps = { slug: string; session: Session; snapshot: SessionSnapshot };
@@ -14,7 +15,7 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
   const t = useT();
   const services = useServices();
   const [code, setCode] = useState(() => snapshot.password ?? services.generatePassword());
-  const [copied, setCopied] = useState(false);
+  const { result, copy } = useCopy();
   const access: Access = snapshot.private ? "private" : "public";
   const link = shareLink(services.origin, slug, snapshot.private ? snapshot.password : undefined);
 
@@ -27,13 +28,6 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
     if (next === access) return;
     if (next === "private") void lockWith(code);
     else session.owner({ op: "password" }, { private: false, password: undefined });
-  }
-
-  async function copy() {
-    if (await services.clipboard.write(link)) {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    }
   }
 
   return (
@@ -54,8 +48,8 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
       <p className="bubble truncate border border-line-strong bg-canvas px-3.5 py-2.5 font-mono text-sm text-muted" translate="no">
         {link}
       </p>
-      <button type="button" className={`${button({ size: "sm" })} mt-3 self-start`} onClick={() => void copy()}>
-        {copied ? t("owner.linkCopied") : t("owner.copyLink")}
+      <button type="button" className={`${button({ size: "sm" })} mt-3 self-start`} onClick={() => void copy(link)}>
+        {result === "copied" ? t("invite.copied") : t("invite.copy")}
       </button>
       <p className="mt-2 text-sm text-muted">{snapshot.private ? t("owner.linkPrivate") : t("owner.linkPublic")}</p>
     </section>
