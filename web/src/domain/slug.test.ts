@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { checkSlug, normalizeSlug } from "./slug";
+import { checkSlug, normalizeSlug, randomSlug } from "./slug";
 
 describe("checkSlug", () => {
   describe("with a well-formed slug", () => {
@@ -33,5 +33,21 @@ describe("checkSlug", () => {
 describe("normalizeSlug", () => {
   test("trims and lowercases what was typed", () => {
     expect(normalizeSlug("  Stand-Up ")).toBe("stand-up");
+  });
+});
+
+describe("randomSlug", () => {
+  test("draws a name the server accepts, in two groups of four", () => {
+    for (let i = 0; i < 200; i++) {
+      const slug = randomSlug();
+      expect(slug).toMatch(/^[2-9a-hj-np-z]{4}-[2-9a-hj-np-z]{4}$/);
+      expect(checkSlug(slug)).toEqual({ ok: true, slug });
+    }
+  });
+
+  test("takes its letters from the draw it is given", () => {
+    let i = 0;
+    const draws = [8, 0, 1, 2, 3, 4, 5, 6];
+    expect(randomSlug((bytes) => void (bytes[0] = draws[i++] ?? 0))).toBe("a234-5678");
   });
 });

@@ -1,3 +1,5 @@
+import { generatePassword, type RandomBytes } from "./password";
+
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 40;
 const RESERVED = new Set(["api", "ws", "up", "assets", "lobby", "static", "new", "about", "docs"]);
@@ -21,4 +23,9 @@ export function checkSlug(slug: string): SlugCheck {
   if (slug.startsWith("-") || slug.endsWith("-") || slug.includes("--")) return { ok: false, problem: "hyphens" };
   if (RESERVED.has(slug)) return { ok: false, problem: "reserved" };
   return { ok: true, slug };
+}
+
+/** A room name drawn at random, like `8abh-23hk`: two groups of four letters and digits without look-alikes. One in about 10^12, so it is free in practice. */
+export function randomSlug(random?: RandomBytes): string {
+  return generatePassword(random).toLowerCase();
 }
