@@ -196,7 +196,6 @@ export const ptBR: Record<MessageKey, string> = {
   "look.photoHint": "A foto dura só enquanto você está nesta sala. Um GIF de até 90 KB continua animado; um maior vira imagem parada.",
   "look.photoFailed": "Não foi possível ler essa imagem. Tente outra.",
   "more.label": "Mais opções",
-  "more.access": "Acesso à sala",
   "more.connection": "Qualidade da conexão",
   "more.shortcuts": "Atalhos de teclado",
   "more.close": "Fechar",
@@ -415,6 +414,8 @@ export const ptBR: Record<MessageKey, string> = {
   "ended.badFrame.body": "Recarregue a página e tente de novo.",
   "ended.left.title": "Você saiu da sala",
 
+  "invite.button": "Convidar",
+  "invite.failed": "O navegador não copiou. Copie este link: {link}",
   "invite.copy": "Copiar link",
   "invite.copied": "Link copiado",
   "owner.heading": "Configurações da sala",

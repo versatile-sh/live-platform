@@ -78,7 +78,9 @@ Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and t
 | `Bubble` | a few words in a small bubble |
 | `Shell` | the frame of a page that is not the front page |
 
-Feature components built from them: `room/AccessSettings` (public or private, room code, open rooms), `lobby/RoomRow` (one room, tones `ink` and `raised`), `lobby/RoomsDialog`, `map/WorldMap`, `room/Tile`, `room/ChatPanel`, `room/PeoplePanel`, `room/OwnerPanel`.
+Feature components built from them: `room/AccessSettings` (public or private, room code, open rooms), `lobby/RoomRow` (one room, tones `ink` and `raised`), `lobby/RoomsDialog`, `map/WorldMap`, `room/Tile`, `room/ChatPanel`, `room/PeoplePanel`, `room/OwnerPanel`, `room/MoreMenu` (the call's menu behind the round `…` button in the header).
+
+The call keeps one bar at the bottom with five things a person needs at a glance: microphone, camera, screen, Invite and Leave. The side panels (people, chat) and the `…` menu sit at the top right; everything else (hand, whiteboard, room settings, sound and video settings, look, visibility, connection, shortcuts, search) is in that menu. On a phone the bar drops the words and the device carets, and the side panel starts closed.
 
 ## Rules
 

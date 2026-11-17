@@ -42,9 +42,11 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { EndedPanel } from "./EndedPanel";
 import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
+import { MoreMenu, type MoreItem } from "./MoreMenu";
 import { PeoplePanel } from "./PeoplePanel";
 import { Tile } from "./Tile";
 import { CHIP, DOCK, ICON_BUTTON, button } from "../ui/styles";
+import { useCopy } from "../ui/useCopy";
 
 const Whiteboard = lazy(() => import("../board/Whiteboard"));
 const BoardPreview = lazy(() => import("../board/BoardPreview"));
@@ -334,11 +336,9 @@ export function RoomView({
     settingsMemory.write({ ...local.settings, ...change });
     void media.setSettings(change);
   };
-  const [side, setSide] = useState<Side | undefined>("chat");
+  const [side, setSide] = useState<Side | undefined>(() => (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 47.99rem)").matches ? undefined : "chat"));
   const [shown, setShown] = useState<Side>("chat");
-  const [menu, setMenu] = useState<
-    "microphone" | "camera" | "more" | undefined
-  >();
+  const [menu, setMenu] = useState<"microphone" | "camera" | undefined>();
   const [sheet, setSheet] = useState<
     "shortcuts" | "look" | "visibility" | "media" | undefined
   >();
@@ -350,7 +350,10 @@ export function RoomView({
   const [readUpTo, setReadUpTo] = useState<Readonly<Record<number, number>>>({});
   const [palette, setPalette] = useState(false);
   const choose = useChooseLocale();
-  const { clipboard, origin } = useServices();
+  const { origin } = useServices();
+  const link = shareLink(origin, slug, snapshot.private ? snapshot.password : undefined);
+  const { result: invited, copy } = useCopy();
+  const invite = () => void copy(link);
   const [peer, setPeer] = useState<number | undefined>();
   const sees = (pid: number): Seeing => seeing[pid] ?? SEE_ALL;
   const see = (pid: number, change: Partial<Seeing>) =>
@@ -589,14 +592,14 @@ export function RoomView({
     label: string,
   ) {
     return (
-      <div className="relative flex items-center rounded-full bg-card pr-1">
+      <div className="relative flex items-center rounded-full bg-card sm:pr-1">
         {button}
         <button
           type="button"
           aria-expanded={menu === kind}
           aria-label={label}
           title={label}
-          className={DOCK.caret}
+          className={`${DOCK.caret} max-sm:hidden`}
           onClick={() => {
             void media.refreshDevices();
             setMenu(menu === kind ? undefined : kind);
@@ -644,6 +647,22 @@ export function RoomView({
     );
   }
 
+  const moreGroups: readonly (readonly MoreItem[])[] = [
+    [
+      { id: "hand", label: t(local.hand ? "dock.handDown" : "dock.handUp"), icon: "hand", keys: "Ctrl+Alt+H", run: media.toggleHand },
+      { id: "board", label: t("more.board"), icon: "board", checked: boardShown, run: toggleBoard },
+      ...(iAmOwner ? [{ id: "settings", label: t("side.settings"), icon: "settings" as const, run: () => setSide("settings") }] : []),
+    ],
+    [
+      { id: "media", label: t("more.media"), icon: "settings", run: () => setSheet("media") },
+      { id: "look", label: t("more.look"), icon: "face", run: () => setSheet("look") },
+      { id: "visibility", label: t("more.visibility"), icon: "eye", run: () => setSheet("visibility") },
+      { id: "connection", label: t("more.connection"), icon: "signal", run: () => setStats((open) => !open) },
+      { id: "shortcuts", label: t("more.shortcuts"), icon: "keyboard", run: () => setSheet("shortcuts") },
+      { id: "palette", label: t("more.palette"), icon: "search", keys: "Ctrl+K", run: () => setPalette(true) },
+    ],
+  ];
+
   if (connection.phase === "ended") {
     return (
       <div className="m-auto w-full max-w-xl px-6 py-10">
@@ -666,9 +685,9 @@ export function RoomView({
 
   return (
     <div className="page-forward flex h-dvh min-h-0 flex-col bg-canvas">
-      <header className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 px-5">
-        <Wordmark className="text-sm" />
-        <div className="flex max-w-[60vw] items-center gap-3">
+      <header className="grid h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-4 sm:px-5">
+        <Wordmark className="text-sm max-sm:hidden" />
+        <div className="flex min-w-0 items-center gap-3 sm:max-w-[60vw]">
           <h1
             className="min-w-0 truncate font-display text-lg font-bold tracking-[-0.03em]"
             translate="no"
@@ -676,6 +695,13 @@ export function RoomView({
             {slug}
           </h1>
           <ConnectionStatus connection={connection} />
+        </div>
+        <div className="flex items-center gap-2 justify-self-end">
+          <div role="group" aria-label={t("dock.panels")} className="bubble flex items-center gap-1 border border-line-strong bg-card p-1">
+            {toggle("people", "people", t("side.people"), people.length, true)}
+            {toggle("chat", "chat", t("side.chat"), unread)}
+          </div>
+          <MoreMenu groups={moreGroups} />
         </div>
       </header>
 
@@ -744,9 +770,12 @@ export function RoomView({
               </li>
             ))}
             {iAmMuted ? (
-              <li className="swap-in bubble pointer-events-auto flex items-center gap-2.5 border border-line-strong bg-card px-4 py-2.5 text-sm">
+              <li className="swap-in bubble pointer-events-auto flex flex-wrap items-center gap-2.5 border border-line-strong bg-card px-4 py-2.5 text-sm">
                 <Icon name="micOff" className="size-4 shrink-0 text-accent" />
                 <span>{t(roomQuiet ? "quiet.youRoom" : "quiet.youOne")}</span>
+                <button type="button" className={button({ variant: "accent", size: "xs" })} onClick={media.toggleHand}>
+                  {t(local.hand ? "dock.handDown" : "dock.handUp")}
+                </button>
               </li>
             ) : null}
             {prompt ? (
@@ -781,7 +810,7 @@ export function RoomView({
         <aside
           aria-label={t(`side.${shown}`)}
           inert={!side}
-          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 md:-mt-11 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
+          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
         >
           <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden bubble-sent border border-line bg-card max-md:w-full">
             <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
@@ -944,14 +973,7 @@ export function RoomView({
               id: "link",
               group: t("palette.group.room"),
               label: t("palette.copyLink"),
-              run: () =>
-                void clipboard.write(
-                  shareLink(
-                    origin,
-                    slug,
-                    snapshot.private ? snapshot.password : undefined,
-                  ),
-                ),
+              run: invite,
             },
             ...people
               .filter((person) => person.pid !== myPid)
@@ -1185,191 +1207,22 @@ export function RoomView({
         </Sheet>
       ) : null}
 
-      <footer className="grid h-20 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-4 px-5">
-        <div
-          role="toolbar"
-          aria-label={t("dock.label")}
-          className="col-start-2 flex items-center gap-2.5"
-        >
-          {withOptions(
-            "microphone",
-            control("microphone", "mic", "micOff", [
-              t("dock.micOn"),
-              t("dock.micOff"),
-            ]),
-            t("dock.micMenu"),
-          )}
-          {withOptions(
-            "camera",
-            control("camera", "camera", "cameraOff", [
-              t("dock.cameraOn"),
-              t("dock.cameraOff"),
-            ]),
-            t("dock.cameraMenu"),
-          )}
-          {control("screen", "screen", "screen", [
-            t("dock.screenOn"),
-            t("dock.screenOff"),
-          ])}
-          <button
-            type="button"
-            aria-pressed={local.hand}
-            aria-label={t(local.hand ? "dock.handDown" : "dock.handUp")}
-            title={t(local.hand ? "dock.handDown" : "dock.handUp")}
-            className={`${DOCK.round} ${local.hand ? DOCK.on : DOCK.idle}`}
-            onClick={media.toggleHand}
-          >
-            <Icon name="hand" />
+      <footer className="relative flex h-20 shrink-0 items-center justify-center px-3 sm:px-5">
+        <p role="status" className={`pointer-events-none absolute inset-x-0 bottom-full mx-auto w-fit max-w-[calc(100vw-1.5rem)] text-center text-sm break-all ${invited === "idle" ? "" : "arrive bubble border border-bubble bg-card px-4 py-2"}`}>
+          {invited === "copied" ? t("invite.copied") : invited === "failed" ? t("invite.failed", { link }) : ""}
+        </p>
+        <div role="toolbar" aria-label={t("dock.label")} className="flex items-center gap-2 sm:gap-2.5">
+          {withOptions("microphone", control("microphone", "mic", "micOff", [t("dock.micOn"), t("dock.micOff")]), t("dock.micMenu"))}
+          {withOptions("camera", control("camera", "camera", "cameraOff", [t("dock.cameraOn"), t("dock.cameraOff")]), t("dock.cameraMenu"))}
+          {control("screen", "screen", "screen", [t("dock.screenOn"), t("dock.screenOff")])}
+          <button type="button" className={`${button({ variant: "secondary", size: "lg" })} max-sm:px-3.5`} onClick={invite}>
+            <Icon name="invite" />
+            <span className="max-sm:sr-only">{t("invite.button")}</span>
           </button>
-          <button type="button" aria-pressed={boardShown} aria-label={t("more.board")} title={t("more.board")} className={`${DOCK.round} ${boardShown ? DOCK.on : DOCK.idle}`} onClick={toggleBoard}>
-            <Icon name="board" />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              aria-expanded={menu === "more"}
-              aria-label={t("more.label")}
-              title={t("more.label")}
-              className={`${DOCK.round} ${menu === "more" ? DOCK.open : DOCK.idle}`}
-              onClick={() => setMenu(menu === "more" ? undefined : "more")}
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="currentColor"
-              >
-                <circle cx="6" cy="12" r="1.6" />
-                <circle cx="12" cy="12" r="1.6" />
-                <circle cx="18" cy="12" r="1.6" />
-              </svg>
-            </button>
-            {menu === "more" ? (
-              <>
-                <button
-                  type="button"
-                  aria-label={t("menu.close")}
-                  className="fixed inset-0 z-20 cursor-default"
-                  onClick={() => setMenu(undefined)}
-                />
-                <ul
-                  role="menu"
-                  aria-label={t("more.label")}
-                  className="swap-in bubble absolute bottom-[calc(100%+0.75rem)] left-1/2 z-30 flex w-72 -translate-x-1/2 flex-col border border-line-strong bg-card p-2 text-left"
-                >
-                  {(
-                    [
-                      ...(iAmOwner
-                        ? [
-                            [
-                              "more.access",
-                              "settings",
-                              undefined,
-                              () => setSide("settings"),
-                            ] as const,
-                          ]
-                        : []),
-                      [
-                        "more.palette",
-                        "search",
-                        "Ctrl+K",
-                        () => setPalette(true),
-                      ] as const,
-                      [
-                        "more.look",
-                        "look",
-                        undefined,
-                        () => setSheet("look"),
-                      ] as const,
-                      [
-                        "more.board",
-                        "board",
-                        undefined,
-                        toggleBoard,
-                      ] as const,
-                      ["more.media", "settings", undefined, () => setSheet("media")] as const,
-                      [
-                        "more.visibility",
-                        "eye",
-                        undefined,
-                        () => setSheet("visibility"),
-                      ] as const,
-                      [
-                        "more.connection",
-                        "people",
-                        undefined,
-                        () => setStats((shown) => !shown),
-                      ] as const,
-                      [
-                        "more.shortcuts",
-                        "chat",
-                        "Ctrl+/",
-                        () => setSheet("shortcuts"),
-                      ] as const,
-                    ] as const
-                  ).map(([label, icon, keys, run]) => (
-                    <li key={label} role="none">
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="flex h-11 w-full items-center gap-3 bubble px-3 text-sm transition-colors duration-200 hover:bg-fg/8"
-                        onClick={() => {
-                          setMenu(undefined);
-                          run();
-                        }}
-                      >
-                        <Icon
-                          name={
-                            icon === "settings"
-                              ? "settings"
-                              : icon === "people"
-                                ? "signal"
-                                : icon === "eye"
-                                  ? "eye"
-                                  : icon === "look"
-                                    ? "face"
-                                    : icon === "search"
-                                      ? "search"
-                                      : icon === "board"
-                                        ? "board"
-                                      : "keyboard"
-                          }
-                          className="size-4 text-accent"
-                        />
-                        <span className="flex-1 text-left">{t(label)}</span>
-                        {keys ? (
-                          <kbd className="rounded-md border border-line-strong px-1.5 py-0.5 font-mono text-[0.6875rem] text-muted">
-                            {keys}
-                          </kbd>
-                        ) : null}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className={`${button({ size: "lg" })} ml-1`}
-            onClick={leave}
-          >
+          <button type="button" className={`${button({ size: "lg" })} max-sm:px-3.5`} onClick={leave}>
             <Icon name="leave" />
-            {t("room.leave")}
+            <span className="max-sm:sr-only">{t("room.leave")}</span>
           </button>
-        </div>
-        <div className="flex items-center justify-end">
-          <div
-            role="group"
-            aria-label={t("dock.panels")}
-            className="bubble flex items-center gap-1 border border-line-strong bg-card p-1"
-          >
-            {iAmOwner
-              ? toggle("settings", "settings", t("side.settings"))
-              : null}
-            {toggle("people", "people", t("side.people"), people.length, true)}
-            {toggle("chat", "chat", t("side.chat"), unread)}
-          </div>
         </div>
       </footer>
     </div>

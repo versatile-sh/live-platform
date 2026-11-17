@@ -194,7 +194,6 @@ export const en = {
   "look.photoHint": "A photo lasts only while you are in this room. A GIF up to 90 KB stays animated; a larger one becomes a still picture.",
   "look.photoFailed": "That picture could not be read. Try another.",
   "more.label": "More options",
-  "more.access": "Room access",
   "more.connection": "Connection quality",
   "more.shortcuts": "Keyboard shortcuts",
   "more.close": "Close",
@@ -413,6 +412,8 @@ export const en = {
   "ended.badFrame.body": "Reload the page and try again.",
   "ended.left.title": "You left the room",
 
+  "invite.button": "Invite",
+  "invite.failed": "The browser did not copy it. Copy this link: {link}",
   "invite.copy": "Copy link",
   "invite.copied": "Link copied",
   "owner.heading": "Room settings",
