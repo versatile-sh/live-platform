@@ -422,6 +422,7 @@ export function RoomView({
   const screens = people.filter(
     (person) =>
       person.pid !== myPid &&
+      hasFlag(person.flags, "screen") &&
       remote[person.pid]?.screen &&
       sees(person.pid).screen,
   );
@@ -539,7 +540,7 @@ export function RoomView({
           key={person.pid}
           person={person}
           isMe={person.pid === myPid}
-          video={!sees(person.pid).camera ? undefined : person.pid === myPid ? local.camera : remote[person.pid]?.camera}
+          video={!sees(person.pid).camera ? undefined : person.pid === myPid ? local.camera : hasFlag(person.flags, "camera") ? remote[person.pid]?.camera : undefined}
           photo={snapshot.photos[person.pid]}
           mode={mode}
           speaking={talkers.has(person.pid)}

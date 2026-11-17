@@ -26,9 +26,15 @@ function fakeConnection() {
       pc.senders.push(sender);
       return sender;
     },
-    removeTrack(sender: { track: unknown }) {
-      pc.senders = pc.senders.filter((kept) => kept !== sender);
-    },
+    stopped: [] as unknown[],
+    getTransceivers: () =>
+      pc.senders.map((sender) => ({
+        sender,
+        stop() {
+          pc.stopped.push(sender);
+          pc.senders = pc.senders.filter((kept) => kept !== sender);
+        },
+      })),
     createOffer: async () => ({ type: "offer", sdp: `offer:${pc.senders.map((s) => s.track?.id).join(",")}` }),
     createAnswer: async () => ({ type: "answer", sdp: "answer" }),
     setLocalDescription: async () => undefined,
@@ -106,6 +112,22 @@ describe("room media", () => {
       await settle();
       expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:s1", sources: { s1: "screen" } });
       expect(sent).toHaveLength(2);
+    });
+
+    test("stops the transceiver of a source I turn off, so a source turned on later never takes its place", async () => {
+      const { media, made, sent } = setup();
+      media.publish({ screen: track("s1") });
+      await settle();
+      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+      await settle();
+      media.publish({});
+      await settle();
+      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+      await settle();
+      media.publish({ camera: track("c1") });
+      await settle();
+      expect(made[0]!.stopped).toEqual([{ track: track("s1"), replaceTrack: expect.any(Function) }]);
+      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:c1", sources: { c1: "camera" } });
     });
 
     test("opens no connection while there is nothing to send", () => {

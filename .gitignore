@@ -6,3 +6,8 @@ dist/
 coverage/
 .vite/
 *.tsbuildinfo
+
+# Deploy configuration of our own hosting stays out of the open-source repository
+.kamal/
+config/deploy.yml
+deploy/
