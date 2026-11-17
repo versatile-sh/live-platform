@@ -1,21 +1,17 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { withIris } from "../ui/motion";
 
-import { checkName } from "../domain/name";
-import { checkSlug, normalizeSlug } from "../domain/slug";
 import { useChooseLocale, useT } from "../i18n/I18nProvider";
 import { PROJECT_LINKS } from "../project/project-store";
 import { AppLink, useNavigate } from "../routing/Navigation";
 import { LobbyPage } from "../lobby/LobbyPage";
-import { AccessSettings, type Access } from "../room/AccessSettings";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
 import { CommandPalette } from "../ui/CommandPalette";
 import { Social } from "../ui/Social";
-import { Field } from "../ui/Field";
-import { CONVEYOR_LINK, button } from "../ui/styles";
+import { CONVEYOR_LINK } from "../ui/styles";
 import { Wordmark } from "../ui/Wordmark";
-import { Segmented } from "../ui/Segmented";
+import { EnterRoom } from "./EnterRoom";
 
 const SWAP = "transition-colors duration-700";
 
@@ -64,112 +60,6 @@ function Pitch() {
         </ul>
       </div>
     </section>
-  );
-}
-
-function EnterRoom() {
-  const t = useT();
-  const navigate = useNavigate();
-  const services = useServices();
-  const { origin, nameMemory } = services;
-  const [pane, setPane] = useState<"room" | "settings">("room");
-  const [name, setName] = useState(() => nameMemory.read());
-  const [room, setRoom] = useState("");
-  const [access, setAccess] = useState<Access>("public");
-  const [listed, setListed] = useState(true);
-  const [code, setCode] = useState(() => services.generatePassword());
-  const [problems, setProblems] = useState<{ name?: string; room?: string }>({});
-  const [working, setWorking] = useState(false);
-  const withPassword = access === "private";
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const slug = checkSlug(normalizeSlug(room));
-    const who = checkName(name);
-    if (!slug.ok || !who.ok) {
-      setProblems({ ...(who.ok ? {} : { name: t(`entry.name.${who.problem}`) }), ...(slug.ok ? {} : { room: t(`slug.${slug.problem}`) }) });
-      setPane("room");
-      return;
-    }
-    setWorking(true);
-    nameMemory.write(who.name);
-    const derived = withPassword ? await services.derive(code, slug.slug) : undefined;
-    services.entryIntent.put(slug.slug, {
-      name: who.name,
-      look: services.lookMemory.read(),
-      face: services.faceMemory.read(),
-      listed,
-      ...(derived ? { verifier: derived.verifier, password: code } : {}),
-    });
-    navigate(`/${slug.slug}`);
-  }
-
-  return (
-    <form onSubmit={(event) => void submit(event)} noValidate className="w-full max-w-md">
-      <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">{t("home.formTitle")}</h2>
-      <p className="mt-2 mb-7 text-muted">{t("home.formIntro")}</p>
-
-      <Segmented<"room" | "settings">
-        label={t("home.paneLabel")}
-        value={pane}
-        onChange={setPane}
-        className="mb-7 h-11"
-        options={[
-          { value: "room", text: t("home.paneRoom") },
-          { value: "settings", text: t("home.paneSettings") },
-        ]}
-      />
-
-      <div className="-mx-1 overflow-hidden px-1">
-        <div data-pane={pane} className="flex w-[200%] transition-transform duration-500 ease-(--ease-glide) data-[pane=settings]:-translate-x-1/2">
-          <div inert={pane !== "room"} className="w-1/2 pr-4 transition-opacity duration-300 inert:opacity-0">
-            <Field
-              label={t("entry.nameLabel")}
-              hint={t("home.nameHint")}
-              error={problems.name}
-              className="mb-5"
-              value={name}
-              autoComplete="nickname"
-              maxLength={40}
-              onChange={(event) => {
-                setName(event.target.value);
-                setProblems(({ room: kept }) => (kept ? { room: kept } : {}));
-              }}
-            />
-            <Field
-              label={t("lobby.goLabel")}
-              hint={t("home.addressHint")}
-              error={problems.room}
-              mono
-              prefix={
-                <>
-                  <span className="hidden min-[26rem]:inline">{new URL(origin).host}</span>/
-                </>
-              }
-              value={room}
-              placeholder={t("lobby.goPlaceholder")}
-              autoComplete="off"
-              autoCapitalize="none"
-              spellCheck={false}
-              onChange={(event) => {
-                setRoom(event.target.value);
-                setProblems(({ name: kept }) => (kept ? { name: kept } : {}));
-              }}
-            />
-          </div>
-
-          <div inert={pane !== "settings"} className="w-1/2 pl-4 transition-opacity duration-300 inert:opacity-0">
-            <AccessSettings access={access} onAccess={setAccess} listed={listed} onListed={setListed} code={code} onRenew={() => setCode(services.generatePassword())} />
-          </div>
-        </div>
-      </div>
-
-      <button type="submit" disabled={working} className={`${button()} mt-6 w-full gap-2`}>
-        {working ? t("entry.working") : t("lobby.goButton")}
-        <Arrow />
-      </button>
-      <p className="mt-3 text-center text-sm text-muted">{t("home.settingsNote")}</p>
-    </form>
   );
 }
 
