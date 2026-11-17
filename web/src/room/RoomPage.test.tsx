@@ -25,7 +25,7 @@ async function setup(status: StatusResult = { kind: "ok", room: free }, extra: P
 
 async function submitName(name = "Ana", button = "Create and enter") {
   await userEvent.type(await screen.findByLabelText("Your name"), name);
-  await userEvent.click(screen.getByRole("button", { name: button }));
+  await userEvent.click(within(screen.getByRole("form", { name: /^(Create|Join) demo$/ })).getByRole("button", { name: button }));
 }
 
 async function socketOf(services: { sockets: FakeSocket[] }, index = 0): Promise<FakeSocket> {

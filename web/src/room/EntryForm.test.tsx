@@ -17,6 +17,8 @@ function setup(room: RoomSummary, extra: { refusal?: "PERMISSION_DENIED"; servic
   return { onEnter, services };
 }
 
+const pane = () => screen.getByRole("region", { name: "More options", hidden: true });
+
 describe("EntryForm", () => {
   describe("for a free slug", () => {
     test("asks only for a name, and keeps the room public and shown in the open rooms under More options", async () => {
@@ -45,7 +47,7 @@ describe("EntryForm", () => {
       await userEvent.clear(room);
       await userEvent.type(room, "Sala-Nova ");
       expect(screen.getByRole("heading", { name: "Create sala-nova" })).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
       await waitFor(() => expect(put).toHaveBeenCalledWith("sala-nova", { name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true }));
       expect(onEnter).not.toHaveBeenCalled();
     });
@@ -73,10 +75,10 @@ describe("EntryForm", () => {
       expect(more).toHaveAttribute("aria-expanded", "false");
       expect(more).toHaveFocus();
       await userEvent.click(more);
-      await userEvent.click(within(screen.getByRole("region", { name: "More options" })).getByRole("button", { name: "Back" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Back" }));
       expect(more).toHaveAttribute("aria-expanded", "false");
       expect(more).toHaveFocus();
-      expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
+      expect(screen.getByRole("radio", { name: /Private/, hidden: true })).toBeChecked();
     });
 
     test("creates a public listed room without deriving anything", async () => {
@@ -95,7 +97,7 @@ describe("EntryForm", () => {
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
       await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: false }));
     });
 

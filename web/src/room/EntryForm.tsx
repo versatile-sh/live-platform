@@ -41,6 +41,13 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const needsCode = creating ? access === "private" : room.private;
   const full = room.exists && room.count >= room.capacity;
 
+  const submitButton = (
+    <button type="submit" form={formId} disabled={working || full} className={`${button()} w-full gap-2`}>
+      {working ? t("entry.working") : creating ? t("entry.submitCreate") : t("entry.submitJoin")}
+      <Arrow />
+    </button>
+  );
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     const who = checkName(name);
@@ -72,8 +79,8 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   }
 
   return (
-    <form id={formId} onSubmit={(event) => void submit(event)} noValidate className="w-full max-w-md">
-      <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
+    <form id={formId} aria-labelledby={`${formId}-title`} onSubmit={(event) => void submit(event)} noValidate className="w-full max-w-md">
+      <h2 id={`${formId}-title`} className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
         <span className="block truncate" translate="no">
           {creating ? t("entry.createTitle") : t("entry.joinTitle")}{" "}
           <span className="bubble-word inline-block max-w-full truncate bg-bubble px-3 py-0.5 align-bottom font-mono text-[0.8em] tracking-normal text-on-bubble" translate="no">
@@ -117,15 +124,12 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
         />
       ) : null}
 
-      <p role="alert" className="mt-1 min-h-6 text-sm text-amber lg:mt-2">
+      <p role="alert" className="mt-1 mb-1 min-h-6 text-sm text-amber lg:mt-2">
         {refusal ? t(`refused.${refusal}`) : ""}
       </p>
-      <button type="submit" disabled={working || full} className={`${button()} mt-1 w-full gap-2`}>
-        {working ? t("entry.working") : creating ? t("entry.submitCreate") : t("entry.submitJoin")}
-        <Arrow />
-      </button>
+      {submitButton}
       {creating ? (
-        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-1 lg:mt-3">
+        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} footer={submitButton} className="mt-1 lg:mt-3">
           <Field
             form={formId}
             label={t("lobby.goLabel")}

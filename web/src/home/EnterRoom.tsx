@@ -33,6 +33,13 @@ export function EnterRoom() {
   const [linkProblem, setLinkProblem] = useState<string | undefined>();
   const withPassword = access === "private";
 
+  const createButton = (
+    <button type="submit" form={formId} disabled={working} className={`${button({ variant: "accent", size: "lg" })} w-full gap-2`}>
+      {working ? t("entry.working") : t("home.create")}
+      <Arrow />
+    </button>
+  );
+
   async function create(event: FormEvent) {
     event.preventDefault();
     const where = checkSlug(room.trim() === "" ? randomSlug() : normalizeSlug(room));
@@ -72,14 +79,13 @@ export function EnterRoom() {
 
   return (
     <div className="w-full max-w-md">
-      <form id={formId} onSubmit={(event) => void create(event)} noValidate>
-        <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">{t("home.formTitle")}</h2>
+      <form id={formId} aria-labelledby={`${formId}-title`} onSubmit={(event) => void create(event)} noValidate>
+        <h2 id={`${formId}-title`} className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
+          {t("home.formTitle")}
+        </h2>
         <p className="mt-2 mb-4 text-muted lg:mb-7">{t("home.formIntro")}</p>
-        <button type="submit" disabled={working} className={`${button({ variant: "accent", size: "lg" })} w-full gap-2`}>
-          {working ? t("entry.working") : t("home.create")}
-          <Arrow />
-        </button>
-        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-1 lg:mt-3">
+        {createButton}
+        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} footer={createButton} className="mt-1 lg:mt-3">
           <Field
             form={formId}
             label={t("entry.nameLabel")}

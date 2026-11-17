@@ -49,19 +49,22 @@ describe("HomePage", () => {
 
   describe("More options", () => {
     const more = () => screen.getByRole("button", { name: "More options" });
-    const pane = () => screen.getByRole("region", { name: "More options" });
+    const pane = () => document.getElementById(more().getAttribute("aria-controls") ?? "")!;
+    const createInForm = () => within(screen.getByRole("form", { name: "Start a call" })).getByRole("button", { name: "Create room" });
+    const createInPane = () => within(pane()).getByRole("button", { name: "Create room" });
     const stage = () => document.querySelector("[data-stop]")!;
 
     test("push the page one stop, show the options beside the form and move focus to the first of them", async () => {
       renderWithApp(<HomePage />);
       expect(pane()).toHaveAttribute("inert");
-      expect(more()).toHaveAttribute("aria-controls", pane().id);
+      expect(pane()).toHaveAttribute("aria-hidden", "true");
       await userEvent.click(more());
       expect(stage()).toHaveAttribute("data-stop", "1");
       expect(stage()).toHaveAttribute("data-more");
+      expect(screen.getByRole("region", { name: "More options" })).toBe(pane());
       expect(pane()).not.toHaveAttribute("inert");
       expect(screen.getByLabelText("Your name")).toHaveFocus();
-      expect(screen.getByRole("button", { name: "Create room" }).closest("[inert]")).toBeNull();
+      expect(createInForm().closest("[inert]")).toBeNull();
     });
 
     test("keep what was chosen while hidden and shown again", async () => {
@@ -120,12 +123,12 @@ describe("HomePage", () => {
       renderWithApp(<HomePage />, { pathname });
       await userEvent.click(more());
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await userEvent.click(createInPane());
       expect(screen.getByLabelText("Your name")).toBeInvalid();
       expect(pathname.visited).toEqual([]);
     });
 
-    test("a private room carries the room code shown, and is shown in the open rooms unless turned off", async () => {
+    test("a private room carries the room code shown, and is shown in the open rooms unless turned off, created from the options pane", async () => {
       const pathname = fakePathname();
       const services = fakeServices({ generatePassword: () => "8ABH-23HK" });
       renderWithApp(<HomePage />, { pathname, services });
@@ -135,12 +138,12 @@ describe("HomePage", () => {
       await userEvent.type(screen.getByLabelText("Room name"), "secret");
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
-      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await userEvent.click(createInPane());
       await waitFor(() => expect(pathname.visited).toEqual(["/secret"]));
       expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
     });
 
-    test("a room can be kept out of the open rooms", async () => {
+    test("a room can be kept out of the open rooms, created from the form while the options are open", async () => {
       const pathname = fakePathname();
       const services = fakeServices();
       renderWithApp(<HomePage />, { pathname, services });
@@ -148,7 +151,7 @@ describe("HomePage", () => {
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
       await userEvent.type(screen.getByLabelText("Room name"), "quiet");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await userEvent.click(createInForm());
       await waitFor(() => expect(pathname.visited).toEqual(["/quiet"]));
       expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false });
     });
