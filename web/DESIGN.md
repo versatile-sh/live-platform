@@ -53,7 +53,7 @@ Buttons. Every clickable skin lives in `src/ui/styles.ts`, and pages only pick o
 | `button({ variant, size })` | anything with words. Variants: `primary` (paper), `accent` (lime, the one confirming action), `secondary` (outline), `quiet`, `ink` and `onInk` for the lime and ink surfaces. Sizes `xs` 2rem, `sm` 2.25rem, `md` 2.75rem, `lg` 3rem | `.bubble-word` |
 | `ICON_BUTTON`, `ICON_BUTTON_PLAIN`, `ICON_BUTTON_SOLID` | an icon alone: quiet, on a coloured surface, or filled (send) | round |
 | `CHIP`, `CHIP_ON_INK` | a small choice that stays pressed; lime (paper on ink) when on | `.bubble-word` |
-| `DOCK.*` | the call controls and their states | round |
+| `DOCK.*` | the call controls. A toggle is `round`, or a `split` pill: the button and a caret for its options under one fill, parted by a short line. On is lime; off is the card with a `muted-light` ring and a crossed icon, never a greyed-out button. The header's panel toggles and `…` are `top` (2.5rem), ink while open | round, split |
 | `Segmented` | a choice between two or three things; the thumb slides | `.bubble-word` |
 | `Switch` | on or off | `.bubble-word` |
 
@@ -76,11 +76,12 @@ Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and t
 | `Arrow` | the arrow of links and the back button |
 | `Social` | the star count and the follow link, and the language choice |
 | `Bubble` | a few words in a small bubble |
+| `Sheet` | the one modal window, a native `<dialog>`: it closes on its button, Escape or a click outside, gives focus back to what opened it, and fills the screen below 48rem. `bare` leaves padding and scrolling to a panel that brings its own |
 | `Shell` | the frame of a page that is not the front page |
 
 Feature components built from them: `room/AccessSettings` (public or private, room code, open rooms), `lobby/RoomRow` (one room, tones `ink` and `raised`), `lobby/RoomsDialog`, `map/WorldMap`, `room/Tile`, `room/ChatPanel`, `room/PeoplePanel`, `room/OwnerPanel`, `room/MoreMenu` (the call's menu behind the round `…` button in the header).
 
-The call keeps one bar at the bottom with five things a person needs at a glance: microphone, camera, screen, Invite and Leave. The side panels (people, chat) and the `…` menu sit at the top right; everything else (hand, whiteboard, room settings, sound and video settings, look, visibility, connection, shortcuts, search) is in that menu. On a phone the bar drops the words and the device carets, and the side panel starts closed.
+The call keeps one bar at the bottom with five things a person needs at a glance: microphone, camera, screen, Invite and Leave. The side panels (people, chat) and the `…` menu sit at the top right; everything else (hand, whiteboard, room settings, sound and video settings, look, visibility, connection, shortcuts, search) is in that menu. On a phone (below 48rem) the bar drops the words and the device carets; the header keeps the room's name whole and leaves the connection sentence to screen readers, showing a pulsing dot while joining and one word when in trouble; the side panel starts closed, closes when the window narrows, and opens as a full-screen `Sheet`, never a drawer.
 
 ## Rules
 
@@ -95,4 +96,4 @@ The call keeps one bar at the bottom with five things a person needs at a glance
 
 - Pills (the see/back button, small buttons on ink, chips in the rooms window, round call buttons) are written as class strings in four places. They want one `Pill` recipe.
 - The design detector flags the 64px grid behind the pitch as a decorative background. It is the versatile.sh brand grid, kept on purpose.
-- Nothing here was checked on a phone.
+- Only the room was checked on a phone (360 and 390 wide).

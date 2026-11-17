@@ -39,7 +39,7 @@ describe.each([
     expect(contrast(theme[foreground]!, theme[background]!)).toBeGreaterThanOrEqual(4.5);
   });
 
-  test("the control border reaches 3:1 against the canvas", () => {
-    expect(contrast(theme["muted-light"]!, theme["canvas"]!)).toBeGreaterThanOrEqual(3);
+  test.each(["canvas", "card"])("the control border reaches 3:1 against the %s", (background) => {
+    expect(contrast(theme["muted-light"]!, theme[background]!)).toBeGreaterThanOrEqual(3);
   });
 });

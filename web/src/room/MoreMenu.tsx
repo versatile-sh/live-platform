@@ -25,7 +25,7 @@ export function MoreMenu({ groups }: { groups: readonly (readonly MoreItem[])[] 
         aria-expanded={open}
         aria-label={t("more.label")}
         title={t("more.label")}
-        className={`${DOCK.round} size-11 ${open ? DOCK.open : "text-fg hover:bg-fg/10"}`}
+        className={`${DOCK.top} ${open ? DOCK.open : DOCK.quiet}`}
         onClick={() => setOpen(!open)}
       >
         <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5" fill="currentColor">
