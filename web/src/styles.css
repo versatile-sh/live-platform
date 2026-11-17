@@ -376,6 +376,12 @@ html[data-motion="iris"]::view-transition-new(root) {
   }
 }
 
+@media (width < 48rem) {
+  .sheet {
+    border-radius: 0;
+  }
+}
+
 .rooms-dialog[open] {
   animation: dialog-in 0.5s var(--ease-settle) both;
 }
