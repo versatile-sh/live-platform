@@ -1,6 +1,6 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { RoomSummary } from "../api/rooms";
 import type { JoinEntry } from "../session/session";
@@ -16,6 +16,8 @@ function setup(room: RoomSummary, extra: { refusal?: "PERMISSION_DENIED"; servic
   renderWithApp(<EntryForm slug="demo" room={room} {...(extra.refusal ? { refusal: extra.refusal } : {})} onEnter={onEnter} />, { services, ...(extra.locale ? { locale: extra.locale } : {}) });
   return { onEnter, services };
 }
+
+const pane = () => screen.getByRole("region", { name: "More options", hidden: true });
 
 describe("EntryForm", () => {
   describe("for a free slug", () => {
@@ -45,7 +47,7 @@ describe("EntryForm", () => {
       await userEvent.clear(room);
       await userEvent.type(room, "Sala-Nova ");
       expect(screen.getByRole("heading", { name: "Create sala-nova" })).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
       await waitFor(() => expect(put).toHaveBeenCalledWith("sala-nova", { name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true }));
       expect(onEnter).not.toHaveBeenCalled();
     });
@@ -60,6 +62,31 @@ describe("EntryForm", () => {
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
       expect(await screen.findByText("Use 2 to 40 characters.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "true");
+      expect(onEnter).not.toHaveBeenCalled();
+    });
+
+    test("keeps the options chosen when they are put away with Escape or Back, and gives focus back to the toggle", async () => {
+      setup(free);
+      const more = screen.getByRole("button", { name: "More options" });
+      await userEvent.click(more);
+      expect(screen.getByLabelText("Room name")).toHaveFocus();
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await userEvent.keyboard("{Escape}");
+      expect(more).toHaveAttribute("aria-expanded", "false");
+      expect(more).toHaveFocus();
+      await userEvent.click(more);
+      await userEvent.click(within(pane()).getByRole("button", { name: "Back" }));
+      expect(more).toHaveAttribute("aria-expanded", "false");
+      expect(more).toHaveFocus();
+      expect(screen.getByRole("radio", { name: /Private/, hidden: true })).toBeChecked();
+    });
+
+    test("puts the options away when their own button is pressed without a name, so the name's note shows", async () => {
+      const { onEnter } = setup(free);
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
+      expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByLabelText("Your name")).toBeInvalid();
       expect(onEnter).not.toHaveBeenCalled();
     });
 
@@ -79,7 +106,7 @@ describe("EntryForm", () => {
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
       await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: false }));
     });
 
@@ -156,6 +183,29 @@ describe("EntryForm", () => {
     test("tells a wrong code apart in words when the server refused it", () => {
       setup(existing({ private: true }), { refusal: "PERMISSION_DENIED" });
       expect(screen.getByRole("alert")).toHaveTextContent(/did not open the room/);
+    });
+  });
+
+  describe("entering", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(document, "startViewTransition");
+    });
+
+    test("moves the page forward into the room", async () => {
+      const kinds: (string | undefined)[] = [];
+      Object.defineProperty(document, "startViewTransition", {
+        configurable: true,
+        value: (update: () => void) => {
+          kinds.push(document.documentElement.dataset.motion);
+          update();
+          return { finished: Promise.resolve() };
+        },
+      });
+      const { onEnter } = setup(existing());
+      await userEvent.type(screen.getByLabelText("Your name"), "Bia");
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalled());
+      expect(kinds).toEqual(["forward"]);
     });
   });
 

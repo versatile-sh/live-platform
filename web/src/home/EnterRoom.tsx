@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import { checkName } from "../domain/name";
 import { roomFromLink, shareLink } from "../domain/share-link";
@@ -8,18 +8,20 @@ import { useNavigate } from "../routing/Navigation";
 import { AccessSettings, type Access } from "../room/AccessSettings";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
-import { Disclosure } from "../ui/Disclosure";
 import { Field } from "../ui/Field";
+import { withMotion } from "../ui/motion";
+import { OptionsPane, useOptionsPane } from "../ui/OptionsPane";
 import { button } from "../ui/styles";
 
-/** The home's panel: one button that creates a room with nothing typed, the room's name and settings one click away, and a field that joins a room from its link or name. */
+/** The home's panel: one button that creates a room with nothing typed, the room's name and settings one click away in a pane beside it, and a field that joins a room from its link or name. Entering a new room moves the page forward. */
 export function EnterRoom() {
   const t = useT();
   const navigate = useNavigate();
   const services = useServices();
   const { origin, nameMemory } = services;
   const host = new URL(origin).host;
-  const [more, setMore] = useState(false);
+  const more = useOptionsPane();
+  const formId = useId();
   const [name, setName] = useState(() => nameMemory.read());
   const [room, setRoom] = useState("");
   const [access, setAccess] = useState<Access>("public");
@@ -31,6 +33,13 @@ export function EnterRoom() {
   const [linkProblem, setLinkProblem] = useState<string | undefined>();
   const withPassword = access === "private";
 
+  const createButton = (
+    <button type="submit" form={formId} disabled={working} className={`${button({ variant: "accent", size: "lg" })} w-full gap-2`}>
+      {working ? t("entry.working") : t("home.create")}
+      <Arrow />
+    </button>
+  );
+
   async function create(event: FormEvent) {
     event.preventDefault();
     const where = checkSlug(room.trim() === "" ? randomSlug() : normalizeSlug(room));
@@ -38,7 +47,7 @@ export function EnterRoom() {
     const askAtTheDoor = !who.ok && who.problem === "empty" && !withPassword && listed;
     if (!where.ok || (!who.ok && !askAtTheDoor)) {
       setProblems({ ...(who.ok ? {} : { name: t(`entry.name.${who.problem}`) }), ...(where.ok ? {} : { room: t(`slug.${where.problem}`) }) });
-      setMore(true);
+      more.show();
       return;
     }
     if (!who.ok) {
@@ -55,7 +64,7 @@ export function EnterRoom() {
       listed,
       ...(derived ? { verifier: derived.verifier, password: code } : {}),
     });
-    navigate(`/${where.slug}`);
+    withMotion("forward", () => navigate(`/${where.slug}`));
   }
 
   function join(event: FormEvent) {
@@ -70,15 +79,15 @@ export function EnterRoom() {
 
   return (
     <div className="w-full max-w-md">
-      <form onSubmit={(event) => void create(event)} noValidate>
-        <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">{t("home.formTitle")}</h2>
-        <p className="mt-2 mb-7 text-muted">{t("home.formIntro")}</p>
-        <button type="submit" disabled={working} className={`${button({ variant: "accent", size: "lg" })} w-full gap-2`}>
-          {working ? t("entry.working") : t("home.create")}
-          <Arrow />
-        </button>
-        <Disclosure label={t("more.label")} open={more} onOpen={setMore} className="mt-3">
+      <form id={formId} aria-labelledby={`${formId}-title`} onSubmit={(event) => void create(event)} noValidate>
+        <h2 id={`${formId}-title`} className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
+          {t("home.formTitle")}
+        </h2>
+        <p className="mt-2 mb-4 text-muted lg:mb-7">{t("home.formIntro")}</p>
+        {createButton}
+        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} footer={createButton} className="mt-1 lg:mt-3">
           <Field
+            form={formId}
             label={t("entry.nameLabel")}
             hint={t("home.nameHint")}
             error={problems.name}
@@ -92,6 +101,7 @@ export function EnterRoom() {
             }}
           />
           <Field
+            form={formId}
             label={t("lobby.goLabel")}
             hint={t("home.addressHint")}
             error={problems.room}
@@ -114,12 +124,12 @@ export function EnterRoom() {
           />
           <AccessSettings access={access} onAccess={setAccess} listed={listed} onListed={setListed} code={code} onRenew={() => setCode(services.generatePassword())} />
           <p className="mt-4 text-sm text-muted">{t("home.settingsNote")}</p>
-        </Disclosure>
+        </OptionsPane>
       </form>
 
-      <form onSubmit={join} noValidate className="mt-8 border-t border-line pt-7">
-        <h2 className="font-display text-xl leading-tight font-bold tracking-[-0.03em]">{t("home.joinTitle")}</h2>
-        <div className="mt-3 flex items-start gap-2">
+      <form onSubmit={join} noValidate className="mt-4 border-t border-line pt-4 lg:mt-8 lg:pt-7">
+        <h2 className="font-display text-xl leading-tight font-bold tracking-[-0.03em] max-lg:[@media(max-height:760px)]:sr-only">{t("home.joinTitle")}</h2>
+        <div className="mt-3 flex items-start gap-2 max-lg:[@media(max-height:760px)]:mt-0">
           <Field
             label={t("home.joinLabel")}
             error={linkProblem}

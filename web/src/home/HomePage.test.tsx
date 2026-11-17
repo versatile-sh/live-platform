@@ -1,11 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
 
 import { I18nProvider } from "../i18n/I18nProvider";
 import { NavigationProvider } from "../routing/Navigation";
 import { ServicesProvider } from "../services";
 import { fakePathname, fakeServices, renderWithApp } from "../test-support/render";
+import { EntryForm } from "../room/EntryForm";
 import { HomePage } from "./HomePage";
 
 describe("HomePage", () => {
@@ -47,6 +49,52 @@ describe("HomePage", () => {
 
   describe("More options", () => {
     const more = () => screen.getByRole("button", { name: "More options" });
+    const pane = () => document.getElementById(more().getAttribute("aria-controls") ?? "")!;
+    const createInForm = () => within(screen.getByRole("form", { name: "Start a call" })).getByRole("button", { name: "Create room" });
+    const createInPane = () => within(pane()).getByRole("button", { name: "Create room" });
+    const stage = () => document.querySelector("[data-stop]")!;
+
+    test("push the page one stop, show the options beside the form and move focus to the first of them", async () => {
+      renderWithApp(<HomePage />);
+      expect(pane()).toHaveAttribute("inert");
+      expect(pane()).toHaveAttribute("aria-hidden", "true");
+      await userEvent.click(more());
+      expect(stage()).toHaveAttribute("data-stop", "1");
+      expect(stage()).toHaveAttribute("data-more");
+      expect(screen.getByRole("region", { name: "More options" })).toBe(pane());
+      expect(pane()).not.toHaveAttribute("inert");
+      expect(screen.getByLabelText("Your name")).toHaveFocus();
+      expect(createInForm().closest("[inert]")).toBeNull();
+    });
+
+    test("keep what was chosen while hidden and shown again", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Room name"), "standup");
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await userEvent.click(more());
+      await userEvent.click(more());
+      expect(screen.getByLabelText("Room name")).toHaveValue("standup");
+      expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
+    });
+
+    test("hide on Escape and return focus to the toggle", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.keyboard("{Escape}");
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      expect(more()).toHaveFocus();
+      expect(stage()).toHaveAttribute("data-stop", "0");
+      expect(pane()).toHaveAttribute("inert");
+    });
+
+    test("hide on Back and return focus to the toggle", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.click(within(pane()).getByRole("button", { name: "Back" }));
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      expect(more()).toHaveFocus();
+    });
 
     test("start closed and open on a click, with the room's name and who may enter", async () => {
       renderWithApp(<HomePage />);
@@ -75,12 +123,12 @@ describe("HomePage", () => {
       renderWithApp(<HomePage />, { pathname });
       await userEvent.click(more());
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await userEvent.click(createInPane());
       expect(screen.getByLabelText("Your name")).toBeInvalid();
       expect(pathname.visited).toEqual([]);
     });
 
-    test("a private room carries the room code shown, and is shown in the open rooms unless turned off", async () => {
+    test("a private room carries the room code shown, and is shown in the open rooms unless turned off, created from the options pane", async () => {
       const pathname = fakePathname();
       const services = fakeServices({ generatePassword: () => "8ABH-23HK" });
       renderWithApp(<HomePage />, { pathname, services });
@@ -90,12 +138,12 @@ describe("HomePage", () => {
       await userEvent.type(screen.getByLabelText("Room name"), "secret");
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
-      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await userEvent.click(createInPane());
       await waitFor(() => expect(pathname.visited).toEqual(["/secret"]));
       expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
     });
 
-    test("a room can be kept out of the open rooms", async () => {
+    test("a room can be kept out of the open rooms, created from the form while the options are open", async () => {
       const pathname = fakePathname();
       const services = fakeServices();
       renderWithApp(<HomePage />, { pathname, services });
@@ -103,7 +151,7 @@ describe("HomePage", () => {
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
       await userEvent.type(screen.getByLabelText("Room name"), "quiet");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-      await userEvent.click(screen.getByRole("button", { name: "Create room" }));
+      await userEvent.click(createInForm());
       await waitFor(() => expect(pathname.visited).toEqual(["/quiet"]));
       expect(services.entryIntent.read("quiet")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false });
     });
@@ -164,11 +212,11 @@ describe("HomePage", () => {
 
   describe("the conveyor", () => {
     const stage = () => document.querySelector("[data-stop]")!;
-    const wrap = (view: "home" | "lobby" | "entry") => (
+    const wrap = (view: "home" | "lobby" | "entry", panel: ReactNode = <p>the doorway</p>) => (
       <I18nProvider locale="en">
         <ServicesProvider services={services}>
           <NavigationProvider store={pathname}>
-            <HomePage view={view} panel={<p>the doorway</p>} />
+            <HomePage view={view} panel={panel} />
           </NavigationProvider>
         </ServicesProvider>
       </I18nProvider>
@@ -187,6 +235,29 @@ describe("HomePage", () => {
       expect(stage()).toHaveAttribute("data-stop", "2");
       expect(screen.getByText("the doorway")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/lobby");
+    });
+
+    test("coming back from the open rooms lets them slide out before they leave", () => {
+      const { rerender } = render(wrap("lobby"));
+      rerender(wrap("home"));
+      const rooms = screen.getByRole("heading", { name: "Open rooms" });
+      expect(rooms.closest("[inert]")).not.toBeNull();
+      fireEvent(rooms.closest(".slide-out-right")!, new Event("webkitAnimationEnd", { bubbles: true }));
+      expect(screen.queryByRole("heading", { name: "Open rooms" })).not.toBeInTheDocument();
+    });
+
+    test("a doorway's options push it one stop further and leave one way back, and leaving the stop puts them away", async () => {
+      const door = <EntryForm slug="demo" room={{ slug: "demo", exists: false, private: false, count: 0, capacity: 10 }} onEnter={() => undefined} />;
+      const { rerender } = render(wrap("lobby"));
+      rerender(wrap("entry", door));
+      expect(stage()).toHaveAttribute("data-stop", "2");
+      expect(screen.getByRole("link", { name: "Back" })).not.toHaveAttribute("inert");
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      expect(stage()).toHaveAttribute("data-stop", "3");
+      expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("inert");
+      rerender(wrap("lobby"));
+      expect(stage()).toHaveAttribute("data-stop", "1");
+      expect(stage()).not.toHaveAttribute("data-more");
     });
 
     test("a room opened from its link starts at the first stop and leads back to the start", () => {
