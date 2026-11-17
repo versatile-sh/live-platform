@@ -413,9 +413,9 @@ export const en = {
   "ended.badFrame.body": "Reload the page and try again.",
   "ended.left.title": "You left the room",
 
+  "invite.copy": "Copy link",
+  "invite.copied": "Link copied",
   "owner.heading": "Room settings",
-  "owner.copyLink": "Copy link",
-  "owner.linkCopied": "Link copied",
   "owner.linkLabel": "Link to this room",
   "owner.linkPrivate": "The link carries the room code after the # sign. Browsers never send that part to the server.",
   "owner.linkPublic": "Anyone with this link gets in.",

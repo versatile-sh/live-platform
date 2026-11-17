@@ -282,6 +282,7 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "Room settings" }));
       await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
       expect(services.copied.at(-1)).toBe("https://live.test/demo");
+      expect(screen.getByRole("button", { name: "Link copied" })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: false }]);
     });

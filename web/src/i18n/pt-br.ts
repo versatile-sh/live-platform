@@ -415,9 +415,9 @@ export const ptBR: Record<MessageKey, string> = {
   "ended.badFrame.body": "Recarregue a página e tente de novo.",
   "ended.left.title": "Você saiu da sala",
 
+  "invite.copy": "Copiar link",
+  "invite.copied": "Link copiado",
   "owner.heading": "Configurações da sala",
-  "owner.copyLink": "Copiar link",
-  "owner.linkCopied": "Link copiado",
   "owner.linkLabel": "Link desta sala",
   "owner.linkPrivate": "O link leva o código da sala depois do #. Os navegadores nunca enviam essa parte ao servidor.",
   "owner.linkPublic": "Quem tiver este link entra.",
