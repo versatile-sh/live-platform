@@ -1,11 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
 
 import { I18nProvider } from "../i18n/I18nProvider";
 import { NavigationProvider } from "../routing/Navigation";
 import { ServicesProvider } from "../services";
 import { fakePathname, fakeServices, renderWithApp } from "../test-support/render";
+import { EntryForm } from "../room/EntryForm";
 import { HomePage } from "./HomePage";
 
 describe("HomePage", () => {
@@ -47,6 +49,49 @@ describe("HomePage", () => {
 
   describe("More options", () => {
     const more = () => screen.getByRole("button", { name: "More options" });
+    const pane = () => screen.getByRole("region", { name: "More options" });
+    const stage = () => document.querySelector("[data-stop]")!;
+
+    test("push the page one stop, show the options beside the form and move focus to the first of them", async () => {
+      renderWithApp(<HomePage />);
+      expect(pane()).toHaveAttribute("inert");
+      expect(more()).toHaveAttribute("aria-controls", pane().id);
+      await userEvent.click(more());
+      expect(stage()).toHaveAttribute("data-stop", "1");
+      expect(stage()).toHaveAttribute("data-more");
+      expect(pane()).not.toHaveAttribute("inert");
+      expect(screen.getByLabelText("Your name")).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Create room" }).closest("[inert]")).toBeNull();
+    });
+
+    test("keep what was chosen while hidden and shown again", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Room name"), "standup");
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await userEvent.click(more());
+      await userEvent.click(more());
+      expect(screen.getByLabelText("Room name")).toHaveValue("standup");
+      expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
+    });
+
+    test("hide on Escape and return focus to the toggle", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.keyboard("{Escape}");
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      expect(more()).toHaveFocus();
+      expect(stage()).toHaveAttribute("data-stop", "0");
+      expect(pane()).toHaveAttribute("inert");
+    });
+
+    test("hide on Back and return focus to the toggle", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.click(within(pane()).getByRole("button", { name: "Back" }));
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      expect(more()).toHaveFocus();
+    });
 
     test("start closed and open on a click, with the room's name and who may enter", async () => {
       renderWithApp(<HomePage />);
@@ -164,11 +209,11 @@ describe("HomePage", () => {
 
   describe("the conveyor", () => {
     const stage = () => document.querySelector("[data-stop]")!;
-    const wrap = (view: "home" | "lobby" | "entry") => (
+    const wrap = (view: "home" | "lobby" | "entry", panel: ReactNode = <p>the doorway</p>) => (
       <I18nProvider locale="en">
         <ServicesProvider services={services}>
           <NavigationProvider store={pathname}>
-            <HomePage view={view} panel={<p>the doorway</p>} />
+            <HomePage view={view} panel={panel} />
           </NavigationProvider>
         </ServicesProvider>
       </I18nProvider>
@@ -187,6 +232,18 @@ describe("HomePage", () => {
       expect(stage()).toHaveAttribute("data-stop", "2");
       expect(screen.getByText("the doorway")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/lobby");
+    });
+
+    test("a doorway's options push it one stop further, and leaving the stop puts them away", async () => {
+      const door = <EntryForm slug="demo" room={{ slug: "demo", exists: false, private: false, count: 0, capacity: 10 }} onEnter={() => undefined} />;
+      const { rerender } = render(wrap("lobby"));
+      rerender(wrap("entry", door));
+      expect(stage()).toHaveAttribute("data-stop", "2");
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      expect(stage()).toHaveAttribute("data-stop", "3");
+      rerender(wrap("lobby"));
+      expect(stage()).toHaveAttribute("data-stop", "1");
+      expect(stage()).not.toHaveAttribute("data-more");
     });
 
     test("a room opened from its link starts at the first stop and leads back to the start", () => {

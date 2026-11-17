@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 
 import type { RoomSummary } from "../api/rooms";
 import { checkName } from "../domain/name";
@@ -9,8 +9,8 @@ import { useServices } from "../services";
 import type { ErrorCode } from "../signal/protocol";
 import type { JoinEntry } from "../session/session";
 import { Arrow } from "../ui/Arrow";
-import { Disclosure } from "../ui/Disclosure";
 import { Field } from "../ui/Field";
+import { OptionsPane, useOptionsPane } from "../ui/OptionsPane";
 import { button } from "../ui/styles";
 import { AccessSettings, type Access } from "./AccessSettings";
 
@@ -22,7 +22,7 @@ type EntryFormProps = {
   onEnter: (entry: JoinEntry) => void;
 };
 
-/** A room's doorway: a name and one button, plus the code of a private room that exists. A room about to be created keeps its name and access under More options, the name filled in from the address; changing it opens the room of the name typed. */
+/** A room's doorway: a name and one button, plus the code of a private room that exists. A room about to be created keeps its name and access in a pane under More options, the name filled in from the address; changing it opens the room of the name typed. */
 export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormProps) {
   const t = useT();
   const services = useServices();
@@ -35,7 +35,8 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const [code, setCode] = useState(() => (creating ? services.generatePassword() : services.readPasswordHash()));
   const [problems, setProblems] = useState<{ name?: string; code?: string; room?: string }>({});
   const [working, setWorking] = useState(false);
-  const [more, setMore] = useState(false);
+  const more = useOptionsPane();
+  const formId = useId();
   const needsCode = creating ? access === "private" : room.private;
   const full = room.exists && room.count >= room.capacity;
 
@@ -46,7 +47,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     const where = creating ? checkSlug(normalizeSlug(roomName)) : ({ ok: true, slug } as const);
     if (!who.ok || missingCode || !where.ok) {
       setProblems({ ...(who.ok ? {} : { name: t(`entry.name.${who.problem}`) }), ...(missingCode ? { code: t("password.required") } : {}), ...(where.ok ? {} : { room: t(`slug.${where.problem}`) }) });
-      if (!where.ok) setMore(true);
+      if (!where.ok) more.show();
       return;
     }
     setWorking(true);
@@ -69,7 +70,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   }
 
   return (
-    <form onSubmit={(event) => void submit(event)} noValidate className="w-full max-w-md">
+    <form id={formId} onSubmit={(event) => void submit(event)} noValidate className="w-full max-w-md">
       <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">
         <span className="block truncate" translate="no">
           {creating ? t("entry.createTitle") : t("entry.joinTitle")}{" "}
@@ -122,8 +123,9 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
         <Arrow />
       </button>
       {creating ? (
-        <Disclosure label={t("more.label")} open={more} onOpen={setMore} className="mt-3">
+        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-3">
           <Field
+            form={formId}
             label={t("lobby.goLabel")}
             hint={t("entry.roomHint")}
             error={problems.room}
@@ -145,7 +147,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
             }}
           />
           <AccessSettings access={access} onAccess={setAccess} listed={listed} onListed={setListed} code={code} onRenew={() => setCode(services.generatePassword())} />
-        </Disclosure>
+        </OptionsPane>
       ) : null}
     </form>
   );
