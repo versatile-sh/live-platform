@@ -69,6 +69,7 @@ Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and t
 | `Field` | the one text field: label, input with an optional prefix, a note that keeps its height |
 | `Segmented` | a two-way pill whose thumb slides |
 | `Switch` | an on/off row with a sliding thumb and a hint |
+| `Disclosure` | a quiet button that shows or hides options under it (`aria-expanded`), sliding open; what it hides cannot be reached while closed |
 | `RoomCode` | a room code large in an ink bubble, with New and Copy |
 | `button()` | primary (paper on ink), secondary (outlined), quiet |
 | `Icon` | the room's icon set, one stroke weight |
