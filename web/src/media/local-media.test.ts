@@ -95,6 +95,25 @@ describe("settings", () => {
     await media.toggle("screen");
     expect(display.mock.calls[0]![0]).toMatchObject({ video: { width: { ideal: 2560 }, frameRate: { ideal: 60 } }, audio: false });
   });
+
+  test("the screen picker offers every screen, window and tab with the computer's sound, and lets the source change while sharing", async () => {
+    const { devices } = setup();
+    const display = devices.display as unknown as ReturnType<typeof vi.fn>;
+    display.mockResolvedValue(fakeStream());
+    await createLocalMedia(devices, () => undefined).toggle("screen");
+    expect(display.mock.calls[0]![0]).toMatchObject({ systemAudio: "include", surfaceSwitching: "include", selfBrowserSurface: "exclude", monitorTypeSurfaces: "include" });
+  });
+
+  test("stopping the share from the browser releases all of it", async () => {
+    const { devices } = setup();
+    const shared = fakeStream();
+    (devices.display as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(shared);
+    const media = createLocalMedia(devices, () => undefined);
+    await media.toggle("screen");
+    (shared.track as unknown as EventTarget).dispatchEvent(new Event("ended"));
+    expect(media.getSnapshot().screen).toBeUndefined();
+    expect(shared.track.stop).toHaveBeenCalled();
+  });
 });
 
 describe("camera effects", () => {

@@ -8,6 +8,9 @@ export type MediaDevicesPort = {
   list(): Promise<MediaDeviceInfo[]>;
 };
 
+/** The screen picker hints Chrome reads and the DOM typings do not name yet. */
+type ScreenPicker = DisplayMediaStreamOptions & Partial<Record<"systemAudio" | "surfaceSwitching" | "selfBrowserSurface" | "monitorTypeSurfaces", "include" | "exclude">>;
+
 /** A microphone or camera the browser offers. */
 export type Device = { id: string; label: string };
 
@@ -128,7 +131,15 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     if (!devices) return Promise.reject(new DOMException("no capture on this device", "NotFoundError"));
     if (kind === "screen") {
       const { width, height, frameRate } = screenShape(snapshot.settings.screenQuality);
-      return devices.display({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } }, audio: snapshot.settings.screenAudio });
+      const picker: ScreenPicker = {
+        video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } },
+        audio: snapshot.settings.screenAudio,
+        systemAudio: "include",
+        surfaceSwitching: "include",
+        selfBrowserSurface: "exclude",
+        monitorTypeSurfaces: "include",
+      };
+      return devices.display(picker);
     }
     if (kind === "camera") {
       const { width, height, frameRate } = cameraShape(snapshot.settings.cameraQuality);
@@ -259,7 +270,9 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
         }
         stream.getTracks().forEach((track) =>
           track.addEventListener("ended", () => {
-            if (snapshot[kind] === stream) patch({ [kind]: undefined });
+            if (snapshot[kind] !== stream) return;
+            end(stream);
+            patch({ [kind]: undefined });
           }),
         );
         patch({ [kind]: stream, busy: undefined });
