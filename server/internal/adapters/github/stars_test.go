@@ -14,7 +14,7 @@ func counter(t *testing.T, handler http.HandlerFunc) *Stars {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
-	s, ok := NewStars("versatile-sh/meeting-platform", srv.Client())
+	s, ok := NewStars("versatile-sh/live-platform", srv.Client())
 	require.True(t, ok)
 	s.url = srv.URL
 	return s
