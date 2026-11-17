@@ -2,7 +2,6 @@ import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
 
 import { useLocale, useT } from "../i18n/I18nProvider";
 import { EMOJI, linkify } from "../domain/links";
-import { GIF_MAX_BYTES, sniffPhoto, toBase64 } from "../domain/photo";
 import type { ChatLine } from "../session/session";
 import type { Person } from "../signal/protocol";
 import { Avatar } from "../ui/Avatar";
@@ -54,7 +53,6 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const waiting = Object.values(unread).reduce((sum, count) => sum + count, 0);
   const [pickingEmoji, setPickingEmoji] = useState(false);
-  const [gifProblem, setGifProblem] = useState(false);
   const others = people.filter((person) => person.pid !== me);
   const target = privately
     ? others.find((person) => person.pid === peer)
@@ -75,13 +73,6 @@ export function ChatPanel({
     if (text && ready && onSay(text, target?.pid)) setDraft("");
   }
 
-  async function sendGif(file: File | undefined) {
-    if (!file || !ready) return;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const fits = sniffPhoto(bytes) === "gif" && bytes.length <= GIF_MAX_BYTES;
-    setGifProblem(!fits);
-    if (fits) onSay("", target?.pid, toBase64(bytes));
-  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -249,9 +240,6 @@ export function ChatPanel({
                 ))}
               </div>
             ) : null}
-            <p role="alert" className={`px-1 text-[0.8125rem] text-amber ${gifProblem ? "mb-1.5" : "sr-only"}`}>
-              {gifProblem ? t("chat.gifProblem") : ""}
-            </p>
             <div className="flex items-end gap-1 bubble border border-line-strong bg-canvas py-1.5 pr-1.5 pl-4 transition-colors duration-200 focus-within:border-fg/50">
               <textarea
                 id={id}
@@ -271,20 +259,6 @@ export function ChatPanel({
               <button type="button" aria-expanded={pickingEmoji} aria-label={t("chat.emoji")} title={t("chat.emoji")} disabled={!ready} className={ICON_BUTTON} onClick={() => setPickingEmoji((open) => !open)}>
                 <span aria-hidden="true" className="text-base leading-none">☺</span>
               </button>
-              <label aria-disabled={!ready} title={t("chat.gif")} className={`${ICON_BUTTON} cursor-pointer font-mono text-[0.6875rem] font-bold has-focus-visible:outline-2 has-focus-visible:outline-fg/55 aria-disabled:pointer-events-none aria-disabled:opacity-40`}>
-                GIF
-                <input
-                  type="file"
-                  accept="image/gif"
-                  aria-label={t("chat.gif")}
-                  disabled={!ready}
-                  className="sr-only"
-                  onChange={(event) => {
-                    void sendGif(event.target.files?.[0]);
-                    event.target.value = "";
-                  }}
-                />
-              </label>
               <button
                 type="submit"
                 disabled={!ready || draft.trim() === ""}
