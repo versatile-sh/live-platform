@@ -49,6 +49,7 @@ export const DOCK = {
   on: "bg-bubble text-on-bubble hover:opacity-85",
   off: "bg-card text-fg ring-1 ring-muted-light ring-inset hover:ring-fg",
   top: `relative grid size-10 shrink-0 place-items-center rounded-full ${PRESS}`,
+  topLabeled: `relative inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-semibold max-sm:w-10 max-sm:justify-center max-sm:px-0 ${PRESS}`,
   quiet: "text-fg hover:bg-fg/10",
   open: "bg-fg text-canvas hover:opacity-85",
 } as const;
