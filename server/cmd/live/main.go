@@ -23,6 +23,7 @@ import (
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
 	"github.com/versatile-sh/live/server/internal/ports/inbound"
+	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
 // handoverHold is how long a room taken over waits for each person to come back; handoverWait is how long a stopping server waits for another to take its rooms.
@@ -78,6 +79,7 @@ func main() {
 		hub.UseMedia(engine)
 		rooms = hub
 	}
+	rooms = presence.Governed{Presence: rooms, Rooms: hub, Policy: outbound.AllowAll{}}
 	var handover *handoff.Dir
 	if dir := os.Getenv("HANDOVER_DIR"); dir != "" {
 		opened, err := handoff.Open(dir)
