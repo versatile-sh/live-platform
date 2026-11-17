@@ -648,9 +648,9 @@ export function RoomView({
 
   return (
     <div className="page-forward flex h-dvh min-h-0 flex-col bg-canvas">
-      <header className="grid h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-4 sm:px-5">
+      <header className="grid h-14 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-4 sm:px-5">
         <Wordmark className="text-sm max-sm:hidden" />
-        <div className="flex min-w-0 items-center gap-3 sm:max-w-[60vw]">
+        <div className="flex min-w-0 items-center gap-2 sm:max-w-[60vw] sm:gap-3">
           <h1
             className="min-w-0 truncate font-display text-lg font-bold tracking-[-0.03em]"
             translate="no"
