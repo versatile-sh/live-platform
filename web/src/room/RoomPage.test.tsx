@@ -383,7 +383,7 @@ describe("RoomPage", () => {
 
     const panels = () => within(screen.getByRole("group", { name: "Side panels" }));
 
-    test("keeps only the microphone, the camera, the screen, invite and leave on the bar", async () => {
+    test("keeps the microphone, the camera, the screen, the hand and leave on the bar, with invite apart", async () => {
       await inCall();
       const bar = within(screen.getByRole("toolbar", { name: "Call controls" }));
       expect(bar.getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual([
@@ -392,16 +392,16 @@ describe("RoomPage", () => {
         "Turn camera on",
         "Camera options",
         "Share your screen",
-        "Invite",
+        "Raise your hand",
         "Leave",
       ]);
+      expect(screen.getByRole("button", { name: "Invite" })).toBeInTheDocument();
     });
 
     test("groups everything else under More options, with the owner's room settings", async () => {
       await inCall();
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       const menu = within(screen.getByRole("menu", { name: "More options" }));
-      expect(menu.getByRole("menuitem", { name: /Raise your hand/ })).toBeInTheDocument();
       expect(menu.getByRole("menuitemcheckbox", { name: "Whiteboard" })).toBeInTheDocument();
       for (const name of ["Room settings", "Sound and video settings", "How you appear", "Visibility options", "Connection quality", "Keyboard shortcuts", /Search for something to do/]) {
         expect(menu.getByRole("menuitem", { name })).toBeInTheDocument();
@@ -412,7 +412,7 @@ describe("RoomPage", () => {
       await inCall();
       const more = screen.getByRole("button", { name: "More options" });
       await userEvent.click(more);
-      expect(screen.getByRole("menuitem", { name: /Raise your hand/ })).toHaveFocus();
+      expect(screen.getByRole("menuitemcheckbox", { name: "Whiteboard" })).toHaveFocus();
       await userEvent.keyboard("{Escape}");
       expect(screen.queryByRole("menu")).not.toBeInTheDocument();
       expect(more).toHaveAttribute("aria-expanded", "false");
@@ -514,7 +514,7 @@ describe("RoomPage", () => {
       await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 1 }));
       expect(asked[0]).toHaveProperty("audio");
       expect(screen.getByRole("button", { name: "Turn microphone off" })).toHaveAttribute("aria-pressed", "true");
-      await fromMore(/Raise your hand/);
+      await userEvent.click(within(screen.getByRole("toolbar", { name: "Call controls" })).getByRole("button", { name: "Raise your hand" }));
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 17 });
     });
 
@@ -714,7 +714,7 @@ describe("RoomPage", () => {
       await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 256, state: "active" }), person(2, "Bia", { flags: 32, state: "active" })], gone: [] });
       await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
       expect(screen.getByText("The owner muted the room. Raise your hand to ask to speak.")).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Raise your hand" }));
+      await userEvent.click(screen.getAllByRole("button", { name: "Raise your hand" })[0]!);
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 16 });
       await send(socket, { t: "roster", v: 4, people: [person(1, "Ana", { flags: 0, state: "active" }), person(2, "Bia", { flags: 32, state: "active" })], gone: [] });
       expect(screen.getByText("The owner let you speak. Your microphone is still off.")).toBeInTheDocument();
