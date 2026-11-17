@@ -588,7 +588,7 @@ export function RoomView({
         aria-pressed={side === panel}
         aria-label={label}
         title={label}
-        className={`${DOCK.round} size-11 ${side === panel ? DOCK.open : "text-fg hover:bg-fg/10"}`}
+        className={`${DOCK.top} ${side === panel ? DOCK.open : DOCK.quiet}`}
         onClick={() => setSide(side === panel ? undefined : panel)}
       >
         <Icon name={icon} />
@@ -656,8 +656,8 @@ export function RoomView({
           </h1>
           <ConnectionStatus connection={connection} />
         </div>
-        <div className="flex items-center gap-2 justify-self-end">
-          <div role="group" aria-label={t("dock.panels")} className="bubble flex items-center gap-1 border border-line-strong bg-card p-1">
+        <div className="flex items-center gap-1 justify-self-end">
+          <div role="group" aria-label={t("dock.panels")} className="flex items-center gap-1">
             {toggle("people", "people", t("side.people"), people.length, true)}
             {toggle("chat", "chat", t("side.chat"), unread)}
           </div>
