@@ -11,8 +11,11 @@ One page that moves like a conveyor. The left half says what the product is and 
 | Home | the pitch on lime | the form on ink |
 | Open rooms | the pitch on ink | the rooms on lime |
 | Doorway | the pitch on lime | a room's questions on ink |
+| More options (from the home or a doorway) | the form on ink, the pitch gone | its options on ink, past a hairline |
 
-Being in a room replaces the page with the call.
+More options is one stop further on the same backdrop, with the same easing and duration: the pitch slides out, the form takes the left half and its options arrive on the right. On a phone there are no halves, so the options slide in over the whole page with a Back at the top. Going into a room is a forward view transition, coming out of one a back transition.
+
+The front page never scrolls. It is one screen tall at every size; on a phone the pitch keeps its height and the panel under it takes the rest, scrolling inside only when nothing else fits (360x640). Options belong in a pane that slides in, never in a section that grows the page.
 
 ## Tokens (`src/styles.css`, `@theme`)
 
@@ -69,7 +72,8 @@ Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and t
 | `Field` | the one text field: label, input with an optional prefix, a note that keeps its height |
 | `Segmented` | a two-way pill whose thumb slides |
 | `Switch` | an on/off row with a sliding thumb and a hint |
-| `Disclosure` | a quiet button that shows or hides options under it (`aria-expanded`), sliding open; what it hides cannot be reached while closed |
+| `Disclosure` | a quiet button that shows or hides options under it (`aria-expanded`), sliding open; what it hides cannot be reached while closed. For settings inside a panel only, never on the front page |
+| `OptionsPane` | a form's options one click away: a quiet toggle (`aria-expanded`, `aria-controls`) and a pane with Back, drawn into the place the page offers (`OptionsPlaceContext`) or in place without one. Showing moves focus to the first field, Escape and Back hide it and give focus back to the toggle, the hidden pane is inert, and its fields carry `form` so the form submits from either state |
 | `RoomCode` | a room code large in an ink bubble, with New and Copy |
 | `button()` | primary (paper on ink), secondary (outlined), quiet |
 | `Icon` | the room's icon set, one stroke weight |
@@ -96,4 +100,4 @@ The call keeps one bar at the bottom with five things a person needs at a glance
 
 - Pills (the see/back button, small buttons on ink, chips in the rooms window, round call buttons) are written as class strings in four places. They want one `Pill` recipe.
 - The design detector flags the 64px grid behind the pitch as a decorative background. It is the versatile.sh brand grid, kept on purpose.
-- Only the room was checked on a phone (360 and 390 wide).
+- Only the room and the front page were checked on a phone (360 and 390 wide).
