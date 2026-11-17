@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { DEFAULT_SETTINGS } from "../media/settings";
 
 vi.mock("../board/Whiteboard", () => ({ default: ({ readOnly }: { readOnly?: boolean }) => (readOnly ? "the drawing surface, to look at" : "the drawing surface") }));
@@ -36,6 +36,25 @@ async function socketOf(services: { sockets: FakeSocket[] }, index = 0): Promise
 async function fromMore(name: string | RegExp, role: "menuitem" | "menuitemcheckbox" = "menuitem") {
   await userEvent.click(screen.getByRole("button", { name: "More options" }));
   await userEvent.click(screen.getByRole(role, { name }));
+}
+
+function screenWidth(start: "phone" | "wide") {
+  const changes = new Set<() => void>();
+  let phone = start === "phone";
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    get matches() {
+      return phone && query.includes("max-width");
+    },
+    addEventListener: (_type: string, change: () => void) => changes.add(change),
+    removeEventListener: (_type: string, change: () => void) => changes.delete(change),
+  }));
+  return {
+    narrow: () =>
+      act(() => {
+        phone = true;
+        changes.forEach((change) => change());
+      }),
+  };
 }
 
 const send = (socket: FakeSocket, frame: unknown) => act(() => socket.serverSend(frame));
@@ -413,14 +432,39 @@ describe("RoomPage", () => {
       expect(screen.getByText("The browser did not copy it. Copy this link: https://live.test/demo")).toBeInTheDocument();
     });
 
-    test("on a phone, starts with the side panel closed so the stage shows", async () => {
-      vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("max-width") }));
-      try {
+    describe("on a phone", () => {
+      afterEach(() => vi.unstubAllGlobals());
+
+      test("starts with the side panel closed so the stage shows", async () => {
+        screenWidth("phone");
         await inCall();
         expect(panels().getByRole("button", { name: "Chat" })).toHaveAttribute("aria-pressed", "false");
-      } finally {
-        vi.unstubAllGlobals();
-      }
+        expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      test("opens the chat as a window over the stage that closes on its button and gives focus back", async () => {
+        screenWidth("phone");
+        await inCall();
+        await userEvent.click(panels().getByRole("button", { name: "Chat" }));
+        const chat = within(screen.getByRole("dialog", { name: "Chat" }));
+        expect(chat.getByLabelText("Message to the room")).toBeInTheDocument();
+        expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+        await userEvent.click(chat.getByRole("button", { name: "Close" }));
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(panels().getByRole("button", { name: "Chat" })).toHaveAttribute("aria-pressed", "false");
+        expect(panels().getByRole("button", { name: "Chat" })).toHaveFocus();
+      });
+
+      test("closes the open side panel when the window narrows to a phone", async () => {
+        const width = screenWidth("wide");
+        await inCall();
+        expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
+        await width.narrow();
+        expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(panels().getByRole("button", { name: "Chat" })).toHaveAttribute("aria-pressed", "false");
+      });
     });
 
     test("shows the room name, the chat open, and no way to other rooms", async () => {

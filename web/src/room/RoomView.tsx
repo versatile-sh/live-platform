@@ -155,6 +155,18 @@ type Seeing = { tile: boolean; camera: boolean; screen: boolean };
 
 const SEE_ALL: Seeing = { tile: true, camera: true, screen: true };
 
+const PHONE = "(max-width: 47.99rem)";
+
+function onPhoneChange(change: () => void) {
+  if (typeof window.matchMedia !== "function") return () => undefined;
+  const query = window.matchMedia(PHONE);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+}
+
+function isPhone() {
+  return typeof window.matchMedia === "function" && window.matchMedia(PHONE).matches;
+}
 
 function attach(stream: MediaStream | undefined) {
   return (element: HTMLMediaElement | null) => {
@@ -290,7 +302,13 @@ export function RoomView({
     settingsMemory.write({ ...local.settings, ...change });
     void media.setSettings(change);
   };
-  const [side, setSide] = useState<Side | undefined>(() => (typeof window.matchMedia === "function" && window.matchMedia("(max-width: 47.99rem)").matches ? undefined : "chat"));
+  const phone = useSyncExternalStore(onPhoneChange, isPhone);
+  const [side, setSide] = useState<Side | undefined>(phone ? undefined : "chat");
+  const [wasPhone, setWasPhone] = useState(phone);
+  if (wasPhone !== phone) {
+    setWasPhone(phone);
+    if (phone) setSide(undefined);
+  }
   const [shown, setShown] = useState<Side>("chat");
   const [menu, setMenu] = useState<"microphone" | "camera" | undefined>();
   const [sheet, setSheet] = useState<
@@ -626,6 +644,46 @@ export function RoomView({
     ],
   ];
 
+  const panel = shown === "chat" ? (
+    <ChatPanel
+      lines={chat}
+      me={myPid}
+      people={people}
+      photos={snapshot.photos}
+      canSend={connection.phase === "joined"}
+      peer={peer}
+      onPeer={setPeer}
+      privately={privately}
+      onPrivately={setPrivately}
+      unread={unreadFrom}
+      onSay={session.say}
+    />
+  ) : shown === "people" ? (
+    <PeoplePanel
+      people={people}
+      me={myPid}
+      canModerate={iAmOwner}
+      quiet={roomQuiet}
+      locked={boardLocked}
+      onDraw={(pid, op) => session.owner({ op, pid })}
+      onRemove={(pid) => session.owner({ op: "remove", pid })}
+      onBan={(pid) => session.owner({ op: "ban", pid })}
+      onQuiet={(op) => session.owner({ op })}
+      onVoice={(pid, op) => session.owner({ op, pid })}
+      onTransfer={(pid) => session.owner({ op: "transfer", pid })}
+      photos={snapshot.photos}
+      onEditLook={() => setSheet("look")}
+    />
+  ) : (
+    <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <OwnerPanel
+        slug={slug}
+        session={session}
+        snapshot={snapshot}
+      />
+    </div>
+  );
+
   if (connection.phase === "ended") {
     return (
       <div className="m-auto w-full max-w-xl px-6 py-10">
@@ -773,77 +831,47 @@ export function RoomView({
           </ul>
         </section>
 
-        <aside
-          aria-label={t(`side.${shown}`)}
-          inert={!side}
-          className={`flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) max-md:absolute max-md:inset-x-3 max-md:top-14 max-md:bottom-24 max-md:z-10 md:relative md:z-10 ${side ? "w-[22.5rem] opacity-100 max-md:w-auto" : "-ml-3 w-0 opacity-0 max-md:hidden"}`}
-        >
-          <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden bubble-sent border border-line bg-card max-md:w-full">
-            <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
-              <h2
-                key={shown}
-                className="swap-in font-display text-lg font-bold tracking-[-0.03em]"
-              >
-                {t(`side.${shown}`)}
-              </h2>
-              <span className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label={t("side.close")}
-                  className={ICON_BUTTON}
-                  onClick={() => setSide(undefined)}
+        {phone ? null : (
+          <aside
+            aria-label={t(`side.${shown}`)}
+            inert={!side}
+            className={`relative z-10 flex shrink-0 justify-end overflow-hidden transition-[width,opacity,margin] duration-500 ease-(--ease-glide) ${side ? "w-[22.5rem] opacity-100" : "-ml-3 w-0 opacity-0"}`}
+          >
+            <div className="flex w-[22.5rem] shrink-0 flex-col overflow-hidden bubble-sent border border-line bg-card">
+              <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line pr-2 pl-4">
+                <h2
+                  key={shown}
+                  className="swap-in font-display text-lg font-bold tracking-[-0.03em]"
                 >
-                  <Icon name="minimize" className="size-4" />
-                </button>
-              </span>
+                  {t(`side.${shown}`)}
+                </h2>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    aria-label={t("side.close")}
+                    className={ICON_BUTTON}
+                    onClick={() => setSide(undefined)}
+                  >
+                    <Icon name="minimize" className="size-4" />
+                  </button>
+                </span>
+              </div>
+              <div
+                key={shown}
+                className={`flex min-h-0 flex-1 flex-col ${shown === "chat" ? "swap-from-right" : "swap-from-left"}`}
+              >
+                {panel}
+              </div>
             </div>
-            <div
-              key={shown}
-              className={`flex min-h-0 flex-1 flex-col ${shown === "chat" ? "swap-from-right" : "swap-from-left"}`}
-            >
-              {shown === "chat" ? (
-                <ChatPanel
-                  lines={chat}
-                  me={myPid}
-                  people={people}
-                  photos={snapshot.photos}
-                  canSend={connection.phase === "joined"}
-                  peer={peer}
-                  onPeer={setPeer}
-                  privately={privately}
-                  onPrivately={setPrivately}
-                  unread={unreadFrom}
-                  onSay={session.say}
-                />
-              ) : shown === "people" ? (
-                <PeoplePanel
-                  people={people}
-                  me={myPid}
-                  canModerate={iAmOwner}
-                  quiet={roomQuiet}
-                  locked={boardLocked}
-                  onDraw={(pid, op) => session.owner({ op, pid })}
-                  onRemove={(pid) => session.owner({ op: "remove", pid })}
-                  onBan={(pid) => session.owner({ op: "ban", pid })}
-                  onQuiet={(op) => session.owner({ op })}
-                  onVoice={(pid, op) => session.owner({ op, pid })}
-                  onTransfer={(pid) => session.owner({ op: "transfer", pid })}
-                  photos={snapshot.photos}
-                  onEditLook={() => setSheet("look")}
-                />
-              ) : (
-                <div className="min-h-0 flex-1 overflow-y-auto p-4">
-                  <OwnerPanel
-                    slug={slug}
-                    session={session}
-                    snapshot={snapshot}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
+
+      {phone && side ? (
+        <Sheet title={t(`side.${side}`)} closeLabel={t("more.close")} onClose={() => setSide(undefined)} bare>
+          {panel}
+        </Sheet>
+      ) : null}
 
       {palette ? (
         <CommandPalette
