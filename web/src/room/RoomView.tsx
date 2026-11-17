@@ -717,8 +717,8 @@ export function RoomView({
           <ConnectionStatus connection={connection} />
         </div>
         <div className="flex items-center gap-1 justify-self-end">
-          <span className="relative mr-1">
-            <button type="button" className={`${button({ variant: "secondary", size: "sm" })} max-sm:px-2.5`} onClick={invite}>
+          <span className="relative">
+            <button type="button" className={`${DOCK.topLabeled} ${DOCK.quiet}`} onClick={invite}>
               <Icon name="invite" />
               <span className="max-sm:sr-only">{t("invite.button")}</span>
             </button>
