@@ -110,9 +110,18 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       send({ role: "sub", kind: "answer", sdp: answer.sdp ?? "" });
+      const receiving =
+        typeof pc.getTransceivers === "function"
+          ? new Set(
+              pc
+                .getTransceivers()
+                .filter((transceiver) => transceiver.currentDirection === "recvonly" || transceiver.currentDirection === "sendrecv")
+                .map((transceiver) => transceiver.receiver.track),
+            )
+          : undefined;
       for (const [pidText, sources] of Object.entries(remote)) {
         for (const [source, stream] of Object.entries(sources)) {
-          if (stream.getTracks().every((track) => track.readyState === "ended")) setRemote(Number(pidText), source as Source, undefined);
+          if (stream.getTracks().every((track) => track.readyState === "ended" || (receiving !== undefined && !receiving.has(track)))) setRemote(Number(pidText), source as Source, undefined);
         }
       }
     } catch {
@@ -134,7 +143,15 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       for (const [source, sender] of senders) if (sender.track) sources[sender.track.id] = source;
       send({ role: "pub", kind: "offer", sdp: offer.sdp ?? "", sources });
     } catch {
-      negotiating = false;
+      settled();
+    }
+  }
+
+  function settled() {
+    negotiating = false;
+    if (again) {
+      again = false;
+      void negotiate();
     }
   }
 
@@ -155,7 +172,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
         cap(source);
         changed = true;
       } else if (!track && sender) {
-        pub.removeTrack(sender);
+        pub.getTransceivers().find((transceiver) => transceiver.sender === sender)?.stop();
         senders.delete(source);
         changed = true;
       } else if (track && sender && sender.track !== track) {
@@ -205,13 +222,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
           .setRemoteDescription({ type: "answer", sdp: signal.sdp ?? "" })
           .then(() => flush("pub", pc))
           .catch(() => undefined)
-          .finally(() => {
-            negotiating = false;
-            if (again) {
-              again = false;
-              void negotiate();
-            }
-          });
+          .finally(settled);
       }
     },
     publish(tracks) {
