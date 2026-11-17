@@ -49,7 +49,7 @@ export function OptionsPane({ control, label, back, footer, children, className 
       aria-label={label}
       inert={!control.open}
       aria-hidden={control.open ? undefined : true}
-      className="no-scrollbar flex size-full overflow-y-auto px-6 py-5 sm:px-10 lg:px-14 lg:py-10"
+      className="no-scrollbar flex size-full overflow-y-auto px-6 py-5 sm:px-10 lg:px-14 lg:pt-28 lg:pb-10"
       onKeyDown={(event) => {
         if (event.key === "Escape") control.hide();
       }}

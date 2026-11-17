@@ -54,12 +54,12 @@ describe("HomePage", () => {
     const createInPane = () => within(pane()).getByRole("button", { name: "Create room" });
     const stage = () => document.querySelector("[data-stop]")!;
 
-    test("push the page one stop, show the options beside the form and move focus to the first of them", async () => {
+    test("take the pitch's place while the page stays at its stop and the form stays usable, and move focus to the first of them", async () => {
       renderWithApp(<HomePage />);
       expect(pane()).toHaveAttribute("inert");
       expect(pane()).toHaveAttribute("aria-hidden", "true");
       await userEvent.click(more());
-      expect(stage()).toHaveAttribute("data-stop", "1");
+      expect(stage()).toHaveAttribute("data-stop", "0");
       expect(stage()).toHaveAttribute("data-more");
       expect(screen.getByRole("region", { name: "More options" })).toBe(pane());
       expect(pane()).not.toHaveAttribute("inert");
@@ -76,6 +76,16 @@ describe("HomePage", () => {
       await userEvent.click(more());
       expect(screen.getByLabelText("Room name")).toHaveValue("standup");
       expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
+    });
+
+    test("hide on a second click of the toggle, which keeps focus", async () => {
+      renderWithApp(<HomePage />);
+      await userEvent.click(more());
+      await userEvent.click(more());
+      expect(more()).toHaveAttribute("aria-expanded", "false");
+      expect(more()).toHaveFocus();
+      expect(stage()).not.toHaveAttribute("data-more");
+      expect(pane()).toHaveAttribute("inert");
     });
 
     test("hide on Escape and return focus to the toggle", async () => {
@@ -246,14 +256,15 @@ describe("HomePage", () => {
       expect(screen.queryByRole("heading", { name: "Open rooms" })).not.toBeInTheDocument();
     });
 
-    test("a doorway's options push it one stop further and leave one way back, and leaving the stop puts them away", async () => {
+    test("a doorway's options keep it at its stop and leave one way back, and leaving the stop puts them away", async () => {
       const door = <EntryForm slug="demo" room={{ slug: "demo", exists: false, private: false, count: 0, capacity: 10 }} onEnter={() => undefined} />;
       const { rerender } = render(wrap("lobby"));
       rerender(wrap("entry", door));
       expect(stage()).toHaveAttribute("data-stop", "2");
       expect(screen.getByRole("link", { name: "Back" })).not.toHaveAttribute("inert");
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      expect(stage()).toHaveAttribute("data-stop", "3");
+      expect(stage()).toHaveAttribute("data-stop", "2");
+      expect(stage()).toHaveAttribute("data-more");
       expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("inert");
       rerender(wrap("lobby"));
       expect(stage()).toHaveAttribute("data-stop", "1");

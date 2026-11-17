@@ -16,6 +16,7 @@ import { EnterRoom } from "./EnterRoom";
 
 const SWAP = "transition-colors duration-700";
 const CONVEY = "transition-[color,background-color,border-color,translate] duration-700 ease-(--ease-glide) group-data-[more]:transition-[color,background-color,border-color,translate,visibility]";
+const SLIDE_AWAY = "transition-[translate] duration-700 ease-(--ease-glide) group-data-[more]:invisible group-data-[more]:-translate-x-full group-data-[more]:transition-[translate,visibility]";
 const LEAVE_RIGHT = "slide-out-right max-lg:hidden";
 
 function Said({ mine = false, live = false, children }: { mine?: boolean; live?: boolean; children: ReactNode }) {
@@ -39,11 +40,11 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className={`no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[more]:-translate-x-full lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
-      <AppLink href="/" aria-label={t("app.home")} className="self-start">
+    <section className={`no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+      <AppLink href="/" aria-label={t("app.home")} className="relative self-start lg:z-30">
         <Wordmark onAccent className="text-lg" />
       </AppLink>
-      <div className="flex flex-1 flex-col justify-center pt-4 lg:py-0">
+      <div className={`flex flex-1 flex-col justify-center pt-4 lg:py-0 ${SLIDE_AWAY}`}>
         <h1 className="font-display text-[2rem] leading-[1.04] min-[380px]:text-[2.25rem] font-bold tracking-[-0.04em] sm:text-5xl xl:text-6xl">
           <span className="block">{t("home.line1")}</span>
           <span className="block">{t("home.line2")}</span>
@@ -66,7 +67,7 @@ function Pitch() {
   );
 }
 
-/** The home, in two halves: what the product is, told as a conversation, and a panel on the right. The panel is the form that takes you into a room, the open rooms (the lime half slides across and they arrive on it), or whatever a room needs to ask before letting someone in. A form's options push the page one more stop: the form takes the left half and its options the right (on a phone they cover the page). */
+/** The home, in two halves: what the product is, told as a conversation, and a panel on the right. The panel is the form that takes you into a room, the open rooms (the lime half slides across and they arrive on it), or whatever a room needs to ask before letting someone in. A form's options take the left half while the form stays where it is: the pitch slides out and they slide in (on a phone they cover the page). */
 export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "entry"; panel?: ReactNode }) {
   const t = useT();
   const [track, setTrack] = useState({ view, stop: view === "lobby" ? 1 : 0 });
@@ -103,8 +104,8 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
 
   return (
-    <div data-view={view} data-stop={stop + (more ? 1 : 0)} data-more={more ? "" : undefined} className="group relative isolate flex h-dvh flex-col overflow-hidden bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
-      <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 group-data-[stop=3]:-translate-x-3/4 lg:flex">
+    <div data-view={view} data-stop={stop} data-more={more ? "" : undefined} className="group relative isolate flex h-dvh flex-col overflow-hidden bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
+      <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 lg:flex">
         {[0, 1].map((pair) => (
           <div key={pair} className="flex w-1/2">
             <div className="relative w-1/2 bg-bubble">
@@ -130,7 +131,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         />
       ) : null}
       <Pitch />
-      <div className={`no-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:py-10 lg:group-data-[more]:-translate-x-full lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+      <div className={`no-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
         <Social className="justify-end" />
         <div className="relative flex flex-1 items-center justify-center py-2 lg:py-8">
           {view === "entry" ? null : (
@@ -175,7 +176,9 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
           {view === "home" ? <Arrow /> : null}
         </AppLink>
       </div>
-      <div ref={setSlot} className="invisible absolute inset-0 z-20 translate-x-full bg-canvas transition-[translate,visibility] duration-700 ease-(--ease-glide) group-data-[more]:visible group-data-[more]:translate-x-0 group-data-[more]:transition-[translate] lg:left-1/2 lg:border-l lg:border-line" />
+      <div className="pointer-events-none absolute inset-0 z-20 overflow-clip lg:right-1/2 lg:border-r lg:border-transparent lg:transition-colors lg:duration-700 lg:group-data-[more]:border-line">
+        <div ref={setSlot} className="pointer-events-auto invisible size-full translate-x-full bg-canvas transition-[translate,visibility] duration-700 ease-(--ease-glide) group-data-[more]:visible group-data-[more]:translate-x-0 group-data-[more]:transition-[translate] lg:bg-card" />
+      </div>
     </div>
   );
 }
