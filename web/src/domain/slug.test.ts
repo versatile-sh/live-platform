@@ -47,7 +47,7 @@ describe("randomSlug", () => {
 
   test("takes its letters from the draw it is given", () => {
     let i = 0;
-    const draws = [8, 0, 1, 2, 3, 4, 5, 6];
-    expect(randomSlug((bytes) => void (bytes[0] = draws[i++] ?? 0))).toBe("a234-5678");
+    const draws = [17, 5, 22, 8, 1, 29, 19, 7];
+    expect(randomSlug((bytes) => void (bytes[0] = draws[i++] ?? 0))).toBe("k7qa-3xm9");
   });
 });

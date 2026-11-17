@@ -25,15 +25,20 @@ describe("generatePassword", () => {
   });
 
   test("maps a byte to its alphabet character modulo the alphabet size", () => {
-    expect(generatePassword(scripted([8, 0, 1, 2, 3, 4, 5, 32 + 6]))).toBe("A234-5678");
+    expect(generatePassword(scripted([17, 64 + 5, 22, 8, 1, 224 + 29, 19, 32 + 7]))).toBe("K7QA-3XM9");
   });
 
   test("draws again when a code has only letters or only digits", () => {
-    expect(generatePassword(scripted([0, 0, 0, 0, 0, 0, 0, 0, 8, 0, 1, 2, 3, 4, 5, 6]))).toBe("A234-5678");
+    expect(generatePassword(scripted([0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 17, 5, 22, 8, 1, 29, 19, 7]))).toBe("K7QA-3XM9");
+  });
+
+  test("draws again when a code would be rated weak, such as a run", () => {
+    expect(assessPassword("A234-5678").rating).toBe("weak");
+    expect(generatePassword(scripted([8, 0, 1, 2, 3, 4, 5, 6, 17, 5, 22, 8, 1, 29, 19, 7]))).toBe("K7QA-3XM9");
   });
 
   test("is accepted by the rule a typed password must meet", () => {
-    expect(assessPassword(generatePassword()).rating).toBe("ok");
+    for (let i = 0; i < 300; i++) expect(assessPassword(generatePassword()).rating).toBe("ok");
   });
 });
 

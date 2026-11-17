@@ -40,16 +40,13 @@ function drawIndex(random: RandomBytes, size: number): number {
   }
 }
 
-function hasLetterAndDigit(text: string): boolean {
-  return /[A-Za-z]/.test(text) && /[0-9]/.test(text);
-}
-
-/** A room code such as `8ABH-23HK`: eight capitals and digits without the look-alikes 0 O 1 I, drawn without modulo bias, always holding both kinds. */
+/** A room code such as `8ABH-23HK`: eight capitals and digits without the look-alikes 0 O 1 I, drawn without modulo bias, and drawn again until `assessPassword` rates it ok. */
 export function generatePassword(random: RandomBytes = browserRandom): string {
   for (;;) {
     let text = "";
     for (let i = 0; i < GENERATED_LENGTH; i++) text += ALPHABET[drawIndex(random, ALPHABET.length)];
-    if (hasLetterAndDigit(text)) return `${text.slice(0, 4)}-${text.slice(4)}`;
+    const code = `${text.slice(0, 4)}-${text.slice(4)}`;
+    if (assessPassword(code).rating === "ok") return code;
   }
 }
 
