@@ -81,14 +81,14 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
           </span>
         </span>
       </h2>
-      <p className="mt-2 mb-6 text-muted">{creating ? t("entry.createIntro") : full ? t("entry.joinFull", { count: room.count, capacity: room.capacity }) : t("entry.joinPeople", { count: room.count, capacity: room.capacity })}</p>
+      <p className="mt-2 mb-4 text-muted lg:mb-6">{creating ? t("entry.createIntro") : full ? t("entry.joinFull", { count: room.count, capacity: room.capacity }) : t("entry.joinPeople", { count: room.count, capacity: room.capacity })}</p>
       {expired ? <p className="bubble mb-5 border border-line-strong bg-card p-4 text-sm">{t("ended.expired.body")}</p> : null}
 
       <Field
         label={t("entry.nameLabel")}
         hint={t("home.nameHint")}
         error={problems.name}
-        className="mb-5"
+        className="mb-3 lg:mb-5"
         value={name}
         autoComplete="nickname"
         maxLength={40}
@@ -117,7 +117,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
         />
       ) : null}
 
-      <p role="alert" className="mt-2 min-h-6 text-sm text-amber">
+      <p role="alert" className="mt-1 min-h-6 text-sm text-amber lg:mt-2">
         {refusal ? t(`refused.${refusal}`) : ""}
       </p>
       <button type="submit" disabled={working || full} className={`${button()} mt-1 w-full gap-2`}>
@@ -125,7 +125,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
         <Arrow />
       </button>
       {creating ? (
-        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-3">
+        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-1 lg:mt-3">
           <Field
             form={formId}
             label={t("lobby.goLabel")}
