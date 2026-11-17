@@ -55,7 +55,9 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     const where = creating ? checkSlug(normalizeSlug(roomName)) : ({ ok: true, slug } as const);
     if (!who.ok || missingCode || !where.ok) {
       setProblems({ ...(who.ok ? {} : { name: t(`entry.name.${who.problem}`) }), ...(missingCode ? { code: t("password.required") } : {}), ...(where.ok ? {} : { room: t(`slug.${where.problem}`) }) });
+      const submitter = event.nativeEvent instanceof SubmitEvent ? event.nativeEvent.submitter : null;
       if (!where.ok) more.show();
+      else if (submitter && more.panel.current?.contains(submitter)) more.hide();
       return;
     }
     setWorking(true);

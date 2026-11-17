@@ -81,6 +81,15 @@ describe("EntryForm", () => {
       expect(screen.getByRole("radio", { name: /Private/, hidden: true })).toBeChecked();
     });
 
+    test("puts the options away when their own button is pressed without a name, so the name's note shows", async () => {
+      const { onEnter } = setup(free);
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
+      expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByLabelText("Your name")).toBeInvalid();
+      expect(onEnter).not.toHaveBeenCalled();
+    });
+
     test("creates a public listed room without deriving anything", async () => {
       const { onEnter, services } = setup(free);
       const derive = vi.spyOn(services, "derive");
