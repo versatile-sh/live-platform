@@ -69,7 +69,7 @@ export function OptionsPane({ control, label, back, children, className = "" }: 
         type="button"
         aria-expanded={control.open}
         aria-controls={id}
-        className={`${button({ variant: "quiet", size: "sm" })} -ml-4 aria-expanded:bg-fg/8 aria-expanded:text-fg ${className}`}
+        className={`${button({ variant: "quiet", size: "sm" })} -ml-4 ${className}`}
         onClick={control.open ? control.hide : control.show}
       >
         {label}
