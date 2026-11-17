@@ -103,7 +103,7 @@ export const en = {
   "entry.accessPublic": "Public",
   "entry.accessPublicHint": "Anyone with the link. Media is encrypted in transit.",
   "entry.accessPrivate": "Private",
-  "entry.accessPrivateHint": "Needs a password. Media is end-to-end encrypted.",
+  "entry.accessPrivateHint": "Only people with the room code get in.",
   "entry.listed": "Show in open rooms",
   "entry.listedHint": "Anyone can find a listed room.",
   "entry.listedPrivate": "Private rooms are never listed.",

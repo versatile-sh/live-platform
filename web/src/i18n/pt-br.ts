@@ -105,7 +105,7 @@ export const ptBR: Record<MessageKey, string> = {
   "entry.accessPublic": "Pública",
   "entry.accessPublicHint": "Qualquer pessoa com o link. A mídia é cifrada em trânsito.",
   "entry.accessPrivate": "Privada",
-  "entry.accessPrivateHint": "Pede senha. A mídia é cifrada de ponta a ponta.",
+  "entry.accessPrivateHint": "Só entra quem tiver o código da sala.",
   "entry.listed": "Mostrar nas salas abertas",
   "entry.listedHint": "Qualquer pessoa pode encontrar uma sala listada.",
   "entry.listedPrivate": "Salas privadas nunca são listadas.",
