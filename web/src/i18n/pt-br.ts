@@ -416,6 +416,8 @@ export const ptBR: Record<MessageKey, string> = {
 
   "invite.button": "Convidar",
   "invite.failed": "O navegador não copiou. Copie este link: {link}",
+  "invite.aloneTitle": "Ainda não tem mais ninguém aqui",
+  "invite.aloneBody": "Mande este link para quem você quer chamar. Quem abrir só digita o nome para entrar.",
   "invite.copy": "Copiar link",
   "invite.copied": "Link copiado",
   "owner.heading": "Configurações da sala",

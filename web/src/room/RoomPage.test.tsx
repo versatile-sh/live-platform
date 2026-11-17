@@ -97,6 +97,33 @@ describe("RoomPage", () => {
     });
   });
 
+  describe("when I am alone in the room", () => {
+    async function alone() {
+      const ctx = await setup();
+      await submitName("Ana");
+      const socket = await socketOf(ctx.services);
+      await joinAs(socket);
+      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32, state: "active" })], gone: [] });
+      return { ...ctx, socket };
+    }
+
+    test("the stage invites someone with the room's link, and copies it on a click", async () => {
+      const { services } = await alone();
+      expect(screen.getByRole("heading", { name: "Nobody else is here yet" })).toBeInTheDocument();
+      expect(screen.getByText("https://live.test/demo")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Copy link" }));
+      expect(services.copied).toEqual(["https://live.test/demo"]);
+      expect(screen.getByRole("button", { name: "Link copied" })).toBeInTheDocument();
+    });
+
+    test("the invitation gives way when someone arrives", async () => {
+      const { socket } = await alone();
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia", { state: "active" })], gone: [] });
+      expect(screen.queryByRole("heading", { name: "Nobody else is here yet" })).not.toBeInTheDocument();
+      expect(screen.getByRole("listitem", { name: /Bia, connected/ })).toBeInTheDocument();
+    });
+  });
+
   describe("when people change", () => {
     async function inRoom() {
       const ctx = await setup({ kind: "ok", room: { ...free, exists: true, count: 1 } });

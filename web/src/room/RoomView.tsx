@@ -40,6 +40,7 @@ import { ChatPanel } from "./ChatPanel";
 import { ConnectionCard } from "./ConnectionCard";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { EndedPanel } from "./EndedPanel";
+import { InviteCard } from "./InviteCard";
 import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
 import { MoreMenu, type MoreItem } from "./MoreMenu";
@@ -420,6 +421,7 @@ export function RoomView({
     if (line.id > (readUpTo[line.pid] ?? 0) && line.pid !== reading) unreadFrom[line.pid] = (unreadFrom[line.pid] ?? 0) + 1;
   }
   if (reading !== undefined && (lastFrom[reading] ?? 0) > (readUpTo[reading] ?? 0)) setReadUpTo({ ...readUpTo, [reading]: lastFrom[reading]! });
+  const alone = me !== undefined && people.length === 1;
   const whispers = people.filter((person) => (unreadFrom[person.pid] ?? 0) > 0);
   const shownPeople = people.filter((person) => sees(person.pid).tile);
   const screens = people.filter(
@@ -724,7 +726,10 @@ export function RoomView({
               ) : null}
             </div>
           ) : (
-            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length)}`}>{frames.map((frame) => frame.render("grid"))}</ul>
+            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length + (alone ? 1 : 0))}`}>
+              {frames.map((frame) => frame.render("grid"))}
+              {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
+            </ul>
           )}
           {Object.entries(remote).flatMap(([pid, sources]) =>
             Number(pid) === myPid

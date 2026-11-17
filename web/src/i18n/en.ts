@@ -414,6 +414,8 @@ export const en = {
 
   "invite.button": "Invite",
   "invite.failed": "The browser did not copy it. Copy this link: {link}",
+  "invite.aloneTitle": "Nobody else is here yet",
+  "invite.aloneBody": "Send this link to whoever you want to talk to. Whoever opens it only types a name to come in.",
   "invite.copy": "Copy link",
   "invite.copied": "Link copied",
   "owner.heading": "Room settings",
