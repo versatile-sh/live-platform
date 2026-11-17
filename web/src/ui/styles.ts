@@ -37,16 +37,20 @@ export const ICON_BUTTON_PLAIN = `grid size-9 shrink-0 place-items-center rounde
 /** The chip on an ink surface: it turns paper when on. */
 export const CHIP_ON_INK = `bubble-word inline-flex h-8 shrink-0 items-center justify-center gap-2 border border-paper/30 px-3.5 text-sm font-semibold whitespace-nowrap text-paper/70 hover:text-paper aria-pressed:border-paper aria-pressed:bg-paper aria-pressed:text-ink ${PRESS}`;
 
-/** The round controls of the call dock and their states (idle, on, muted, holding a menu open), and the `top` toggles of the header, `quiet` until their panel or menu is `open`. */
+/**
+ * The round controls of the call. A dock toggle is `round`, or a `split` pill holding its `main` button and a `caret` for its options; either wears `on` (lime) or `off` (card, ringed).
+ * The toggles at the top are `top`, `quiet` until their panel or menu is `open`.
+ */
 export const DOCK = {
   round: `relative grid size-12 shrink-0 place-items-center rounded-full disabled:opacity-40 ${PRESS}`,
-  idle: "bg-line-strong text-fg hover:bg-fg/25",
+  split: `relative flex h-12 shrink-0 items-center rounded-full ${PRESS}`,
+  main: "grid size-12 shrink-0 place-items-center rounded-l-full transition-colors duration-150 hover:bg-current/10 disabled:opacity-40 max-sm:rounded-r-full",
+  caret: "relative grid h-12 w-9 place-items-center rounded-r-full transition-colors duration-150 before:absolute before:inset-y-3.5 before:left-0 before:w-px before:bg-current/25 hover:bg-current/10 max-sm:hidden",
   on: "bg-bubble text-on-bubble hover:opacity-85",
-  muted: "bg-line-strong text-muted hover:bg-fg/25 hover:text-fg",
-  open: "bg-fg text-canvas hover:opacity-85",
-  caret: "grid h-12 w-8 place-items-center rounded-full text-muted transition-colors duration-200 hover:text-fg",
+  off: "bg-card text-fg ring-1 ring-muted-light ring-inset hover:ring-fg",
   top: `relative grid size-10 shrink-0 place-items-center rounded-full ${PRESS}`,
   quiet: "text-fg hover:bg-fg/10",
+  open: "bg-fg text-canvas hover:opacity-85",
 } as const;
 
 /** The fixed link under the front page that moves it to the next stop or back; on the lime stop it turns ink. */

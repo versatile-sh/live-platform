@@ -525,6 +525,7 @@ export function RoomView({
     on: IconName,
     off: IconName,
     labels: [string, string],
+    className: string,
   ) {
     const active = local[kind] !== undefined;
     return (
@@ -534,7 +535,7 @@ export function RoomView({
         aria-label={active ? labels[1] : labels[0]}
         title={active ? labels[1] : labels[0]}
         disabled={local.busy !== undefined}
-        className={`${DOCK.round} ${active ? DOCK.on : kind === "screen" ? DOCK.idle : DOCK.muted}`}
+        className={className}
         onClick={() => void media.toggle(kind)}
       >
         <Icon name={active ? on : off} />
@@ -548,21 +549,23 @@ export function RoomView({
     label: string,
   ) {
     return (
-      <div className="relative flex items-center rounded-full bg-card sm:pr-1">
-        {button}
-        <button
-          type="button"
-          aria-expanded={menu === kind}
-          aria-label={label}
-          title={label}
-          className={`${DOCK.caret} max-sm:hidden`}
-          onClick={() => {
-            void media.refreshDevices();
-            setMenu(menu === kind ? undefined : kind);
-          }}
-        >
-          <Caret />
-        </button>
+      <div className="relative">
+        <div className={`${DOCK.split} ${local[kind] ? DOCK.on : DOCK.off}`}>
+          {button}
+          <button
+            type="button"
+            aria-expanded={menu === kind}
+            aria-label={label}
+            title={label}
+            className={DOCK.caret}
+            onClick={() => {
+              void media.refreshDevices();
+              setMenu(menu === kind ? undefined : kind);
+            }}
+          >
+            <Caret />
+          </button>
+        </div>
         {menu === kind ? (
           <Options
             kind={kind}
@@ -1184,9 +1187,9 @@ export function RoomView({
           {invited === "copied" ? t("invite.copied") : invited === "failed" ? t("invite.failed", { link }) : ""}
         </p>
         <div role="toolbar" aria-label={t("dock.label")} className="flex items-center gap-2 sm:gap-2.5">
-          {withOptions("microphone", control("microphone", "mic", "micOff", [t("dock.micOn"), t("dock.micOff")]), t("dock.micMenu"))}
-          {withOptions("camera", control("camera", "camera", "cameraOff", [t("dock.cameraOn"), t("dock.cameraOff")]), t("dock.cameraMenu"))}
-          {control("screen", "screen", "screen", [t("dock.screenOn"), t("dock.screenOff")])}
+          {withOptions("microphone", control("microphone", "mic", "micOff", [t("dock.micOn"), t("dock.micOff")], DOCK.main), t("dock.micMenu"))}
+          {withOptions("camera", control("camera", "camera", "cameraOff", [t("dock.cameraOn"), t("dock.cameraOff")], DOCK.main), t("dock.cameraMenu"))}
+          {control("screen", "screen", "screen", [t("dock.screenOn"), t("dock.screenOff")], `${DOCK.round} ${local.screen ? DOCK.on : DOCK.off}`)}
           <button type="button" className={`${button({ variant: "secondary", size: "lg" })} max-sm:px-3.5`} onClick={invite}>
             <Icon name="invite" />
             <span className="max-sm:sr-only">{t("invite.button")}</span>
