@@ -83,7 +83,8 @@ describe("RoomPage", () => {
 
     test("sends the join with the listed choice", async () => {
       const { services } = await setup();
-      await userEvent.click(await screen.findByRole("switch", { name: /Show in open rooms/ }));
+      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
+      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
@@ -94,7 +95,7 @@ describe("RoomPage", () => {
   describe("when people change", () => {
     async function inRoom() {
       const ctx = await setup({ kind: "ok", room: { ...free, exists: true, count: 1 } });
-      await submitName("Ana", "Enter room");
+      await submitName("Ana", "Enter");
       const socket = await socketOf(ctx.services);
       await joinAs(socket, 2);
       await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });
@@ -179,7 +180,7 @@ describe("RoomPage", () => {
       const { services } = await setup({ kind: "ok", room: { ...free, exists: true, private: true, count: 1 } });
       await userEvent.type(await screen.findByLabelText("Your name"), "Eve");
       await userEvent.type(screen.getByLabelText("Room code"), "wrongpass1");
-      await userEvent.click(screen.getByRole("button", { name: "Enter room" }));
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
       await send(socket, { t: "error", code: "PERMISSION_DENIED", message: "needs password" });
@@ -266,7 +267,7 @@ describe("RoomPage", () => {
 
     test("do not appear for someone who is not the owner", async () => {
       const ctx = await setup({ kind: "ok", room: { ...free, exists: true, count: 1 } });
-      await submitName("Bia", "Enter room");
+      await submitName("Bia", "Enter");
       const socket = await socketOf(ctx.services);
       await joinAs(socket, 2);
       await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });

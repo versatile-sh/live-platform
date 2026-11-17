@@ -120,7 +120,7 @@ export const ptBR: Record<MessageKey, string> = {
   "entry.copy": "Copiar",
   "entry.copied": "Copiada",
   "entry.submitCreate": "Criar e entrar",
-  "entry.submitJoin": "Entrar na sala",
+  "entry.submitJoin": "Entrar",
   "entry.working": "Preparando",
   "password.short": "Use pelo menos 8 caracteres.",
   "password.needsLetter": "Inclua uma letra.",

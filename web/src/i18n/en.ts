@@ -118,7 +118,7 @@ export const en = {
   "entry.copy": "Copy",
   "entry.copied": "Copied",
   "entry.submitCreate": "Create and enter",
-  "entry.submitJoin": "Enter room",
+  "entry.submitJoin": "Enter",
   "entry.working": "Preparing",
   "password.short": "Use at least 8 characters.",
   "password.needsLetter": "Add a letter.",
