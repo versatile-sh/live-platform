@@ -556,13 +556,39 @@ describe("RoomPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("menuitem", { name: /Sound and video settings/ }));
       const sheet = within(screen.getByRole("dialog", { name: "Sound and video settings" }));
-      await userEvent.click(sheet.getByRole("switch", { name: /Push to talk/ }));
+      await userEvent.click(sheet.getByRole("switch", { name: /Share the computer's sound/ }));
+      await userEvent.click(sheet.getByRole("button", { name: "Advanced" }));
+      await userEvent.click(sheet.getByRole("switch", { name: /Talk only while holding a key/ }));
       await userEvent.click(sheet.getByRole("radio", { name: "Left Alt" }));
       await userEvent.click(sheet.getByRole("radio", { name: "1440p · 60 fps" }));
-      await userEvent.click(sheet.getByRole("switch", { name: /Noise gate/ }));
-      expect(written.at(-1)).toMatchObject({ pushToTalk: true, talkKey: "AltLeft", screenQuality: "1440p60", gate: true });
+      await userEvent.click(sheet.getByRole("switch", { name: /Cut the noise when you are not talking/ }));
+      expect(written.at(-1)).toMatchObject({ screenAudio: false, pushToTalk: true, talkKey: "AltLeft", screenQuality: "1440p60", gate: true });
       expect(sheet.getByRole("radio", { name: "1440p · 60 fps" })).toHaveAttribute("aria-checked", "true");
-      expect(sheet.getByRole("slider", { name: "Gate opens at" })).toBeEnabled();
+      expect(sheet.getByRole("slider", { name: "How loud you must talk to be heard" })).toBeEnabled();
+    });
+
+    test("settings show the basics first, with the devices, and keep the finer controls under Advanced", async () => {
+      const chosen: MediaStreamConstraints[] = [];
+      const track = { stop: () => undefined, addEventListener: () => undefined };
+      const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;
+      await inCall({
+        mediaDevices: {
+          user: async (constraints) => (chosen.push(constraints), stream),
+          display: async () => stream,
+          list: async () => [{ kind: "audioinput", deviceId: "mic-1", label: "Built-in microphone" } as MediaDeviceInfo, { kind: "audioinput", deviceId: "mic-2", label: "Desk microphone" } as MediaDeviceInfo],
+        },
+      });
+      await fromMore("Sound and video settings");
+      const sheet = within(screen.getByRole("dialog", { name: "Sound and video settings" }));
+      expect(sheet.getByRole("heading", { name: "Basic" })).toBeInTheDocument();
+      expect(sheet.getByRole("radiogroup", { name: "Clean up background noise" })).toBeInTheDocument();
+      const advanced = sheet.getByRole("button", { name: "Advanced" });
+      expect(advanced).toHaveAttribute("aria-expanded", "false");
+      expect(sheet.getByRole("switch", { name: /Cut the noise when you are not talking/ }).closest("[inert]")).not.toBeNull();
+      await userEvent.click(await sheet.findByRole("radio", { name: "Desk microphone" }));
+      await userEvent.click(sheet.getByRole("button", { name: "Close" }));
+      await userEvent.click(screen.getByRole("button", { name: "Turn microphone on" }));
+      await waitFor(() => expect(chosen.at(-1)).toMatchObject({ audio: { deviceId: { exact: "mic-2" } } }));
     });
 
     test("the keyboard shortcuts are listed and work", async () => {

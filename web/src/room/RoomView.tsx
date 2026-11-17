@@ -20,7 +20,6 @@ import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
 import {
   createLocalMedia,
-  type Device,
   type LocalMedia,
   type LocalMediaSnapshot,
   type MediaKind,
@@ -39,6 +38,7 @@ import { Wordmark } from "../ui/Wordmark";
 import { ChatPanel } from "./ChatPanel";
 import { ConnectionCard } from "./ConnectionCard";
 import { ConnectionStatus } from "./ConnectionStatus";
+import { DeviceList } from "./DeviceList";
 import { EndedPanel } from "./EndedPanel";
 import { InviteCard } from "./InviteCard";
 import { LookPicker } from "./LookPicker";
@@ -74,53 +74,6 @@ function Caret() {
     >
       <path d="M4 10l4-4 4 4" />
     </svg>
-  );
-}
-
-function DeviceList({
-  label,
-  devices,
-  chosen,
-  onChoose,
-}: {
-  label: string;
-  devices: readonly Device[];
-  chosen: string | undefined;
-  onChoose(id: string): void;
-}) {
-  const t = useT();
-  return (
-    <fieldset className="min-w-0">
-      <legend className="mb-1.5 text-sm font-semibold">{label}</legend>
-      {devices.length === 0 ? (
-        <p className="text-sm text-muted">{t("menu.noDevices")}</p>
-      ) : (
-        <div className="flex max-h-44 flex-col gap-0.5 overflow-y-auto">
-          {devices.map((device, index) => {
-            const checked = chosen ? chosen === device.id : index === 0;
-            return (
-              <label
-                key={device.id}
-                className="flex min-h-10 cursor-pointer items-center gap-3 bubble px-2.5 text-sm transition-colors duration-200 hover:bg-fg/8 has-checked:bg-fg/10 has-focus-visible:outline-2 has-focus-visible:outline-fg/55"
-              >
-                <input
-                  type="radio"
-                  name={label}
-                  className="sr-only"
-                  checked={checked}
-                  onChange={() => onChoose(device.id)}
-                />
-                <span
-                  aria-hidden="true"
-                  className={`size-2.5 shrink-0 rounded-full ${checked ? "bg-bubble" : "border border-muted-light"}`}
-                />
-                <span className="min-w-0 flex-1 truncate">{device.label}</span>
-              </label>
-            );
-          })}
-        </div>
-      )}
-    </fieldset>
   );
 }
 
@@ -649,6 +602,10 @@ export function RoomView({
     );
   }
 
+  const openSettings = () => {
+    void media.refreshDevices();
+    setSheet("media");
+  };
   const moreGroups: readonly (readonly MoreItem[])[] = [
     [
       { id: "hand", label: t(local.hand ? "dock.handDown" : "dock.handUp"), icon: "hand", keys: "Ctrl+Alt+H", run: media.toggleHand },
@@ -656,7 +613,7 @@ export function RoomView({
       ...(iAmOwner ? [{ id: "settings", label: t("side.settings"), icon: "settings" as const, run: () => setSide("settings") }] : []),
     ],
     [
-      { id: "media", label: t("more.media"), icon: "settings", run: () => setSheet("media") },
+      { id: "media", label: t("more.media"), icon: "settings", run: openSettings },
       { id: "look", label: t("more.look"), icon: "face", run: () => setSheet("look") },
       { id: "visibility", label: t("more.visibility"), icon: "eye", run: () => setSheet("visibility") },
       { id: "connection", label: t("more.connection"), icon: "signal", run: () => setStats((open) => !open) },
@@ -949,7 +906,7 @@ export function RoomView({
             { id: "board", group: t("palette.group.room"), label: t("more.board"), run: toggleBoard },
             ...(iAmOwner ? [{ id: "quiet", group: t("palette.group.people"), label: t(roomQuiet ? "quiet.unmuteAll" : "quiet.muteAll"), run: () => void session.owner({ op: roomQuiet ? "unmute-all" : "mute-all" }) }] : []),
             { id: "theme", group: t("palette.group.site"), label: t(look === "dark" ? "theme.toLight" : "theme.toDark"), run: () => withIris({ x: window.innerWidth / 2, y: window.innerHeight / 2 }, theme.toggle) },
-            { id: "media", group: t("palette.group.room"), label: t("more.media"), run: () => setSheet("media") },
+            { id: "media", group: t("palette.group.room"), label: t("more.media"), run: openSettings },
             {
               id: "look",
               group: t("palette.group.room"),
@@ -1108,7 +1065,16 @@ export function RoomView({
 
       {sheet === "media" ? (
         <Sheet title={t("more.media")} closeLabel={t("more.close")} onClose={() => setSheet(undefined)} wide>
-          <MediaSettings settings={local.settings} filter={local.voiceFilter} strongAvailable={voiceCleaner !== undefined} onFilter={(filter) => void media.setVoiceFilter(filter)} onChange={changeSettings} />
+          <MediaSettings
+            settings={local.settings}
+            filter={local.voiceFilter}
+            strongAvailable={voiceCleaner !== undefined}
+            effectsAvailable={cameraEffects !== undefined}
+            devices={local}
+            onDevice={(kind, id) => void media.choose(kind, id)}
+            onFilter={(filter) => void media.setVoiceFilter(filter)}
+            onChange={changeSettings}
+          />
         </Sheet>
       ) : null}
       {sheet === "shortcuts" ? (
