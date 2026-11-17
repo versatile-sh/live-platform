@@ -717,6 +717,15 @@ export function RoomView({
           <ConnectionStatus connection={connection} />
         </div>
         <div className="flex items-center gap-1 justify-self-end">
+          <span className="relative mr-1">
+            <button type="button" className={`${button({ variant: "secondary", size: "sm" })} max-sm:px-2.5`} onClick={invite}>
+              <Icon name="invite" />
+              <span className="max-sm:sr-only">{t("invite.button")}</span>
+            </button>
+            <p role="status" className={`pointer-events-none absolute top-full right-0 z-20 mt-2 w-max max-w-[calc(100vw-1.5rem)] text-sm break-all ${invited === "idle" ? "" : "arrive bubble border border-bubble bg-card px-4 py-2"}`}>
+              {invited === "copied" ? t("invite.copied") : invited === "failed" ? t("invite.failed", { link }) : ""}
+            </p>
+          </span>
           <div role="group" aria-label={t("dock.panels")} className="flex items-center gap-1">
             {toggle("people", "people", t("side.people"), people.length, true)}
             {toggle("chat", "chat", t("side.chat"), unread)}
@@ -1209,14 +1218,7 @@ export function RoomView({
         </Sheet>
       ) : null}
 
-      <footer className="relative flex h-20 shrink-0 items-center justify-center gap-2 px-3 sm:px-5">
-        <p role="status" className={`pointer-events-none absolute inset-x-0 bottom-full mx-auto w-fit max-w-[calc(100vw-1.5rem)] text-center text-sm break-all ${invited === "idle" ? "" : "arrive bubble border border-bubble bg-card px-4 py-2"}`}>
-          {invited === "copied" ? t("invite.copied") : invited === "failed" ? t("invite.failed", { link }) : ""}
-        </p>
-        <button type="button" className={`${button({ variant: "secondary", size: "sm" })} max-sm:px-3 sm:absolute sm:left-5`} onClick={invite}>
-          <Icon name="invite" />
-          <span className="max-sm:sr-only">{t("invite.button")}</span>
-        </button>
+      <footer className="relative flex h-20 shrink-0 items-center justify-center px-3 sm:px-5">
         <div role="toolbar" aria-label={t("dock.label")} className="flex items-center gap-2 sm:gap-2.5">
           {withOptions("microphone", control("microphone", "mic", "micOff", [t("dock.micOn"), t("dock.micOff")], DOCK.main), t("dock.micMenu"))}
           {withOptions("camera", control("camera", "camera", "cameraOff", [t("dock.cameraOn"), t("dock.cameraOff")], DOCK.main), t("dock.cameraMenu"))}
