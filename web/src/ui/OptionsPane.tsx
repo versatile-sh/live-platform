@@ -38,7 +38,7 @@ export function useOptionsPane(): OptionsPaneControl {
 
 type OptionsPaneProps = { control: OptionsPaneControl; label: string; back: string; footer?: ReactNode; children: ReactNode; className?: string };
 
-/** Options one click away: a quiet toggle that says whether they are shown, and a pane with a way back, drawn in the page's place for it (beside the form, or over it on a phone, where a footer such as the form's submit ends the pane). Hidden, nothing in the pane can be reached; Escape hides it. */
+/** Options one click away: a quiet toggle that says whether they are shown, and a pane with a way back, drawn in the page's place for it (beside the form, where the toggle closes it again, or over it on a phone, with Back and a footer such as the form's submit). Hidden, nothing in the pane can be reached; Escape hides it. */
 export function OptionsPane({ control, label, back, footer, children, className = "" }: OptionsPaneProps) {
   const id = useId();
   const pane = (
@@ -55,7 +55,7 @@ export function OptionsPane({ control, label, back, footer, children, className 
       }}
     >
       <div className="m-auto w-full max-w-md">
-        <button type="button" className={`${button({ variant: "quiet", size: "sm" })} mb-4 -ml-4`} onClick={control.hide}>
+        <button type="button" className={`${button({ variant: "quiet", size: "sm" })} mb-4 -ml-4 lg:hidden`} onClick={control.hide}>
           <Arrow back />
           {back}
         </button>

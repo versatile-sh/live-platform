@@ -98,7 +98,7 @@ describe("HomePage", () => {
       expect(pane()).toHaveAttribute("inert");
     });
 
-    test("hide on Back and return focus to the toggle", async () => {
+    test("hide on the pane's Back, the way out on a phone, and return focus to the toggle", async () => {
       renderWithApp(<HomePage />);
       await userEvent.click(more());
       await userEvent.click(within(pane()).getByRole("button", { name: "Back" }));
