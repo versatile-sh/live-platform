@@ -38,12 +38,12 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className={`no-scrollbar relative flex flex-col bg-bubble px-6 py-8 text-ink group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[more]:-translate-x-full lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+    <section className={`no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[more]:-translate-x-full lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
       <AppLink href="/" aria-label={t("app.home")} className="self-start">
         <Wordmark onAccent className="text-lg" />
       </AppLink>
-      <div className="flex flex-1 flex-col justify-center py-12 lg:py-0">
-        <h1 className="font-display text-[2.5rem] leading-[1.04] font-bold tracking-[-0.04em] sm:text-5xl xl:text-6xl">
+      <div className="flex flex-1 flex-col justify-center pt-4 lg:py-0">
+        <h1 className="font-display text-[2rem] leading-[1.04] min-[380px]:text-[2.25rem] font-bold tracking-[-0.04em] sm:text-5xl xl:text-6xl">
           <span className="block">{t("home.line1")}</span>
           <span className="block">{t("home.line2")}</span>
           <span className={`bubble-word mt-[0.34em] inline-block bg-ink px-[0.5em] py-[0.24em] font-mono text-[0.42em] leading-[1.15] font-medium tracking-[-0.02em] text-bubble group-data-[view=lobby]:bg-bubble group-data-[view=lobby]:text-ink ${SWAP}`}>
@@ -102,7 +102,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
 
   return (
-    <div data-view={view} data-stop={stop + (more ? 1 : 0)} data-more={more ? "" : undefined} className="group relative isolate flex flex-1 flex-col overflow-hidden bg-canvas lg:min-h-0 lg:flex-row">
+    <div data-view={view} data-stop={stop + (more ? 1 : 0)} data-more={more ? "" : undefined} className="group relative isolate flex h-dvh flex-col overflow-hidden bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
       <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 group-data-[stop=3]:-translate-x-3/4 lg:flex">
         {[0, 1].map((pair) => (
           <div key={pair} className="flex w-1/2">
@@ -129,9 +129,9 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         />
       ) : null}
       <Pitch />
-      <div className={`no-scrollbar relative flex flex-1 flex-col px-6 py-8 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:min-h-0 lg:overflow-y-auto lg:py-10 lg:group-data-[more]:-translate-x-full lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+      <div className={`no-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:py-10 lg:group-data-[more]:-translate-x-full lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
         <Social className="justify-end" />
-        <div className="relative flex flex-1 items-center justify-center py-8">
+        <div className="relative flex flex-1 items-center justify-center py-2 lg:py-8">
           {view === "entry" ? null : (
             <div inert={view !== "home"} className={`flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) ${back && view === "home" ? "slide-in-left" : ""} ${view === "home" ? "" : `${HIDDEN} max-lg:hidden`}`}>
               <OptionsPlaceContext value={view === "home" ? place : idle}>

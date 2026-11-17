@@ -73,12 +73,12 @@ export function EnterRoom() {
     <div className="w-full max-w-md">
       <form id={formId} onSubmit={(event) => void create(event)} noValidate>
         <h2 className="font-display text-3xl leading-[1.1] font-bold tracking-[-0.04em]">{t("home.formTitle")}</h2>
-        <p className="mt-2 mb-7 text-muted">{t("home.formIntro")}</p>
+        <p className="mt-2 mb-4 text-muted lg:mb-7">{t("home.formIntro")}</p>
         <button type="submit" disabled={working} className={`${button({ variant: "accent", size: "lg" })} w-full gap-2`}>
           {working ? t("entry.working") : t("home.create")}
           <Arrow />
         </button>
-        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-3">
+        <OptionsPane control={more} label={t("more.label")} back={t("home.back")} className="mt-1 lg:mt-3">
           <Field
             form={formId}
             label={t("entry.nameLabel")}
@@ -120,9 +120,9 @@ export function EnterRoom() {
         </OptionsPane>
       </form>
 
-      <form onSubmit={join} noValidate className="mt-8 border-t border-line pt-7">
-        <h2 className="font-display text-xl leading-tight font-bold tracking-[-0.03em]">{t("home.joinTitle")}</h2>
-        <div className="mt-3 flex items-start gap-2">
+      <form onSubmit={join} noValidate className="mt-4 border-t border-line pt-4 lg:mt-8 lg:pt-7">
+        <h2 className="font-display text-xl leading-tight font-bold tracking-[-0.03em] max-lg:[@media(max-height:760px)]:sr-only">{t("home.joinTitle")}</h2>
+        <div className="mt-3 flex items-start gap-2 max-lg:[@media(max-height:760px)]:mt-0">
           <Field
             label={t("home.joinLabel")}
             error={linkProblem}
