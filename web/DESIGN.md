@@ -11,9 +11,9 @@ One page that moves like a conveyor. The left half says what the product is and 
 | Home | the pitch on lime | the form on ink |
 | Open rooms | the pitch on ink | the rooms on lime |
 | Doorway | the pitch on lime | a room's questions on ink |
-| More options (from the home or a doorway) | the form on ink, the pitch gone | its options on ink, past a hairline |
+| More options (from the home or a doorway) | the options on a card, the wordmark kept | the form, unmoved |
 
-More options is one stop further on the same backdrop, with the same easing and duration: the pitch slides out, the form takes the left half and its options arrive on the right. On a phone there are no halves, so the options slide in over the whole page with a Back at the top and the form's own button at the foot. A door with its options open shows only the pane's Back. Going into a room is a forward view transition, coming out of one a back transition.
+More options changes only the left half, with the conveyor's easing and duration: the headline and chat slide out to the left and the options slide in from the middle on a card, past a hairline. The form, its toggle (a second click closes), the social row and the conveyor link stay where they are, and the backdrop keeps its stop. On a phone there are no halves, so the options slide in over the whole page with a Back at the top and the form's own button at the foot. Going into a room is a forward view transition, coming out of one a back transition.
 
 The front page never scrolls. It is one screen tall at every size; on a phone the pitch keeps its height and the panel under it takes the rest, scrolling inside only when nothing else fits (360x640). Options belong in a pane that slides in, never in a section that grows the page.
 
@@ -73,7 +73,7 @@ Motion: `--ease-glide` for things that travel (the conveyor, sliding panes and t
 | `Segmented` | a two-way pill whose thumb slides |
 | `Switch` | an on/off row with a sliding thumb and a hint |
 | `Disclosure` | a quiet button that shows or hides options under it (`aria-expanded`), sliding open; what it hides cannot be reached while closed. For settings inside a panel only, never on the front page |
-| `OptionsPane` | a form's options one click away: a quiet toggle (`aria-expanded`, `aria-controls`; open or closed it looks the same, only the chevron turns) and a pane with Back and, on a phone, a footer such as the form's submit, drawn into the place the page offers (`OptionsPlaceContext`) or in place without one. Showing moves focus to the first field, Escape and Back hide it and give focus back to the toggle, the hidden pane is inert and `aria-hidden`, and its fields carry `form` so the form submits from either state |
+| `OptionsPane` | a form's options one click away: a quiet toggle (`aria-expanded`, `aria-controls`; open or closed it looks the same, only the chevron turns) and a pane, which on a phone adds Back and a footer such as the form's submit, drawn into the place the page offers (`OptionsPlaceContext`) or in place without one. Showing moves focus to the first field, the toggle, Escape and Back hide it and give focus back to the toggle, the hidden pane is inert and `aria-hidden`, and its fields carry `form` so the form submits from either state |
 | `RoomCode` | a room code large in an ink bubble, with New and Copy |
 | `button()` | primary (paper on ink), secondary (outlined), quiet |
 | `Icon` | the room's icon set, one stroke weight |
