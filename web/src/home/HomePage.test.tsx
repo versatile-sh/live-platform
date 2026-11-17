@@ -243,13 +243,15 @@ describe("HomePage", () => {
       expect(screen.queryByRole("heading", { name: "Open rooms" })).not.toBeInTheDocument();
     });
 
-    test("a doorway's options push it one stop further, and leaving the stop puts them away", async () => {
+    test("a doorway's options push it one stop further and leave one way back, and leaving the stop puts them away", async () => {
       const door = <EntryForm slug="demo" room={{ slug: "demo", exists: false, private: false, count: 0, capacity: 10 }} onEnter={() => undefined} />;
       const { rerender } = render(wrap("lobby"));
       rerender(wrap("entry", door));
       expect(stage()).toHaveAttribute("data-stop", "2");
+      expect(screen.getByRole("link", { name: "Back" })).not.toHaveAttribute("inert");
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
       expect(stage()).toHaveAttribute("data-stop", "3");
+      expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("inert");
       rerender(wrap("lobby"));
       expect(stage()).toHaveAttribute("data-stop", "1");
       expect(stage()).not.toHaveAttribute("data-more");

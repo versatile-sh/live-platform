@@ -167,7 +167,8 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         </div>
         <AppLink
           href={lobby ? "/" : view === "entry" ? (leftLobby ? "/lobby" : "/") : "/lobby"}
-          className={CONVEYOR_LINK}
+          inert={more && view === "entry"}
+          className={`${CONVEYOR_LINK} inert:opacity-0`}
         >
           {view === "home" ? null : <Arrow back />}
           {t(lobby ? "lobby.back" : view === "entry" ? "home.back" : "home.seeRooms")}
