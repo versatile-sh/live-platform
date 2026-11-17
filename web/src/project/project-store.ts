@@ -7,7 +7,7 @@ export type ProjectStore = {
 };
 
 /** The addresses the page links to when the server says nothing else. */
-export const PROJECT_LINKS: Project = { repo: "https://github.com/versatile-sh/meeting-platform", x: "https://x.com/versatile_sh", stars: 0 };
+export const PROJECT_LINKS: Project = { repo: "https://github.com/versatile-sh/live-platform", x: "https://x.com/versatile_sh", stars: 0 };
 
 /** The star count, asked of our own server once, the first time something on the page shows it. */
 export function createProjectStore(load: () => Promise<number | undefined>): ProjectStore {
