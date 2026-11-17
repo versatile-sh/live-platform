@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, test } from "vitest";
@@ -232,6 +232,15 @@ describe("HomePage", () => {
       expect(stage()).toHaveAttribute("data-stop", "2");
       expect(screen.getByText("the doorway")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/lobby");
+    });
+
+    test("coming back from the open rooms lets them slide out before they leave", () => {
+      const { rerender } = render(wrap("lobby"));
+      rerender(wrap("home"));
+      const rooms = screen.getByRole("heading", { name: "Open rooms" });
+      expect(rooms.closest("[inert]")).not.toBeNull();
+      fireEvent(rooms.closest(".slide-out-right")!, new Event("webkitAnimationEnd", { bubbles: true }));
+      expect(screen.queryByRole("heading", { name: "Open rooms" })).not.toBeInTheDocument();
     });
 
     test("a doorway's options push it one stop further, and leaving the stop puts them away", async () => {

@@ -16,6 +16,7 @@ import { EnterRoom } from "./EnterRoom";
 
 const SWAP = "transition-colors duration-700";
 const CONVEY = "transition-[color,background-color,border-color,translate] duration-700 ease-(--ease-glide) group-data-[more]:transition-[color,background-color,border-color,translate,visibility]";
+const LEAVE_RIGHT = "slide-out-right max-lg:hidden";
 
 function Said({ mine = false, live = false, children }: { mine?: boolean; live?: boolean; children: ReactNode }) {
   return (
@@ -69,7 +70,7 @@ function Pitch() {
 export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "entry"; panel?: ReactNode }) {
   const t = useT();
   const [track, setTrack] = useState({ view, stop: view === "lobby" ? 1 : 0 });
-  const [leavingDoorway, setLeavingDoorway] = useState(false);
+  const [leaving, setLeaving] = useState<"lobby" | "entry" | undefined>();
   const [more, setMore] = useState(false);
   const [slot, setSlot] = useState<HTMLDivElement | null>(null);
   const doorway = useRef<ReactNode>(null);
@@ -78,10 +79,10 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   if (track.view !== view) {
     stop = view === "lobby" ? 1 : view === "entry" && track.view === "lobby" ? 2 : 0;
     setTrack({ view, stop });
-    setLeavingDoorway(track.view === "entry");
+    setLeaving(track.view === "entry" || (track.view === "lobby" && view === "home") ? track.view : undefined);
     setMore(false);
   }
-  const back = leavingDoorway && view !== "entry";
+  const back = leaving !== undefined && view !== leaving;
   const place: OptionsPlace = { open: more, onOpen: setMore, target: slot };
   const idle: OptionsPlace = { open: false, onOpen: () => undefined, target: slot };
   const [palette, setPalette] = useState(false);
@@ -139,17 +140,23 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
               </OptionsPlaceContext>
             </div>
           )}
-          {lobby || leftLobby ? (
-            <div inert={!lobby} className={`ride-in flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) lg:absolute lg:inset-0 lg:items-start lg:pt-[6vh] ${lobby ? "" : `${HIDDEN} max-lg:hidden`}`}>
+          {lobby || leftLobby || leaving === "lobby" ? (
+            <div
+              inert={!lobby}
+              className={`flex w-full justify-center transition-[translate,opacity] duration-500 ease-(--ease-glide) lg:absolute lg:inset-0 lg:items-start lg:pt-[6vh] ${lobby ? "ride-in" : leaving === "lobby" ? LEAVE_RIGHT : `ride-in ${HIDDEN} max-lg:hidden`}`}
+              onAnimationEnd={(event) => {
+                if (event.target === event.currentTarget && leaving === "lobby") setLeaving(undefined);
+              }}
+            >
               <LobbyPage active={lobby} />
             </div>
           ) : null}
-          {view === "entry" || back ? (
+          {view === "entry" || leaving === "entry" ? (
             <div
               inert={view !== "entry"}
-              className={`no-scrollbar flex w-full lg:absolute lg:inset-0 lg:overflow-y-auto ${view === "entry" ? "ride-in" : "slide-out-right max-lg:hidden"}`}
-              onAnimationEnd={() => {
-                if (view !== "entry") setLeavingDoorway(false);
+              className={`no-scrollbar flex w-full lg:absolute lg:inset-0 lg:overflow-y-auto ${view === "entry" ? "ride-in" : LEAVE_RIGHT}`}
+              onAnimationEnd={(event) => {
+                if (event.target === event.currentTarget && view !== "entry") setLeaving(undefined);
               }}
             >
               <OptionsPlaceContext value={view === "entry" ? place : idle}>
