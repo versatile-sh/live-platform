@@ -68,7 +68,7 @@ Excalidraw, pinned and built into our bundle, loaded only when opened. The board
 
 - **Content security policy**: `default-src 'none'`; scripts, styles, fonts and connections only from our own origin; no inline script or style. `'wasm-unsafe-eval'` exists for the voice filter alone.
 - **Limits on the signalling socket**: 64 KiB per frame, 1 MiB of unsent data, 20 frames a second with a burst of 80. A client past them is disconnected and told why.
-- **Dependencies**: exact versions, lockfile committed, install scripts disabled, Dependabot on Go, npm, Docker and Actions. `npm audit` and `govulncheck` report nothing at the time of writing.
+- **Dependencies**: exact versions, lockfile committed, install scripts disabled, Dependabot on Go, npm, Docker and Actions. `govulncheck` reports nothing. `npm audit` reports one advisory, GHSA-fc5q-39xc-vjpf (ReDoS in picomatch through 4.0.7, no fixed release yet), reached only through build and test tools (vite, vitest, the Excalidraw build chain); no glob it evaluates comes from a visitor, and none of it ships to the browser or the server.
 - **Image**: distroless, static, non-root, base images pinned by digest.
 
 ### What is not there yet
