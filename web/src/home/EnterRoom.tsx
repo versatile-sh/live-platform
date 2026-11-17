@@ -9,10 +9,11 @@ import { AccessSettings, type Access } from "../room/AccessSettings";
 import { useServices } from "../services";
 import { Arrow } from "../ui/Arrow";
 import { Field } from "../ui/Field";
+import { withMotion } from "../ui/motion";
 import { OptionsPane, useOptionsPane } from "../ui/OptionsPane";
 import { button } from "../ui/styles";
 
-/** The home's panel: one button that creates a room with nothing typed, the room's name and settings one click away in a pane beside it, and a field that joins a room from its link or name. */
+/** The home's panel: one button that creates a room with nothing typed, the room's name and settings one click away in a pane beside it, and a field that joins a room from its link or name. Entering a new room moves the page forward. */
 export function EnterRoom() {
   const t = useT();
   const navigate = useNavigate();
@@ -56,7 +57,7 @@ export function EnterRoom() {
       listed,
       ...(derived ? { verifier: derived.verifier, password: code } : {}),
     });
-    navigate(`/${where.slug}`);
+    withMotion("forward", () => navigate(`/${where.slug}`));
   }
 
   function join(event: FormEvent) {

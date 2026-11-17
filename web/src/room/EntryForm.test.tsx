@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import type { RoomSummary } from "../api/rooms";
 import type { JoinEntry } from "../session/session";
@@ -172,6 +172,29 @@ describe("EntryForm", () => {
     test("tells a wrong code apart in words when the server refused it", () => {
       setup(existing({ private: true }), { refusal: "PERMISSION_DENIED" });
       expect(screen.getByRole("alert")).toHaveTextContent(/did not open the room/);
+    });
+  });
+
+  describe("entering", () => {
+    afterEach(() => {
+      Reflect.deleteProperty(document, "startViewTransition");
+    });
+
+    test("moves the page forward into the room", async () => {
+      const kinds: (string | undefined)[] = [];
+      Object.defineProperty(document, "startViewTransition", {
+        configurable: true,
+        value: (update: () => void) => {
+          kinds.push(document.documentElement.dataset.motion);
+          update();
+          return { finished: Promise.resolve() };
+        },
+      });
+      const { onEnter } = setup(existing());
+      await userEvent.type(screen.getByLabelText("Your name"), "Bia");
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalled());
+      expect(kinds).toEqual(["forward"]);
     });
   });
 

@@ -10,6 +10,7 @@ import type { ErrorCode } from "../signal/protocol";
 import type { JoinEntry } from "../session/session";
 import { Arrow } from "../ui/Arrow";
 import { Field } from "../ui/Field";
+import { withMotion } from "../ui/motion";
 import { OptionsPane, useOptionsPane } from "../ui/OptionsPane";
 import { button } from "../ui/styles";
 import { AccessSettings, type Access } from "./AccessSettings";
@@ -22,7 +23,7 @@ type EntryFormProps = {
   onEnter: (entry: JoinEntry) => void;
 };
 
-/** A room's doorway: a name and one button, plus the code of a private room that exists. A room about to be created keeps its name and access in a pane under More options, the name filled in from the address; changing it opens the room of the name typed. */
+/** A room's doorway: a name and one button, plus the code of a private room that exists. A room about to be created keeps its name and access in a pane under More options, the name filled in from the address; changing it opens the room of the name typed. Entering moves the page forward. */
 export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormProps) {
   const t = useT();
   const services = useServices();
@@ -59,13 +60,14 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
       services.entryIntent.put(where.slug, entry);
       navigate(`/${where.slug}`);
     };
-    enter({
+    const entry: JoinEntry = {
       name: who.name,
       look: services.lookMemory.read(),
       face: services.faceMemory.read(),
       ...(derived ? { verifier: derived.verifier, password: code.trim() } : {}),
       ...(creating ? { listed } : {}),
-    });
+    };
+    withMotion("forward", () => enter(entry));
     setWorking(false);
   }
 
