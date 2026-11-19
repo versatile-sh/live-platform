@@ -2,11 +2,14 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/versatile-sh/live/server/internal/domain/room"
 	"github.com/versatile-sh/live/server/internal/ports/inbound"
+	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
 type roomView struct {
@@ -49,6 +52,21 @@ func Register(mux *http.ServeMux, directory inbound.Directory, stars func() (int
 			rooms[i].Exists = true
 		}
 		write(w, http.StatusOK, map[string][]roomView{"rooms": rooms})
+	})
+}
+
+// RegisterPasses adds the route a page opened from a guest pass link calls once to fill in its name, photo and room access.
+func RegisterPasses(mux *http.ServeMux, passes outbound.GuestPasses) {
+	mux.HandleFunc("GET /api/pass/{id}", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		pass, ok := passes.Take(ctx, r.PathValue("id"))
+		if !ok {
+			write(w, http.StatusNotFound, map[string]string{"error": "no pass"})
+			return
+		}
+		write(w, http.StatusOK, pass)
 	})
 }
 

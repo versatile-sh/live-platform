@@ -1,4 +1,4 @@
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 
 import type { RoomSummary } from "../api/rooms";
 import { checkName } from "../domain/name";
@@ -30,10 +30,29 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const navigate = useNavigate();
   const creating = !room.exists;
   const [roomName, setRoomName] = useState(slug);
+  const [invite] = useState(() => services.invite.read());
   const [name, setName] = useState(() => services.nameMemory.read());
-  const [access, setAccess] = useState<Access>("public");
-  const [listed, setListed] = useState(true);
-  const [code, setCode] = useState(() => (creating ? services.generatePassword() : services.readPasswordHash()));
+  const [access, setAccess] = useState<Access>(() => (creating && services.readPasswordHash() ? "private" : "public"));
+  const [listed, setListed] = useState(invite.listed ?? true);
+  const [code, setCode] = useState(() => (creating ? services.readPasswordHash() || services.generatePassword() : services.readPasswordHash()));
+  useEffect(() => {
+    services.invite.forget();
+    if (!invite.pass) return;
+    let current = true;
+    void services.takePass(invite.pass).then((pass) => {
+      if (!current || !pass) return;
+      services.nameMemory.write(pass.name);
+      if (pass.face) services.faceMemory.write(pass.face);
+      setName(pass.name);
+      if (creating) {
+        setAccess(pass.private ? "private" : "public");
+        setListed(pass.listed);
+      }
+    });
+    return () => {
+      current = false;
+    };
+  }, [services, invite, creating]);
   const [problems, setProblems] = useState<{ name?: string; code?: string; room?: string }>({});
   const [working, setWorking] = useState(false);
   const more = useOptionsPane();

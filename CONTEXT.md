@@ -37,6 +37,13 @@ What a room asks before letting someone in: a name, and the room code if it is p
 **Look**:
 How a participant appears when no camera shows them: the characters of a face, a colour, a tilt, or a photo kept only while they are in the room.
 
+**Guest pass**:
+A one-use ticket a trusted inviter (the Discord bot) prepares for one visit: a name, a photo and the access of the room to create. The link carries only its id (`?pass=`); the page takes it once from the server, which takes it from the inviter on the private network.
+_Avoid_: token, login, account
+
+**Invitation link**:
+A room link with `?listed=0|1`, a guest pass, or both, and the room code after `#`. Opening a free room from one with a code creates it private with that code.
+
 **Release**:
 The moment a room that stayed empty ceases to exist and its slug becomes free.
 

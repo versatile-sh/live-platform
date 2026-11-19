@@ -8,6 +8,7 @@ import { createRoomsApi } from "./api/rooms";
 import { derive, generatePassword } from "./domain/password";
 import { GIF_MAX_BYTES, PHOTO_SOURCE_MAX_BYTES, sniffPhoto, toBase64 } from "./domain/photo";
 import { passwordFromHash } from "./domain/share-link";
+import { parsePass, readInvite, withoutInvite, type GuestPass } from "./domain/guest-pass";
 import { createLobbyStore, documentVisibility } from "./lobby/lobby-store";
 import { platformSocket, signalUrl } from "./signal/link";
 import type { Services } from "./services";
@@ -17,6 +18,8 @@ const LOOK_KEY = "live.look";
 const FACE_KEY = "live.face";
 const THEME_KEY = "live.theme";
 const SETTINGS_KEY = "live.media";
+/** A pass is handed once by the server, so a second ask for the same id (React runs effects twice in development) reuses the first. */
+const passes = new Map<string, Promise<GuestPass | undefined>>();
 const PHOTO_SIDE = 128;
 const PHOTO_MAX_BASE64 = 13_000;
 
@@ -163,6 +166,23 @@ export function createBrowserServices(): Services {
     readPasswordHash: () => passwordFromHash(window.location.hash),
     forgetHash() {
       if (window.location.hash) window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    },
+    invite: {
+      read: () => readInvite(window.location.search),
+      forget() {
+        const search = withoutInvite(window.location.search);
+        if (search !== window.location.search) window.history.replaceState(window.history.state, "", window.location.pathname + search + window.location.hash);
+      },
+    },
+    takePass(id) {
+      let taking = passes.get(id);
+      if (!taking) {
+        taking = fetch(`/api/pass/${encodeURIComponent(id)}`, { cache: "no-store" })
+          .then(async (res) => (res.ok ? parsePass(await res.json()) : undefined))
+          .catch(() => undefined);
+        passes.set(id, taking);
+      }
+      return taking;
     },
     derive: (password, slug) => derive(password, slug),
     generatePassword: (random) => generatePassword(random),

@@ -20,6 +20,39 @@ function setup(room: RoomSummary, extra: { refusal?: "PERMISSION_DENIED"; servic
 const pane = () => screen.getByRole("region", { name: "More options", hidden: true });
 
 describe("EntryForm", () => {
+  describe("from an invitation link", () => {
+    test("a link with a room code to a free room creates it private with that code, and its query says whether it is shown", async () => {
+      const services = fakeServices({ readPasswordHash: () => "8ABH-23HK", invite: { read: () => ({ listed: false, pass: undefined }), forget: () => undefined } });
+      setup(free, { services });
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
+      expect(screen.getByLabelText("Room code")).toHaveValue("8ABH-23HK");
+      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).not.toBeChecked();
+    });
+
+    test("a guest pass fills in the name and the photo, chooses the access, and is asked for once; the query leaves the address", async () => {
+      const faces: string[] = [];
+      const forget = vi.fn();
+      const takePass = vi.fn(async () => ({ name: "Ana Souza", face: "AQID", private: true, listed: true }));
+      const services = fakeServices({ invite: { read: () => ({ listed: undefined, pass: "abcdefghijklmnopqrstuv" }), forget }, takePass, faceMemory: { read: () => "", write: (face) => void faces.push(face) } });
+      setup(free, { services });
+      await waitFor(() => expect(screen.getByLabelText("Your name")).toHaveValue("Ana Souza"));
+      expect(takePass).toHaveBeenCalledWith("abcdefghijklmnopqrstuv");
+      expect(faces).toEqual(["AQID"]);
+      expect(forget).toHaveBeenCalled();
+      await userEvent.click(screen.getByRole("button", { name: "More options" }));
+      expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
+      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
+    });
+
+    test("without a pass the person types their name as usual", async () => {
+      const takePass = vi.fn(async () => undefined);
+      setup(free, { services: fakeServices({ takePass }) });
+      expect(screen.getByLabelText("Your name")).toHaveValue("");
+      expect(takePass).not.toHaveBeenCalled();
+    });
+  });
+
   describe("for a free slug", () => {
     test("asks only for a name, and keeps the room public and shown in the open rooms under More options", async () => {
       setup(free);

@@ -1,4 +1,5 @@
 import { createContext, use, type ReactNode } from "react";
+import type { GuestPass, Invite } from "./domain/guest-pass";
 import type { ThemeStore } from "./ui/theme";
 
 import type { RoomsApi } from "./api/rooms";
@@ -36,6 +37,10 @@ export type Services = {
   clipboard: { write(text: string): Promise<boolean> };
   readPasswordHash(): string;
   forgetHash(): void;
+  /** What an invitation link carries in its query, and a way to take it out of the address once read. */
+  invite: { read(): Invite; forget(): void };
+  /** Takes a guest pass from the server once: a name, a photo and the room's access; absent when there is none. */
+  takePass(id: string): Promise<GuestPass | undefined>;
   derive(password: string, slug: string): Promise<Derived>;
   generatePassword(random?: RandomBytes): string;
   pageLifecycle: { onPageHide(listener: () => void): () => void };

@@ -79,6 +79,8 @@ export function fakeServices(overrides: Partial<Services> = {}): Services & { so
     },
     readPasswordHash: () => "",
     forgetHash: () => undefined,
+    invite: { read: () => ({ listed: undefined, pass: undefined }), forget: () => undefined },
+    takePass: async () => undefined,
     derive: async (password, slug) => ({ verifier: `v:${slug}:${password}`, mediaKey: new Uint8Array(32) }),
     generatePassword: () => "Kq7mR2xP",
     pageLifecycle: { onPageHide: () => () => undefined },
