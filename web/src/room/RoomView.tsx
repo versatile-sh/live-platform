@@ -175,6 +175,15 @@ function attach(stream: MediaStream | undefined) {
   };
 }
 
+/** Plays a stream like attach, on the given output when the browser can choose one. */
+function play(stream: MediaStream | undefined, speaker: string | undefined) {
+  const show = attach(stream);
+  return (element: HTMLMediaElement | null) => {
+    show(element);
+    if (element && speaker && typeof element.setSinkId === "function" && element.sinkId !== speaker) element.setSinkId(speaker).catch(() => undefined);
+  };
+}
+
 function grid(count: number): string {
   if (count <= 1) return "grid-cols-1 max-w-4xl";
   if (count <= 2) return "grid-cols-1 sm:grid-cols-2 max-w-6xl";
@@ -766,7 +775,7 @@ export function RoomView({
                     ? [
                         <audio
                           key={`${pid}-${source}`}
-                          ref={attach(sources[source])}
+                          ref={play(sources[source], local.speaker)}
                           autoPlay
                         />,
                       ]

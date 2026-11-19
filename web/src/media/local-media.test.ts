@@ -104,6 +104,82 @@ describe("settings", () => {
     expect(display.mock.calls[0]![0]).toMatchObject({ systemAudio: "include", surfaceSwitching: "include", selfBrowserSurface: "exclude", monitorTypeSurfaces: "include" });
   });
 
+  test("the screen asks the browser to leave the call's own sound out of the computer's sound", async () => {
+    const { devices } = setup();
+    const display = devices.display as unknown as ReturnType<typeof vi.fn>;
+    display.mockResolvedValue(fakeStream());
+    await createLocalMedia(devices, () => undefined).toggle("screen");
+    expect(display.mock.calls[0]![0]).toMatchObject({ audio: { restrictOwnAudio: true } });
+  });
+
+  describe("with the Linux helper on", () => {
+    const shareInput = { kind: "audioinput", label: "Desktop-Audio-Share", deviceId: "share" } as MediaDeviceInfo;
+    const callOut = { kind: "audiooutput", label: "Call-Output", deviceId: "call" } as MediaDeviceInfo;
+
+    function linuxSetup() {
+      vi.stubGlobal("MediaStream", class {
+        constructor(private readonly tracks: MediaStreamTrack[]) {}
+        getTracks = () => this.tracks;
+        getAudioTracks = () => this.tracks.filter((track) => track.kind === "audio");
+        getVideoTracks = () => this.tracks.filter((track) => track.kind === "video");
+      });
+      const video = Object.assign(new EventTarget(), { stop: vi.fn(), kind: "video" });
+      const silent = { getTracks: () => [video], getAudioTracks: () => [], getVideoTracks: () => [video] } as unknown as MediaStream;
+      const desk = fakeStream();
+      const user = vi.fn(async (_constraints: MediaStreamConstraints) => desk);
+      const devices = { user, display: vi.fn(async () => silent), list: async () => [shareInput, callOut, { kind: "audioinput", label: "USB Microphone", deviceId: "mic" } as MediaDeviceInfo] } as unknown as MediaDevicesPort;
+      return { devices, user, video, desk, silent };
+    }
+
+    test("a screen that came without sound sends the helper's sound, hides its inputs from the microphones and plays the call on Call-Output", async () => {
+      const { devices, video, desk } = linuxSetup();
+      const media = createLocalMedia(devices, () => undefined);
+      await media.toggle("screen");
+      await vi.waitFor(() => expect(media.getSnapshot().speaker).toBe("call"));
+      const screen = media.getSnapshot().screen!;
+      expect(screen.getVideoTracks()).toEqual([video]);
+      expect(screen.getAudioTracks()).toEqual([desk.track]);
+      expect(media.getSnapshot().microphones).toEqual([{ id: "mic", label: "USB Microphone" }]);
+      vi.unstubAllGlobals();
+    });
+
+    test("the helper's sound going away keeps the screen, and the screen ending stops both", async () => {
+      const { devices, video, desk } = linuxSetup();
+      const media = createLocalMedia(devices, () => undefined);
+      await media.toggle("screen");
+      (desk.track as unknown as EventTarget).dispatchEvent(new Event("ended"));
+      expect(media.getSnapshot().screen).toBeDefined();
+      video.dispatchEvent(new Event("ended"));
+      expect(media.getSnapshot().screen).toBeUndefined();
+      expect(video.stop).toHaveBeenCalled();
+      expect(desk.track.stop).toHaveBeenCalled();
+      vi.unstubAllGlobals();
+    });
+
+    test("adding the sound later keeps the same picture and puts the sound beside it", async () => {
+      const { devices, user, video, desk } = linuxSetup();
+      const media = createLocalMedia(devices, () => undefined);
+      await media.setSettings({ screenAudio: false });
+      await media.toggle("screen");
+      expect(user).not.toHaveBeenCalled();
+      expect(await media.addScreenSound()).toBe(true);
+      expect(media.getSnapshot().screen!.getVideoTracks()).toEqual([video]);
+      expect(media.getSnapshot().screen!.getAudioTracks()).toEqual([desk.track]);
+      vi.unstubAllGlobals();
+    });
+  });
+
+  test("adding the sound without the helper says it found nothing and leaves the screen as it was", async () => {
+    const { devices } = setup();
+    const video = Object.assign(new EventTarget(), { stop: vi.fn(), kind: "video" });
+    const silent = { getTracks: () => [video], getAudioTracks: () => [], getVideoTracks: () => [video] } as unknown as MediaStream;
+    (devices.display as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(silent);
+    const media = createLocalMedia(devices, () => undefined);
+    await media.toggle("screen");
+    expect(await media.addScreenSound()).toBe(false);
+    expect(media.getSnapshot().screen).toBe(silent);
+  });
+
   test("stopping the share from the browser releases all of it", async () => {
     const { devices } = setup();
     const shared = fakeStream();
