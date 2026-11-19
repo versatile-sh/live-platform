@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/versatile-sh/live/server/internal/adapters/github"
+	"github.com/versatile-sh/live/server/internal/adapters/guestpass"
 	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
 	"github.com/versatile-sh/live/server/internal/adapters/page"
 	"github.com/versatile-sh/live/server/internal/adapters/sfu"
@@ -45,6 +46,9 @@ func main() {
 		starCount = stars.Count
 	}
 	httpapi.Register(mux, hub, starCount)
+	if passes, ok := guestpass.NewSource(os.Getenv("PASS_SOURCE"), os.Getenv("PASS_KEY"), &http.Client{Timeout: 3 * time.Second}); ok {
+		httpapi.RegisterPasses(mux, passes)
+	}
 	if dir := os.Getenv("WEB_DIR"); dir != "" {
 		var files fs.FS = os.DirFS(dir)
 		if over := os.Getenv("WEB_LIVE_DIR"); over != "" {

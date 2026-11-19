@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/versatile-sh/live/server/internal/domain/room"
+	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
 type fakeDirectory map[room.Slug]room.Summary
@@ -52,4 +54,27 @@ func TestAPI(t *testing.T) {
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, httptest.NewRequest("POST", "/api/lobby", nil))
 	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
+}
+
+type fakePasses map[string]outbound.GuestPass
+
+func (p fakePasses) Take(_ context.Context, id string) (outbound.GuestPass, bool) {
+	pass, ok := p[id]
+	delete(p, id)
+	return pass, ok
+}
+
+func TestPasses(t *testing.T) {
+	mux := http.NewServeMux()
+	RegisterPasses(mux, fakePasses{"abcdefghijklmnopqrstuv": {Name: "Ana", Face: "AQID", Private: true, Slug: "noite-k3p9"}})
+	get := func() *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/pass/abcdefghijklmnopqrstuv", nil))
+		return rec
+	}
+	first := get()
+	assert.Equal(t, 200, first.Code)
+	assert.JSONEq(t, `{"name":"Ana","face":"AQID","private":true,"listed":false,"slug":"noite-k3p9"}`, first.Body.String())
+	assert.Equal(t, "no-store", first.Header().Get("Cache-Control"))
+	assert.Equal(t, 404, get().Code, "a pass is handed once")
 }
