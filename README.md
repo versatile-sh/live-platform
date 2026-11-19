@@ -76,7 +76,9 @@ screen-audio on     # before sharing
 screen-audio off    # gives the sound back to the original device
 ```
 
-It needs `pactl` and `jq`, and no root. Firefox and Safari send no computer sound on any system.
+It needs `pactl` and no root; with `jq` it also keeps Discord's sound out of the share. Firefox and Safari send no computer sound on any system.
+
+In a call, the screen button's menu has **The whole computer's sound**. With it on, a screen that goes without that sound shows a guide for the person's system: on Linux the line above, ready to copy, and a retry that adds the sound without stopping the share; on Windows and macOS the picker's tick box. The guide folds down, and closing it asks first.
 
 ### The whiteboard
 

@@ -392,6 +392,7 @@ describe("RoomPage", () => {
         "Turn camera on",
         "Camera options",
         "Share your screen",
+        "Screen options",
         "Raise your hand",
         "Leave",
       ]);
@@ -609,6 +610,18 @@ describe("RoomPage", () => {
       expect(written.at(-1)).toMatchObject({ screenAudio: false, pushToTalk: true, talkKey: "AltLeft", screenQuality: "1440p60", gate: true });
       expect(sheet.getByRole("radio", { name: "1440p · 60 fps" })).toHaveAttribute("aria-checked", "true");
       expect(sheet.getByRole("slider", { name: "How loud you must talk to be heard" })).toBeEnabled();
+    });
+
+    test("the screen options ask for the whole computer's sound, and the choice is kept", async () => {
+      const written: object[] = [];
+      await inCall({ settingsMemory: { read: () => DEFAULT_SETTINGS, write: (settings: object) => void written.push(settings) } });
+      await userEvent.click(screen.getByRole("button", { name: "Screen options" }));
+      const menu = within(screen.getByRole("dialog", { name: "Screen options" }));
+      const option = menu.getByRole("switch", { name: /The whole computer's sound/ });
+      expect(option).not.toBeChecked();
+      await userEvent.click(option);
+      expect(option).toBeChecked();
+      expect(written.at(-1)).toMatchObject({ pcSound: true });
     });
 
     test("settings show the basics first, with the devices, and keep the finer controls under Advanced", async () => {

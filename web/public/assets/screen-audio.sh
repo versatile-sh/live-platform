@@ -30,8 +30,10 @@ status() {
 stop_routing() {
   [[ -f "$STATE" ]] || { echo "screen-audio already off"; return 0; }
   source "$STATE"
-  pkill -P "$WATCHER" 2>/dev/null || true
-  kill "$WATCHER" 2>/dev/null || true
+  if [[ -n "$WATCHER" ]]; then
+    pkill -P "$WATCHER" 2>/dev/null || true
+    kill "$WATCHER" 2>/dev/null || true
+  fi
   pactl set-default-sink "$REAL_SINK"
   pactl set-default-source "$REAL_SOURCE"
   for module in $MODULES; do pactl unload-module "$module" 2>/dev/null || true; done
@@ -56,9 +58,12 @@ start_routing() {
   pactl set-default-sink "$DESKTOP_SINK"
   pactl set-default-source "$real_source"
 
-  watch_discord >/dev/null 2>&1 &
-  local watcher=$!
-  disown "$watcher"
+  local watcher=""
+  if command -v jq >/dev/null; then
+    watch_discord >/dev/null 2>&1 &
+    watcher=$!
+    disown "$watcher"
+  fi
   printf 'REAL_SINK=%q\nREAL_SOURCE=%q\nMODULES=%q\nWATCHER=%q\n' "$real_sink" "$real_source" "$modules" "$watcher" > "$STATE"
   trap - ERR
   echo "screen-audio on: desktop is shared, call and Discord are not"

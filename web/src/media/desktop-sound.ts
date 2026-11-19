@@ -40,3 +40,21 @@ export async function openDesktopSound(devices: MediaDevicesPort, linux = isLinu
     audio: { deviceId: { exact: source.deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48_000 },
   });
 }
+
+/** How this computer sends its whole sound with a screen: the Linux helper, the picker's tick box (macOS with its version note), or not at all. */
+export type SoundRoute = "linux" | "picker" | "mac" | "none";
+
+/** Which guide a person whose screen went without the computer's sound should see, from the browser's user agent. */
+export function soundRoute(agent = typeof navigator === "undefined" ? "" : navigator.userAgent): SoundRoute {
+  if (isLinuxDesktop(agent)) return "linux";
+  if (!/Chrome\//.test(agent) || /Mobile/.test(agent)) return "none";
+  return /Macintosh/.test(agent) ? "mac" : "picker";
+}
+
+/** The one line that installs the Linux helper from this site and turns it on. */
+export function helperCommand(origin: string): string {
+  return `mkdir -p ~/.local/bin && curl -fsSL ${origin}/assets/screen-audio.sh -o ~/.local/bin/screen-audio && chmod +x ~/.local/bin/screen-audio && ~/.local/bin/screen-audio on`;
+}
+
+/** The line that gives the computer's sound back to its own device after the call. */
+export const HELPER_OFF = "~/.local/bin/screen-audio off";

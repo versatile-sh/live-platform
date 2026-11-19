@@ -30,6 +30,8 @@ export type MediaSettings = {
   cameraEffect: CameraEffect;
   screenQuality: ScreenQuality;
   screenAudio: boolean;
+  /** Sends the whole computer's sound with the screen, guiding the person when the browser gives none. */
+  pcSound: boolean;
 };
 
 export const DEFAULT_SETTINGS: MediaSettings = {
@@ -46,6 +48,7 @@ export const DEFAULT_SETTINGS: MediaSettings = {
   cameraEffect: "none",
   screenQuality: "1080p30",
   screenAudio: true,
+  pcSound: false,
 };
 
 const CAMERA = { "360": { width: 640, height: 360, bitrate: 600_000 }, "720": { width: 1280, height: 720, bitrate: 1_500_000 }, "1080": { width: 1920, height: 1080, bitrate: 3_000_000 } } as const;
@@ -102,5 +105,6 @@ export function parseSettings(text: string | null | undefined): MediaSettings {
     cameraEffect: oneOf(raw.cameraEffect, CAMERA_EFFECTS, d.cameraEffect),
     screenQuality: oneOf(raw.screenQuality, SCREEN_QUALITIES, d.screenQuality),
     screenAudio: flag(raw.screenAudio, d.screenAudio),
+    pcSound: flag(raw.pcSound, d.pcSound),
   };
 }

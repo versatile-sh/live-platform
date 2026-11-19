@@ -139,14 +139,14 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       const { width, height, frameRate } = screenShape(snapshot.settings.screenQuality);
       const picker: ScreenPicker = {
         video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } },
-        audio: snapshot.settings.screenAudio ? ({ restrictOwnAudio: true } as MediaTrackConstraints) : false,
+        audio: snapshot.settings.screenAudio || snapshot.settings.pcSound ? ({ restrictOwnAudio: true } as MediaTrackConstraints) : false,
         systemAudio: "include",
         surfaceSwitching: "include",
         selfBrowserSurface: "exclude",
         monitorTypeSurfaces: "include",
       };
       const shared = await devices.display(picker);
-      if (!snapshot.settings.screenAudio || shared.getAudioTracks().length > 0) return shared;
+      if (!snapshot.settings.pcSound || shared.getAudioTracks().length > 0) return shared;
       return withDesktopSound(devices, shared);
     }
     if (kind === "camera") {
@@ -352,6 +352,7 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       if (differs("echo", "gain", "strength", "balanced", "gate", "gateDb")) await restart("microphone");
       if (differs("cameraQuality")) await restart("camera");
       else if (differs("cameraEffect")) await redress();
+      if (differs("pcSound") && settings.pcSound) await store.addScreenSound();
       if (differs("screenQuality")) {
         const { width, height, frameRate } = screenShape(settings.screenQuality);
         await Promise.all((snapshot.screen?.getVideoTracks() ?? []).map((track) => track.applyConstraints({ width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } }).catch(() => undefined)));
