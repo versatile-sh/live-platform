@@ -80,6 +80,15 @@ It needs `pactl` and no root; with `jq` it also keeps Discord's sound out of the
 
 In a call, the screen button's menu has **The whole computer's sound**. With it on, a screen that goes without that sound shows a guide for the person's system: on Linux the line above, ready to copy, and a retry that adds the sound without stopping the share; on Windows and macOS the picker's tick box. The guide folds down, and closing it asks first.
 
+### Links from a chat bot
+
+The Discord bot ([live-discord](https://github.com/versatile-sh/live-discord), private) sends people to a room with an
+invitation link: `?listed=0|1` says whether a new room is shown in the open rooms, the room code after `#` makes a free room
+private with that code, and `?pass=<id>` names a guest pass. The page asks `GET /api/pass/{id}` once; the server takes the pass
+from `PASS_SOURCE` with `PASS_KEY` on the private network and checks it (name, photo size, slug) before handing it over. The page
+fills in the name and the photo and chooses the access; nothing else changes, and without those variables the route does not
+exist and the person types their name as usual.
+
 ### The whiteboard
 
 Excalidraw, pinned and built into our bundle, loaded only when opened. The board lives in the browsers; the server relays its pieces unread and keeps nothing ([ADR 0009](docs/adr/0009-whiteboard-is-excalidraw-relayed-not-stored.md)).
