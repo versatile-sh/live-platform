@@ -693,6 +693,21 @@ describe("RoomPage", () => {
       expect(bia()).toHaveAttribute("data-mode", "grid");
     });
 
+    test("with someone in front, the others beside can be hidden and shown again, by the button or by Ctrl+Alt+O", async () => {
+      await inCall();
+      await userEvent.click(screen.getByRole("listitem", { name: /Bia, connected/ }));
+      const ana = () => screen.queryByRole("listitem", { name: /Ana, connected/ });
+      expect(ana()).toBeVisible();
+      await userEvent.click(screen.getByRole("button", { name: "Hide everyone else" }));
+      expect(screen.queryByRole("list", { name: "Everyone else" })).toBeNull();
+      const show = screen.getByRole("button", { name: "Show everyone else (1)" });
+      expect(show).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(show);
+      expect(ana()).toBeVisible();
+      await userEvent.keyboard("{Control>}{Alt>}o{/Alt}{/Control}");
+      expect(screen.getByRole("button", { name: "Show everyone else (1)" })).toBeInTheDocument();
+    });
+
     test("the whiteboard someone opens comes to the front for me too, and I can close it for myself or open it for the room", async () => {
       const { socket } = await inCall();
       expect(screen.queryByRole("listitem", { name: "Whiteboard" })).not.toBeInTheDocument();
