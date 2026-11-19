@@ -40,7 +40,7 @@ Audio and video do not pass through the Cloudflare Tunnel. The container publish
 
 ## Guest passes
 
-`PASS_SOURCE` points at the Discord bot on the Kamal network and `PASS_KEY` comes from the 1Password item `live-discord`
+`PASS_SOURCE` points at the Discord bot on the Kamal network and `PASS_KEY` comes from the 1Password item `API Key - LiveBot Discord` (id `gge7yyj7veadoq4nlwny2blazm`)
 (vault Adaptable Chat, section App), the same key the bot checks. Deploying the server reads it through `.kamal/secrets`.
 
 ## Check a deploy
