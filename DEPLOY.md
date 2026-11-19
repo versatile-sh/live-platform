@@ -38,6 +38,11 @@ The new container starts beside the old one on the other media port, the old one
 
 Audio and video do not pass through the Cloudflare Tunnel. The container publishes one UDP port on the server's own address, 40000 or 40001 by turns (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP`), and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room.
 
+## Guest passes
+
+`PASS_SOURCE` points at the Discord bot on the Kamal network and `PASS_KEY` comes from the 1Password item `live-discord`
+(vault Adaptable Chat, section App), the same key the bot checks. Deploying the server reads it through `.kamal/secrets`.
+
 ## Check a deploy
 
 Two stand-in browsers enter a room on the deployed server, wait for their media path and hear each other:
