@@ -14,6 +14,8 @@ import { createSpeaking } from "../media/speaking";
 import { CAMERA_EFFECTS, cameraShape, screenShape } from "../media/settings";
 import { Choice } from "../ui/Choice";
 import { MediaSettings } from "./MediaSettings";
+import { ScreenSoundCard } from "./ScreenSoundCard";
+import { soundRoute } from "../media/desktop-sound";
 import { StageFrame, type StageMode } from "./StageFrame";
 import { hasFlag } from "../domain/flags";
 import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
@@ -417,6 +419,7 @@ export function RoomView({
   const iAmMuted = me !== undefined && hasFlag(me.flags, "muted");
   const [wasMuted, setWasMuted] = useState(iAmMuted);
   const [prompt, setPrompt] = useState<"may-speak" | "camera-hidden" | undefined>();
+  const [soundless, setSoundless] = useState<MediaStream | undefined>();
   if (wasMuted !== iAmMuted) {
     setWasMuted(iAmMuted);
     setPrompt(iAmMuted ? undefined : "may-speak");
@@ -839,6 +842,9 @@ export function RoomView({
                   </button>
                 </span>
               </li>
+            ) : null}
+            {local.screen && local.settings.screenAudio && local.screen.getAudioTracks().length === 0 && soundless !== local.screen ? (
+              <ScreenSoundCard route={soundRoute()} origin={window.location.origin} onRetry={media.addScreenSound} onClose={() => setSoundless(local.screen)} />
             ) : null}
             {local.problem ? (
               <li className="arrive bubble border border-fg/40 bg-card px-3.5 py-2 text-sm">

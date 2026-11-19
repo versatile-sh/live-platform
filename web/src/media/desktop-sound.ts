@@ -40,3 +40,18 @@ export async function openDesktopSound(devices: MediaDevicesPort, linux = isLinu
     audio: { deviceId: { exact: source.deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 2, sampleRate: 48_000 },
   });
 }
+
+/** How this browser can send the computer's sound with a screen: the Linux helper, the browser's own picker, or not at all. */
+export type SoundRoute = "helper" | "picker" | "none";
+
+/** Where a person whose screen went without sound should look: Linux uses the helper, Chrome and Edge elsewhere the picker's tick box, the rest cannot. */
+export function soundRoute(agent = typeof navigator === "undefined" ? "" : navigator.userAgent): SoundRoute {
+  if (isLinuxDesktop(agent)) return "helper";
+  if (/Chrome\//.test(agent) && !/Mobile/.test(agent)) return "picker";
+  return "none";
+}
+
+/** The one line that installs the Linux helper from this site and turns it on. */
+export function helperCommand(origin: string): string {
+  return `mkdir -p ~/.local/bin && curl -fsSL ${origin}/assets/screen-audio.sh -o ~/.local/bin/screen-audio && chmod +x ~/.local/bin/screen-audio && ~/.local/bin/screen-audio on`;
+}
