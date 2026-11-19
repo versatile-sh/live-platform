@@ -60,6 +60,24 @@ In a private room the browser derives 64 bytes from the room code with PBKDF2-SH
 
 Each participant holds two peer connections: one to publish, one to receive everything else. The server forwards packets without decoding them and names each forwarded stream by who sent it and what it is. The strong voice filter is RNNoise running in the browser ([ADR 0010](docs/adr/0010-strong-voice-filter-is-rnnoise-in-the-browser.md)); no audio is processed on the server.
 
+### The computer's sound with the screen
+
+Chrome and Edge send the whole computer's sound with a screen on Windows and on macOS 14.2 or later: choose "Entire screen" and tick "Share system audio". On Linux, Chrome sends only a tab's sound. The helper [`screen-audio.sh`](web/public/assets/screen-audio.sh), served at `/assets/screen-audio.sh`, uses `pactl` (PulseAudio or PipeWire) to add three devices:
+
+| Device | Role |
+| --- | --- |
+| `Desktop-Audio` (default output) | receives the apps' sound and plays it on your speakers |
+| `Desktop-Audio-Share` (input) | the same sound, which the page reads like a microphone and sends with the screen |
+| `Call-Output` (output) | the call's own sound, played on your speakers but not shared, so nobody hears themselves back |
+
+```sh
+curl -fsSL https://live.versatile.sh/assets/screen-audio.sh -o ~/.local/bin/screen-audio && chmod +x ~/.local/bin/screen-audio
+screen-audio on     # before sharing
+screen-audio off    # gives the sound back to the original device
+```
+
+It needs `pactl` and `jq`, and no root. Firefox and Safari send no computer sound on any system.
+
 ### The whiteboard
 
 Excalidraw, pinned and built into our bundle, loaded only when opened. The board lives in the browsers; the server relays its pieces unread and keeps nothing ([ADR 0009](docs/adr/0009-whiteboard-is-excalidraw-relayed-not-stored.md)).
