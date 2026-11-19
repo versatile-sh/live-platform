@@ -59,9 +59,10 @@ describe("openDesktopSound", () => {
 });
 
 describe("soundRoute", () => {
-  test("Linux uses the helper, Chrome and Edge elsewhere the picker, Firefox and Safari cannot", () => {
-    expect(soundRoute("Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0")).toBe("helper");
+  test("Linux uses the helper, Chrome and Edge the picker, macOS the picker with its version, Firefox and Safari cannot", () => {
+    expect(soundRoute("Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0")).toBe("linux");
     expect(soundRoute("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36 Edg/140.0")).toBe("picker");
+    expect(soundRoute("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/140.0 Safari/537.36")).toBe("mac");
     expect(soundRoute("Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0")).toBe("none");
     expect(soundRoute("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15")).toBe("none");
   });

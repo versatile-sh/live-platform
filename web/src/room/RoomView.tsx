@@ -13,8 +13,9 @@ import { chime } from "../media/chime";
 import { createSpeaking } from "../media/speaking";
 import { CAMERA_EFFECTS, cameraShape, screenShape } from "../media/settings";
 import { Choice } from "../ui/Choice";
+import { Switch } from "../ui/Switch";
 import { MediaSettings } from "./MediaSettings";
-import { ScreenSoundCard } from "./ScreenSoundCard";
+import { ScreenSoundGuide } from "./ScreenSoundGuide";
 import { soundRoute } from "../media/desktop-sound";
 import { StageFrame, type StageMode } from "./StageFrame";
 import { hasFlag } from "../domain/flags";
@@ -85,7 +86,7 @@ function Options({
   local,
   onClose,
 }: {
-  kind: "microphone" | "camera";
+  kind: "microphone" | "camera" | "screen";
   media: LocalMedia;
   local: LocalMediaSnapshot;
   onClose(): void;
@@ -102,9 +103,7 @@ function Options({
       />
       <div
         role="dialog"
-        aria-label={t(
-          kind === "microphone" ? "dock.micMenu" : "dock.cameraMenu",
-        )}
+        aria-label={t(kind === "microphone" ? "dock.micMenu" : kind === "camera" ? "dock.cameraMenu" : "dock.screenMenu")}
         className="swap-in bubble absolute bottom-[calc(100%+0.75rem)] left-1/2 z-30 flex w-80 -translate-x-1/2 flex-col gap-4 border border-line-strong bg-card p-4 text-left"
       >
         {kind === "microphone" ? (
@@ -131,6 +130,17 @@ function Options({
               />
             </div>
           </>
+        ) : kind === "screen" ? (
+          <Switch
+            checked={local.settings.pcSound}
+            hint={t("pcSound.optionHint")}
+            onChange={(pcSound) => {
+              settingsMemory.write({ ...local.settings, pcSound });
+              void media.setSettings({ pcSound });
+            }}
+          >
+            {t("pcSound.option")}
+          </Switch>
         ) : (
           <>
             <DeviceList label={t("menu.camera")} devices={local.cameras} chosen={local.cameraId} onChoose={(id) => void media.choose("camera", id)} />
@@ -321,7 +331,7 @@ export function RoomView({
     if (phone) setSide(undefined);
   }
   const [shown, setShown] = useState<Side>("chat");
-  const [menu, setMenu] = useState<"microphone" | "camera" | undefined>();
+  const [menu, setMenu] = useState<"microphone" | "camera" | "screen" | undefined>();
   const [sheet, setSheet] = useState<
     "shortcuts" | "look" | "visibility" | "media" | undefined
   >();
@@ -574,7 +584,7 @@ export function RoomView({
   }
 
   function withOptions(
-    kind: "microphone" | "camera",
+    kind: "microphone" | "camera" | "screen",
     button: ReactNode,
     label: string,
   ) {
@@ -843,8 +853,17 @@ export function RoomView({
                 </span>
               </li>
             ) : null}
-            {local.screen && local.settings.screenAudio && local.screen.getAudioTracks().length === 0 && soundless !== local.screen ? (
-              <ScreenSoundCard route={soundRoute()} origin={window.location.origin} onRetry={media.addScreenSound} onClose={() => setSoundless(local.screen)} />
+            {local.screen && local.settings.pcSound && local.screen.getAudioTracks().length === 0 && soundless !== local.screen ? (
+              <ScreenSoundGuide
+                route={soundRoute()}
+                origin={window.location.origin}
+                onRetry={media.addScreenSound}
+                onShareAgain={() => {
+                  void media.toggle("screen");
+                  void media.toggle("screen");
+                }}
+                onClose={() => setSoundless(local.screen)}
+              />
             ) : null}
             {local.problem ? (
               <li className="arrive bubble border border-fg/40 bg-card px-3.5 py-2 text-sm">
@@ -1237,7 +1256,7 @@ export function RoomView({
         <div role="toolbar" aria-label={t("dock.label")} className="flex items-center gap-2 sm:gap-2.5">
           {withOptions("microphone", control("microphone", "mic", "micOff", [t("dock.micOn"), t("dock.micOff")], DOCK.main), t("dock.micMenu"))}
           {withOptions("camera", control("camera", "camera", "cameraOff", [t("dock.cameraOn"), t("dock.cameraOff")], DOCK.main), t("dock.cameraMenu"))}
-          {control("screen", "screen", "screen", [t("dock.screenOn"), t("dock.screenOff")], `${DOCK.round} ${local.screen ? DOCK.on : DOCK.off}`)}
+          {withOptions("screen", control("screen", "screen", "screen", [t("dock.screenOn"), t("dock.screenOff")], DOCK.main), t("dock.screenMenu"))}
           <button
             type="button"
             aria-pressed={local.hand}

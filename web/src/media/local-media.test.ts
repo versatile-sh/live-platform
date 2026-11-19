@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 
 import { createLocalMedia, type MediaDevicesPort, type VoiceChain } from "./local-media";
+import { DEFAULT_SETTINGS } from "./settings";
 
 function fakeStream() {
   const track = Object.assign(new EventTarget(), { stop: vi.fn(), kind: "audio" });
@@ -112,7 +113,8 @@ describe("settings", () => {
     expect(display.mock.calls[0]![0]).toMatchObject({ audio: { restrictOwnAudio: true } });
   });
 
-  describe("with the Linux helper on", () => {
+  describe("with the Linux helper on and the whole computer's sound asked for", () => {
+    const PC_SOUND = { ...DEFAULT_SETTINGS, pcSound: true };
     const shareInput = { kind: "audioinput", label: "Desktop-Audio-Share", deviceId: "share" } as MediaDeviceInfo;
     const callOut = { kind: "audiooutput", label: "Call-Output", deviceId: "call" } as MediaDeviceInfo;
 
@@ -133,7 +135,7 @@ describe("settings", () => {
 
     test("a screen that came without sound sends the helper's sound, hides its inputs from the microphones and plays the call on Call-Output", async () => {
       const { devices, video, desk } = linuxSetup();
-      const media = createLocalMedia(devices, () => undefined);
+      const media = createLocalMedia(devices, () => undefined, undefined, PC_SOUND);
       await media.toggle("screen");
       await vi.waitFor(() => expect(media.getSnapshot().speaker).toBe("call"));
       const screen = media.getSnapshot().screen!;
@@ -145,7 +147,7 @@ describe("settings", () => {
 
     test("the helper's sound going away keeps the screen, and the screen ending stops both", async () => {
       const { devices, video, desk } = linuxSetup();
-      const media = createLocalMedia(devices, () => undefined);
+      const media = createLocalMedia(devices, () => undefined, undefined, PC_SOUND);
       await media.toggle("screen");
       (desk.track as unknown as EventTarget).dispatchEvent(new Event("ended"));
       expect(media.getSnapshot().screen).toBeDefined();
@@ -156,13 +158,13 @@ describe("settings", () => {
       vi.unstubAllGlobals();
     });
 
-    test("adding the sound later keeps the same picture and puts the sound beside it", async () => {
+    test("without asking for it, the screen goes with no helper sound; asking for it mid-share keeps the picture and puts the sound beside it", async () => {
       const { devices, user, video, desk } = linuxSetup();
       const media = createLocalMedia(devices, () => undefined);
-      await media.setSettings({ screenAudio: false });
       await media.toggle("screen");
       expect(user).not.toHaveBeenCalled();
-      expect(await media.addScreenSound()).toBe(true);
+      expect(media.getSnapshot().screen!.getAudioTracks()).toEqual([]);
+      await media.setSettings({ pcSound: true });
       expect(media.getSnapshot().screen!.getVideoTracks()).toEqual([video]);
       expect(media.getSnapshot().screen!.getAudioTracks()).toEqual([desk.track]);
       vi.unstubAllGlobals();
