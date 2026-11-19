@@ -1,4 +1,5 @@
 import { FLAG } from "../domain/flags";
+import { callOutput, isHelperInput, openDesktopSound } from "./desktop-sound";
 import { DEFAULT_SETTINGS, cameraShape, screenShape, type CameraEffect, type MediaSettings } from "./settings";
 
 /** The capture calls of the browser, so tests can hand the store fakes. */
@@ -46,6 +47,8 @@ export type LocalMediaSnapshot = {
   cameras: readonly Device[];
   microphoneId: string | undefined;
   cameraId: string | undefined;
+  /** The output the call plays on to stay out of the shared computer sound; absent where the Linux helper is off. */
+  speaker: string | undefined;
   voiceFilter: VoiceFilter;
   settings: MediaSettings;
   /** With push to talk on, whether the key is held. */
@@ -61,6 +64,8 @@ export type LocalMedia = {
   getSnapshot(): LocalMediaSnapshot;
   toggle(kind: MediaKind): Promise<void>;
   toggleHand(): void;
+  /** Adds the computer's sound from the Linux helper to a screen that went without sound, telling whether it found it. */
+  addScreenSound(): Promise<boolean>;
   /** Opens the whiteboard for the room, or stops showing it. */
   setBoard(open: boolean): void;
   /** Takes the microphone away, turning it off, or gives it back without turning it on. */
@@ -89,6 +94,7 @@ const OFF: LocalMediaSnapshot = {
   cameras: [],
   microphoneId: undefined,
   cameraId: undefined,
+  speaker: undefined,
   voiceFilter: "standard",
   settings: DEFAULT_SETTINGS,
   talking: false,
@@ -133,13 +139,15 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       const { width, height, frameRate } = screenShape(snapshot.settings.screenQuality);
       const picker: ScreenPicker = {
         video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate } },
-        audio: snapshot.settings.screenAudio,
+        audio: snapshot.settings.screenAudio ? ({ restrictOwnAudio: true } as MediaTrackConstraints) : false,
         systemAudio: "include",
         surfaceSwitching: "include",
         selfBrowserSurface: "exclude",
         monitorTypeSurfaces: "include",
       };
-      return devices.display(picker);
+      const shared = await devices.display(picker);
+      if (!snapshot.settings.screenAudio || shared.getAudioTracks().length > 0) return shared;
+      return withDesktopSound(devices, shared);
     }
     if (kind === "camera") {
       const { width, height, frameRate } = cameraShape(snapshot.settings.cameraQuality);
@@ -147,6 +155,26 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       return dress(rawCamera);
     }
     return microphone(devices);
+  }
+
+  async function withDesktopSound(from: MediaDevicesPort, shared: MediaStream): Promise<MediaStream> {
+    try {
+      const sound = await openDesktopSound(from);
+      return sound ? new MediaStream([...shared.getVideoTracks(), ...sound.getAudioTracks()]) : shared;
+    } catch {
+      return shared;
+    }
+  }
+
+  function watch(kind: MediaKind, stream: MediaStream) {
+    const ending = kind === "screen" ? stream.getVideoTracks() : stream.getTracks();
+    ending.forEach((track) =>
+      track.addEventListener("ended", () => {
+        if (snapshot[kind] !== stream) return;
+        end(stream);
+        patch({ [kind]: undefined });
+      }),
+    );
   }
 
   async function microphone(from: MediaDevicesPort): Promise<MediaStream> {
@@ -230,8 +258,8 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     if (!devices) return;
     try {
       const all = await devices.list();
-      const named = (kind: MediaDeviceKind) => all.filter((device) => device.kind === kind && device.deviceId !== "").map((device, index) => ({ id: device.deviceId, label: device.label || `${index + 1}` }));
-      if (!disposed) patch({ microphones: named("audioinput"), cameras: named("videoinput") });
+      const named = (kind: MediaDeviceKind) => all.filter((device) => device.kind === kind && device.deviceId !== "" && !isHelperInput(device.label)).map((device, index) => ({ id: device.deviceId, label: device.label || `${index + 1}` }));
+      if (!disposed) patch({ microphones: named("audioinput"), cameras: named("videoinput"), speaker: callOutput(all) });
     } catch {
       return;
     }
@@ -268,22 +296,31 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
           end(stream);
           return;
         }
-        stream.getTracks().forEach((track) =>
-          track.addEventListener("ended", () => {
-            if (snapshot[kind] !== stream) return;
-            end(stream);
-            patch({ [kind]: undefined });
-          }),
-        );
+        watch(kind, stream);
         patch({ [kind]: stream, busy: undefined });
         if (kind === "microphone") gateKey();
         if (kind === "screen") stream.getVideoTracks().forEach((track) => void (track.contentHint = "detail"));
-        if (kind !== "screen") void refreshDevices();
+        void refreshDevices();
       } catch (error) {
         const denied = error instanceof DOMException && (error.name === "NotAllowedError" || error.name === "SecurityError");
         const cancelled = kind === "screen" && denied;
         patch({ busy: undefined, problem: cancelled ? undefined : { kind, why: denied ? "denied" : "unavailable" } });
       }
+    },
+    async addScreenSound() {
+      const shown = snapshot.screen;
+      if (!devices || !shown) return false;
+      if (shown.getAudioTracks().length > 0) return true;
+      const both = await withDesktopSound(devices, shown);
+      if (both === shown) return false;
+      if (disposed || snapshot.screen !== shown) {
+        both.getAudioTracks().forEach((track) => track.stop());
+        return false;
+      }
+      watch("screen", both);
+      patch({ screen: both });
+      void refreshDevices();
+      return true;
     },
     toggleHand() {
       patch({ hand: !snapshot.hand });
