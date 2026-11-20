@@ -40,6 +40,9 @@ export const CHIP = `bubble-word inline-flex h-8 shrink-0 items-center justify-c
 /** The icon button on ink or on lime, where the page's own colours would not read: it takes the colour of the text around it. */
 export const ICON_BUTTON_PLAIN = `grid size-9 shrink-0 place-items-center rounded-full hover:bg-current/15 ${PRESS}`;
 
+/** The small icon button, one line of text tall, for a close beside a compact notice. */
+export const ICON_BUTTON_SMALL = `grid size-7 shrink-0 place-items-center rounded-full text-muted hover:bg-fg/10 hover:text-fg ${PRESS}`;
+
 /** The chip on an ink surface: it turns paper when on. */
 export const CHIP_ON_INK = `bubble-word inline-flex h-8 shrink-0 items-center justify-center gap-2 border border-paper/30 px-3.5 text-sm font-semibold whitespace-nowrap text-paper/70 hover:text-paper aria-pressed:border-paper aria-pressed:bg-paper aria-pressed:text-ink ${PRESS}`;
 

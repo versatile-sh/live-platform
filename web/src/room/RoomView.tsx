@@ -1,5 +1,7 @@
 import {
   Suspense,
+  useRef,
+  useLayoutEffect,
   lazy,
   useEffect,
   useState,
@@ -57,7 +59,7 @@ import { OwnerPanel } from "./OwnerPanel";
 import { MoreMenu, type MoreItem } from "./MoreMenu";
 import { PeoplePanel } from "./PeoplePanel";
 import { Tile } from "./Tile";
-import { CHIP, DOCK, ICON_BUTTON, button } from "../ui/styles";
+import { CHIP, DOCK, ICON_BUTTON, ICON_BUTTON_SMALL, button } from "../ui/styles";
 import { useCopy } from "../ui/useCopy";
 
 const Whiteboard = lazy(() => import("../board/Whiteboard"));
@@ -357,6 +359,7 @@ export function RoomView({
     setSeeing({ ...seeing, [pid]: { ...sees(pid), ...change } });
   const [stats, setStats] = useState(false);
   const [seen, setSeen] = useState(0);
+  const [closed, setClosed] = useState(0);
   const [othersHidden, setOthersHidden] = useState(false);
   const [stage, measureStage] = useBox();
   if (side && side !== shown) setShown(side);
@@ -408,10 +411,52 @@ export function RoomView({
     me !== undefined &&
     hasFlag(me.flags, "owner") &&
     connection.phase === "joined";
-  if (side === "chat" && seen !== chat.length) setSeen(chat.length);
+  const newest = chat.at(-1);
+  const newestId = newest?.id ?? 0;
+  if (side === "chat" && seen !== newestId) setSeen(newestId);
   if (side === "settings" && !iAmOwner) setSide("people");
   if (shown === "settings" && !iAmOwner) setShown("people");
-  const unread = side === "chat" ? 0 : chat.length - seen;
+  const unread = side === "chat" ? 0 : chat.filter((line) => line.id > seen).length;
+  const fresh = side === "chat" ? [] : chat.filter((line) => line.to === undefined && line.pid !== myPid && line.id > Math.max(seen, closed)).slice(-3);
+  const [kept, setKept] = useState(fresh);
+  if (fresh.length > 0 && kept.at(-1)?.id !== fresh.at(-1)?.id) setKept(fresh);
+  useEffect(() => {
+    if (kept.length < 3) return;
+    const timer = setTimeout(() => setKept(kept.slice(-2)), 300);
+    return () => clearTimeout(timer);
+  }, [kept]);
+  const toast = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const balloon = toast.current;
+    if (!balloon) return;
+    const pinned = balloon.style.width !== "";
+    const from = balloon.getBoundingClientRect().width;
+    balloon.style.width = "";
+    const to = balloon.getBoundingClientRect().width;
+    balloon.style.width = `${pinned ? from : to}px`;
+    if (!pinned || from === to) return;
+    void balloon.offsetWidth;
+    balloon.style.width = `${to}px`;
+  }, [kept]);
+  const leaving = fresh.length === 0 && kept.length > 0;
+  const [holding, setHolding] = useState(false);
+  const showing = fresh.length > 0;
+  useEffect(() => {
+    if (!showing || holding) return;
+    const timer = setTimeout(() => setClosed(newestId), 10_000);
+    return () => clearTimeout(timer);
+  }, [showing, holding, newestId]);
+  useEffect(() => {
+    if (!leaving) return;
+    const timer = setTimeout(() => setKept([]), 200);
+    return () => clearTimeout(timer);
+  }, [leaving]);
+  const [rung, setRung] = useState(newestId);
+  useEffect(() => {
+    if (newestId === rung) return;
+    if (sounds && newest !== undefined && newest.pid !== myPid && !document.hasFocus()) chime("message");
+    setRung(newestId);
+  }, [newestId, rung, newest, myPid, sounds]);
   const reading = side === "chat" && privately ? peer : undefined;
   const lastFrom: Record<number, number> = {};
   const unreadFrom: Record<number, number> = {};
@@ -833,6 +878,25 @@ export function RoomView({
                     : [],
                 ),
           )}
+          {kept.length > 0 ? (
+            <div role="status" className="pointer-events-none absolute right-2 bottom-2 z-10 flex max-w-[min(24rem,calc(100%-1rem))]">
+              <div ref={toast} data-leaving={leaving || undefined} onPointerEnter={() => setHolding(true)} onPointerLeave={() => setHolding(false)} onFocus={() => setHolding(true)} onBlur={() => setHolding(false)} className="chat-toast bubble pointer-events-auto flex min-w-0 items-start gap-1 border border-line-strong bg-card p-2">
+                <button type="button" title={t("chat.open")} className={`chat-toast-lines flex min-w-0 flex-1 cursor-pointer flex-col justify-end overflow-hidden text-left ${kept.length > 1 ? "h-[3.875rem]" : "h-7"}`} onClick={() => (setPrivately(false), setSide("chat"))}>
+                  <span key={kept.at(-1)?.id} className={`flex w-full min-w-0 shrink-0 flex-col gap-1.5 ${kept.length > 1 ? "chat-roll" : ""}`}>
+                    {kept.map((line, index) => (
+                      <span key={line.id} aria-hidden={index < kept.length - 2 || undefined} className="flex h-7 min-w-0 shrink-0 items-center gap-1.5 text-sm">
+                        <span className="max-w-28 shrink-0 truncate bubble-word bg-canvas px-3 py-1 font-semibold" translate="no">{line.name}</span>
+                        <span className="min-w-0 truncate bubble-word bg-bubble px-3 py-1 text-on-bubble">{line.text || t("chat.picture", { name: line.name })}</span>
+                      </span>
+                    ))}
+                  </span>
+                </button>
+                <button type="button" aria-label={t("chat.hide")} title={t("chat.hide")} className={ICON_BUTTON_SMALL} onClick={() => setClosed(newestId)}>
+                  <Icon name="close" className="size-4" />
+                </button>
+              </div>
+            </div>
+          ) : null}
           <ul
             role="status"
             className="pointer-events-none absolute top-2 left-2 flex max-w-sm flex-col items-start gap-2"
