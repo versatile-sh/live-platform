@@ -2,7 +2,7 @@ import { generatePassword, type RandomBytes } from "./password";
 
 const MIN_LENGTH = 2;
 const MAX_LENGTH = 40;
-const RESERVED = new Set(["api", "ws", "up", "assets", "lobby", "static", "new", "about", "docs"]);
+const RESERVED = new Set(["api", "ws", "up", "assets", "lobby", "static", "new", "about", "docs", "privacy"]);
 
 /** Why a slug was refused, in the order the checks run. */
 export type SlugProblem = "empty" | "length" | "characters" | "hyphens" | "reserved";
