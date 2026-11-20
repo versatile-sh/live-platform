@@ -369,6 +369,10 @@ html[data-motion="iris"]::view-transition-new(root) {
   }
 }
 
+.chat-log[data-above] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2.5rem);
+}
+
 .chat-toast {
   transform-origin: bottom right;
   transition:
