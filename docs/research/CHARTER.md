@@ -46,7 +46,7 @@ Unit: one architectural decision (D-01...). Axes: options considered, recommenda
 | PR4 | Peer-to-peer or plain WebSocket can carry the media | frame | owner (as an idea) | HYPOTHESIS | upload and CPU cost of a mesh above a few people |
 | PR5 | Transcription can run on our server "if it is not too heavy"; the owner is consulted before hosting it | business | owner, 2026-11-16 | owner answer | measured real-time factor on CPU |
 | PR6 | Feature parity with `meucontrole-ai/screen-call` is the target; its engineering is not a reference | frame | owner, 2026-11-16 | owner answer | — |
-| PR7 | VPS size is unknown to the study (Contabo `vmi3756348`) | current state | lead | `hosting/README.md` | the owner stating the plan |
+| PR7 | VPS size is unknown to the study | current state | lead | hosting docs (internal) | the owner stating the plan |
 
 ## 7. Proof
 

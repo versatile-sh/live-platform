@@ -134,7 +134,7 @@ A VAD gate (Silero VAD v6.2.3, MIT, 2026-09-23) cuts load to the fraction of tim
 
 ## 4. Feature list of `screen-call` (features only)
 
-Source: `/tmp/claude-1000/-home-gengar/792dbd0e-a822-4921-8d6c-3f133dd08069/scratchpad/ref/screen-call/README.md`, read in full. Ids are for later cross-reference.
+Source: the `screen-call` reference README (a local copy, not in this repository), read in full. Ids are for later cross-reference.
 
 | Id | Feature |
 |---|---|

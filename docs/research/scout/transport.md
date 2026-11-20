@@ -219,7 +219,7 @@ No neutral 2023-2026 measurement found. The relay share for a server-side peer (
 | Current Chrome and Safari support for passive ICE-TCP candidates | none (Firefox 2017 post only) |
 | Cloudflare statement that proxied hostnames carry UDP | none; docs say Spectrum (Enterprise) |
 | Whether coturn 4.19.1 fixes GHSA-j8mm-mpf8-gvjg and GHSA-fvj6-9jhg-9j84 | advisory pages record no patched version |
-| `hosting/README.md` (charter PR7) | not present in `live.versatile.sh/`; VPS size and provider firewall state unread |
+| The hosting docs (charter PR7) | internal, not in this repository; VPS size and provider firewall state unread |
 | Autobahn or interop results for the four WebSocket libraries | not collected |
 
 ## 7. Questions only the owner can answer
