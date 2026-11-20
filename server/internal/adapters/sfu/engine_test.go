@@ -17,6 +17,12 @@ import (
 
 const wait = 10 * time.Second
 
+var browserAPI = func() *webrtc.API {
+	settings := webrtc.SettingEngine{}
+	Loopback(&settings)
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settings))
+}()
+
 type reports struct {
 	mu sync.Mutex
 	up map[room.PID]bool
@@ -49,16 +55,21 @@ type browser struct {
 	mu     sync.Mutex
 	heard  map[string]string
 	offers int
+	inbox  chan room.MediaSignal
+	done   chan struct{}
+	early  map[*webrtc.PeerConnection][]webrtc.ICECandidateInit
 }
 
 func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 	t.Helper()
-	sub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	sub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
-	pub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sub.Close(); _ = pub.Close() })
-	b := &browser{t: t, engine: engine, pid: pid, sub: sub, pub: pub, heard: map[string]string{}}
+	b := &browser{t: t, engine: engine, pid: pid, sub: sub, pub: pub, heard: map[string]string{}, inbox: make(chan room.MediaSignal, 256), done: make(chan struct{}), early: map[*webrtc.PeerConnection][]webrtc.ICECandidateInit{}}
+	go b.run()
+	t.Cleanup(func() { close(b.done) })
 	trickle := func(role string) func(*webrtc.ICECandidate) {
 		return func(c *webrtc.ICECandidate) {
 			if c == nil {
@@ -78,39 +89,70 @@ func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 		b.heard[remote.ID()] = remote.StreamID()
 		b.mu.Unlock()
 	})
-	engine.Attach("bk", pid, 1, b.receive)
+	engine.Attach("bk", pid, 1, func(signal room.MediaSignal) {
+		select {
+		case b.inbox <- signal:
+		case <-b.done:
+		}
+	})
 	return b
 }
 
+// run handles the engine's signals one at a time and in order, as a browser's signalling does.
+func (b *browser) run() {
+	for {
+		select {
+		case <-b.done:
+			return
+		case signal := <-b.inbox:
+			b.receive(signal)
+		}
+	}
+}
+
 func (b *browser) receive(signal room.MediaSignal) {
+	pc := b.sub
+	if signal.Role == room.MediaRolePublish {
+		pc = b.pub
+	}
 	switch {
 	case signal.Kind == room.MediaKindICE:
 		var init webrtc.ICECandidateInit
 		if json.Unmarshal([]byte(signal.Candidate), &init) != nil {
 			return
 		}
-		pc := b.sub
-		if signal.Role == room.MediaRolePublish {
-			pc = b.pub
+		if pc.RemoteDescription() == nil {
+			b.early[pc] = append(b.early[pc], init)
+			return
 		}
 		_ = pc.AddICECandidate(init)
 	case signal.Role == room.MediaRoleSubscribe && signal.Kind == room.MediaKindOffer:
-		go func() {
-			b.mu.Lock()
-			b.offers++
-			b.mu.Unlock()
-			if b.sub.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: signal.SDP}) != nil {
-				return
-			}
-			answer, err := b.sub.CreateAnswer(nil)
-			if err != nil || b.sub.SetLocalDescription(answer) != nil {
-				return
-			}
-			b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRoleSubscribe, Kind: room.MediaKindAnswer, SDP: answer.SDP})
-		}()
+		b.mu.Lock()
+		b.offers++
+		b.mu.Unlock()
+		if !b.describe(pc, webrtc.SDPTypeOffer, signal.SDP) {
+			return
+		}
+		answer, err := b.sub.CreateAnswer(nil)
+		if err != nil || b.sub.SetLocalDescription(answer) != nil {
+			return
+		}
+		b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRoleSubscribe, Kind: room.MediaKindAnswer, SDP: answer.SDP})
 	case signal.Role == room.MediaRolePublish && signal.Kind == room.MediaKindAnswer:
-		_ = b.pub.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: signal.SDP})
+		b.describe(pc, webrtc.SDPTypeAnswer, signal.SDP)
 	}
+}
+
+// describe sets the remote description, then adds the candidates that came before it.
+func (b *browser) describe(pc *webrtc.PeerConnection, kind webrtc.SDPType, sdp string) bool {
+	if pc.SetRemoteDescription(webrtc.SessionDescription{Type: kind, SDP: sdp}) != nil {
+		return false
+	}
+	for _, init := range b.early[pc] {
+		_ = pc.AddICECandidate(init)
+	}
+	delete(b.early, pc)
+	return true
 }
 
 func (b *browser) publish(source string) {
@@ -146,7 +188,7 @@ func (b *browser) hears(source string) (string, bool) {
 
 func TestEngine(t *testing.T) {
 	seen := &reports{up: map[room.PID]bool{}}
-	engine, err := New(Config{}, seen)
+	engine, err := New(Config{Loopback: true}, seen)
 	require.NoError(t, err)
 
 	ana := enter(t, engine, 1)

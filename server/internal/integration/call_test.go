@@ -51,6 +51,12 @@ type tab struct {
 	heard  map[string]bool
 }
 
+var browserAPI = func() *webrtc.API {
+	settings := webrtc.SettingEngine{}
+	sfu.Loopback(&settings)
+	return webrtc.NewAPI(webrtc.WithSettingEngine(settings))
+}()
+
 func (c *tab) send(v any) {
 	data, _ := json.Marshal(v)
 	c.write.Lock()
@@ -62,9 +68,9 @@ func open(t *testing.T, url, name string) *tab {
 	t.Helper()
 	conn, _, _, err := ws.Dialer{Protocols: []string{signal.Subprotocol}}.Dial(context.Background(), url)
 	require.NoError(t, err)
-	sub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	sub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
-	pub, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	c := &tab{t: t, conn: conn, sub: sub, pub: pub, states: map[uint32]string{}, heard: map[string]bool{}}
 	t.Cleanup(func() { _ = conn.Close(); _ = sub.Close(); _ = pub.Close() })
@@ -185,7 +191,7 @@ func TestCall(t *testing.T) {
 	cfg := room.DefaultConfig()
 	cfg.ConnectTimeout = 3 * time.Second
 	hub := presence.NewHub(cfg, presence.DefaultLiveness(), time.Now)
-	engine, err := sfu.New(sfu.Config{}, hub)
+	engine, err := sfu.New(sfu.Config{Loopback: true}, hub)
 	require.NoError(t, err)
 	hub.UseMedia(engine)
 
