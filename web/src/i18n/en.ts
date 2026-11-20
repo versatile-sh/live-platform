@@ -11,9 +11,10 @@ export const en = {
   "social.x": "Follow versatile.sh on X",
   "social.follow": "Follow us",
   "social.language": "Language",
-  "community.label": "Community",
-  "community.discord": "Join our Discord",
-  "community.bot": "Add the Live Versatile bot to your server",
+  "community.discord": "Discord",
+  "community.discordFull": "Join our Discord",
+  "community.bot": "Add the bot",
+  "community.botFull": "Add the Live Versatile bot to your server",
 
   "home.line1": "Share anything.",
   "home.line2": "Watch anywhere.",

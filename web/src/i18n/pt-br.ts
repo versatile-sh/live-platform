@@ -13,9 +13,10 @@ export const ptBR: Record<MessageKey, string> = {
   "social.x": "Seguir a versatile.sh no X",
   "social.follow": "Siga a gente",
   "social.language": "Idioma",
-  "community.label": "Comunidade",
-  "community.discord": "Entre no nosso Discord",
-  "community.bot": "Adicione o bot Live Versatile ao seu servidor",
+  "community.discord": "Discord",
+  "community.discordFull": "Entre no nosso Discord",
+  "community.bot": "Adicionar o bot",
+  "community.botFull": "Adicione o bot Live Versatile ao seu servidor",
 
   "home.line1": "Compartilhe qualquer coisa.",
   "home.line2": "Assista de qualquer lugar.",
