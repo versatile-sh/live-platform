@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/versatile-sh/live/server/internal/domain/room"
@@ -31,14 +32,19 @@ type Hub struct {
 	liveness Liveness
 	now      func() time.Time
 	media    outbound.MediaPlane
+	audit    outbound.Audit
+	joins    atomic.Uint64
 	mu       sync.RWMutex
 	actors   map[room.Slug]*actor
 }
 
 // NewHub builds a hub whose rooms share one configuration.
 func NewHub(cfg room.Config, liveness Liveness, now func() time.Time) *Hub {
-	return &Hub{cfg: cfg, liveness: liveness, now: now, actors: map[room.Slug]*actor{}}
+	return &Hub{cfg: cfg, liveness: liveness, now: now, audit: outbound.NoAudit{}, actors: map[room.Slug]*actor{}}
 }
+
+// UseAudit connects the audit trail; call it before the hub serves anyone. Without one, nothing is recorded.
+func (h *Hub) UseAudit(audit outbound.Audit) { h.audit = audit }
 
 // UseMedia connects the media plane; without one, participants never get a media path of their own.
 func (h *Hub) UseMedia(plane outbound.MediaPlane) { h.media = plane }
@@ -83,12 +89,20 @@ func (h *Hub) Lobby() []room.Summary {
 
 // SetListed lets the owner show or hide a public room in the lobby.
 func (h *Hub) SetListed(slug room.Slug, by room.PID, gen uint32, listed bool) error {
-	return h.owner(slug, by, gen, func(a *actor) error { return a.room.SetListed(by, listed) })
+	return h.owner(slug, by, gen, func(a *actor) error {
+		err := a.room.SetListed(by, listed)
+		a.owned(err, by, "listed", nil)
+		return err
+	})
 }
 
 // SetPassword lets the owner make the room private with a new verifier, or public with none.
 func (h *Hub) SetPassword(slug room.Slug, by room.PID, gen uint32, verifier *room.Verifier) error {
-	return h.owner(slug, by, gen, func(a *actor) error { return a.room.SetPassword(by, verifier) })
+	return h.owner(slug, by, gen, func(a *actor) error {
+		err := a.room.SetPassword(by, verifier)
+		a.owned(err, by, "access", nil)
+		return err
+	})
 }
 
 func (h *Hub) owner(slug room.Slug, by room.PID, gen uint32, fn func(*actor) error) error {
@@ -190,6 +204,16 @@ func (h *Hub) Quiet(slug room.Slug, by room.PID, gen uint32, op room.QuietOp, ta
 func (h *Hub) Transfer(slug room.Slug, by room.PID, gen uint32, target room.PID) error {
 	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) { return struct{}{}, a.transfer(by, gen, target) })
 	return err
+}
+
+// Stats counts the rooms, the people in them and every join since the hub started.
+func (h *Hub) Stats() (rooms, people int, joins uint64) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, a := range h.actors {
+		people += a.summary.Load().Count
+	}
+	return len(h.actors), people, h.joins.Load()
 }
 
 // Rooms returns how many rooms exist.
