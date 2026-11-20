@@ -97,7 +97,7 @@ export const ptBR: Record<MessageKey, string> = {
   "privacy.public.title": "Salas públicas",
   "privacy.public.body": "O texto do chat é registrado, inclusive mensagens diretas entre pessoas da sala, com quem enviou, para quem e quando. Imagens não são guardadas, só o fato de ter sido enviada e o tamanho. Áudio, vídeo e compartilhamento de tela nunca são gravados.",
   "privacy.private.title": "Salas privadas",
-  "privacy.private.body": "Salas privadas têm criptografia ponta a ponta e o servidor não consegue ler o chat. O conteúdo de uma sala privada nunca é registrado. Guardamos só quem escreveu, quando, em qual sala e o tamanho da mensagem.",
+  "privacy.private.body": "Salas privadas são feitas para ter criptografia ponta a ponta, de modo que o servidor não leia o chat. Seja qual for o estado dessa criptografia, o conteúdo de uma sala privada nunca é registrado. Guardamos só quem escreveu, quando, em qual sala e o tamanho da mensagem.",
   "privacy.why.title": "Por que guardamos",
   "privacy.why.body": "Por segurança, para apurar abusos e para cumprir uma obrigação legal: o Marco Civil da Internet (Lei 12.965/2014, art. 15) exige a guarda dos registros de acesso a aplicações, com endereço IP e data e hora, por seis meses. Na LGPD, as bases são essa obrigação legal e o nosso legítimo interesse na segurança do serviço.",
   "privacy.keep.title": "Por quanto tempo",

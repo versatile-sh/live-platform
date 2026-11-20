@@ -90,6 +90,12 @@ from `PASS_SOURCE` with `PASS_KEY` on the private network and checks it (name, p
 fills in the name and the photo and chooses the access; nothing else changes, and without those variables the route does not
 exist and the person types their name as usual.
 
+### Audit trail and metrics
+
+With `AUDIT_DIR` set, the server appends one JSON line per fact to `audit-YYYY-MM-DD.jsonl` (UTC day) in that directory: room created, join, leave, chat, owner action, room ended. A join carries the address (`CF-Connecting-IP`, else the socket's), the location headers Cloudflare adds when present, the User-Agent with a parsed browser, system and device, the language, who was in the room, and the Discord user, server and call when the visit began from a guest pass. The Discord part comes from the server's own memory of the pass it handed out; a browser only names the pass id and can never state it. The chat text of a public room is recorded, a private room keeps who, when and the length, never the content. Writing goes through a bounded queue off the signalling path: when it is full the event is dropped and counted. Files older than `AUDIT_RETENTION_DAYS` (default 183, six months for the Marco Civil da Internet) are deleted daily. Without `AUDIT_DIR` nothing is recorded.
+
+Read it where the server runs, with the same variables: `live audit --dir "$AUDIT_DIR" [--room SLUG] [--ip ADDRESS] [--discord-user ID] [--guild ID] [--kind KIND] [--from DAY] [--to DAY] [--json]`. An address or Discord filter follows that participant from join to leave. There is no HTTP route for it. The server also logs one `metrics` line every `METRICS_INTERVAL` (default `1m`, `0` turns it off): rooms, people, joins, audit queue depth, written, dropped and failed. Joins and leaves are logged without address, name or text. The page `/privacy` tells visitors what is kept.
+
 ### The whiteboard
 
 Excalidraw, pinned and built into our bundle, loaded only when opened. The board lives in the browsers; the server relays its pieces unread and keeps nothing ([ADR 0009](docs/adr/0009-whiteboard-is-excalidraw-relayed-not-stored.md)).
@@ -130,6 +136,10 @@ cd web && npm ci && npm run dev        # http://localhost:5173
 | `WEB_DIR` | built client to serve; empty serves the API only |
 | `MEDIA` | `off` runs without the SFU |
 | `MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP` | the one UDP port media uses and the address browsers reach it at |
+| `AUDIT_DIR` | directory of the audit trail; empty turns the trail off |
+| `AUDIT_RETENTION_DAYS` | days the trail is kept, 183 by default |
+| `AUDIT_QUEUE` | events that may wait to be written, 8192 by default |
+| `METRICS_INTERVAL` | how often the metrics line is logged, `1m` by default, `0` for never |
 | `GITHUB_REPO` | repository whose star count the front page shows |
 
 ## Test it

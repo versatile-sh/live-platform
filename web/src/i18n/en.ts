@@ -95,7 +95,7 @@ export const en = {
   "privacy.public.title": "Public rooms",
   "privacy.public.body": "The text of the chat is recorded, including direct messages between people in the room, with who sent it, to whom and when. Pictures are not stored, only that one was sent and its size. Audio, video and screen sharing are never recorded.",
   "privacy.private.title": "Private rooms",
-  "privacy.private.body": "Private rooms are end-to-end encrypted and the server cannot read their chat. The content of a private room is never logged. We record only who wrote, when, in which room and the length of the message.",
+  "privacy.private.body": "Private rooms are built to be end-to-end encrypted, so that the server cannot read their chat. Whatever the state of that encryption, the content of a private room is never logged. We record only who wrote, when, in which room and the length of the message.",
   "privacy.why.title": "Why we keep it",
   "privacy.why.body": "For security, to investigate abuse and to meet a legal obligation: the Marco Civil da Internet (Brazilian Law 12.965/2014, article 15) requires application access logs, with IP address and date and time, to be kept for six months. Under the LGPD the bases are that legal obligation and our legitimate interest in the safety of the service.",
   "privacy.keep.title": "How long",
