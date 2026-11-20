@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pion/ice/v4"
 	"github.com/pion/interceptor"
 	"github.com/pion/interceptor/pkg/intervalpli"
 	"github.com/pion/webrtc/v4"
@@ -31,6 +32,16 @@ type Sender = func(room.MediaSignal)
 type Config struct {
 	UDPPort  int
 	PublicIP string
+	// Loopback keeps media on 127.0.0.1, for tests on one machine.
+	Loopback bool
+}
+
+// Loopback limits ICE to 127.0.0.1 over UDP4: a machine with many interfaces (bridges, VMs) otherwise pairs every one and connects slowly.
+func Loopback(settings *webrtc.SettingEngine) {
+	settings.SetIncludeLoopbackCandidate(true)
+	settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+	settings.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
+	settings.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 }
 
 // Engine holds one pair of connections per participant: one it publishes on, one it is sent the room on.
@@ -83,6 +94,9 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 	}
 	if cfg.PublicIP != "" {
 		settings.SetNAT1To1IPs([]string{cfg.PublicIP}, webrtc.ICECandidateTypeHost)
+	}
+	if cfg.Loopback {
+		Loopback(&settings)
 	}
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(media), webrtc.WithInterceptorRegistry(registry), webrtc.WithSettingEngine(settings))
 	return &Engine{api: api, report: report, rooms: map[room.Slug]map[room.PID]*peer{}}, nil
