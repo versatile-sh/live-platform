@@ -305,6 +305,7 @@ export const en = {
   "stage.front": "Bring {name} to the front",
   "stage.back": "Send {name} back to the grid",
   "stage.fullscreen": "Show {name} on the whole screen",
+  "stage.float": "Watch {name} in a floating window",
   "stage.others": "Everyone else",
   "stage.hideOthers": "Hide everyone else",
   "stage.showOthers": "Show everyone else ({count})",
