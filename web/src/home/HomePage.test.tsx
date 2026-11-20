@@ -22,6 +22,18 @@ describe("HomePage", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Compartilhe qualquer coisa.Assista de qualquer lugar.");
   });
 
+  test("invites to the Discord server and to adding the bot, each a real link", () => {
+    renderWithApp(<HomePage />);
+    expect(screen.getByRole("link", { name: "Join our Discord" })).toHaveAttribute("href", "https://discord.gg/h92jrzRK2H");
+    expect(screen.getByRole("link", { name: "Add the Live Versatile bot to your server" })).toHaveAttribute("href", "https://live.versatile.sh/bot/install");
+  });
+
+  test("words the invitations in Portuguese for a pt-BR visitor", () => {
+    renderWithApp(<HomePage />, { locale: "pt-BR" });
+    expect(screen.getByRole("link", { name: "Entre no nosso Discord" })).toHaveAttribute("href", "https://discord.gg/h92jrzRK2H");
+    expect(screen.getByRole("link", { name: "Adicione o bot Live Versatile ao seu servidor" })).toHaveAttribute("href", "https://live.versatile.sh/bot/install");
+  });
+
   describe("the create button", () => {
     const drawn = /^\/[2-9a-hj-np-z]{4}-[2-9a-hj-np-z]{4}$/;
 

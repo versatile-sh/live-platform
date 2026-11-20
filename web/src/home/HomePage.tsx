@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { withIris } from "../ui/motion";
 
 import { useChooseLocale, useT } from "../i18n/I18nProvider";
-import { PROJECT_LINKS } from "../project/project-store";
+import { COMMUNITY_LINKS, PROJECT_LINKS } from "../project/project-store";
 import { AppLink, useNavigate } from "../routing/Navigation";
 import { LobbyPage } from "../lobby/LobbyPage";
 import { useServices } from "../services";
@@ -10,6 +10,7 @@ import { Arrow } from "../ui/Arrow";
 import { CommandPalette } from "../ui/CommandPalette";
 import { OptionsPlaceContext, type OptionsPlace } from "../ui/OptionsPane";
 import { Social } from "../ui/Social";
+import { Community } from "../ui/Community";
 import { CONVEYOR_LINK } from "../ui/styles";
 import { Wordmark } from "../ui/Wordmark";
 import { EnterRoom } from "./EnterRoom";
@@ -124,6 +125,8 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
             { id: "rooms", group: t("palette.group.site"), label: t("palette.rooms"), run: () => navigate("/lobby") },
             { id: "github", group: t("palette.group.site"), label: t("palette.github"), run: () => void window.open(PROJECT_LINKS.repo, "_blank", "noreferrer") },
             { id: "x", group: t("palette.group.site"), label: t("palette.x"), run: () => void window.open(PROJECT_LINKS.x, "_blank", "noreferrer") },
+            { id: "discord", group: t("palette.group.site"), label: t("palette.discord"), run: () => void window.open(COMMUNITY_LINKS.discord, "_blank", "noopener,noreferrer") },
+            { id: "bot", group: t("palette.group.site"), label: t("palette.bot"), run: () => void window.open(COMMUNITY_LINKS.bot, "_blank", "noopener,noreferrer") },
             { id: "theme", group: t("palette.group.site"), label: t(theme.getSnapshot() === "dark" ? "theme.toLight" : "theme.toDark"), run: () => withIris({ x: window.innerWidth / 2, y: window.innerHeight / 2 }, theme.toggle) },
             { id: "en", group: t("palette.group.language"), label: "English", run: () => choose("en") },
             { id: "pt", group: t("palette.group.language"), label: "Português", run: () => choose("pt-BR") },
@@ -174,6 +177,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
           {t(lobby ? "lobby.back" : view === "entry" ? "home.back" : "home.seeRooms")}
           {view === "home" ? <Arrow /> : null}
         </AppLink>
+        <Community className="mt-4" />
       </div>
       <div className="pointer-events-none absolute inset-0 z-20 overflow-clip lg:right-1/2 lg:border-r lg:border-transparent lg:transition-colors lg:duration-700 lg:group-data-[more]:border-line">
         <div ref={setSlot} className="pointer-events-auto invisible size-full translate-x-full bg-canvas transition-[translate,visibility] duration-700 ease-(--ease-glide) group-data-[more]:visible group-data-[more]:translate-x-0 group-data-[more]:transition-[translate] lg:bg-card" />
