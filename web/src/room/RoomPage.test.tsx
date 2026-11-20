@@ -383,7 +383,7 @@ describe("RoomPage", () => {
 
     const panels = () => within(screen.getByRole("group", { name: "Side panels" }));
 
-    test("keeps the microphone, the camera, the screen, the hand and leave on the bar, with invite apart", async () => {
+    test("keeps the microphone, the camera, the screen, the hand, visibility and leave on the bar, with invite apart", async () => {
       await inCall();
       const bar = within(screen.getByRole("toolbar", { name: "Call controls" }));
       expect(bar.getAllByRole("button").map((button) => button.getAttribute("aria-label") ?? button.textContent)).toEqual([
@@ -394,6 +394,7 @@ describe("RoomPage", () => {
         "Share your screen",
         "Screen options",
         "Raise your hand",
+        "Visibility options",
         "Leave",
       ]);
       expect(screen.getByRole("button", { name: "Invite" })).toBeInTheDocument();
@@ -692,6 +693,17 @@ describe("RoomPage", () => {
       expect(within(screen.getByRole("dialog", { name: "Keyboard shortcuts" })).getByText("Ctrl+Alt+H")).toBeInTheDocument();
       await userEvent.keyboard("{Control>}{Alt>}h{/Alt}{/Control}");
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 16 });
+    });
+
+    test("the eye beside the raised hand opens the visibility options and closes them again", async () => {
+      await inCall();
+      const eye = screen.getByRole("button", { name: "Visibility options" });
+      expect(eye).toHaveAttribute("aria-pressed", "false");
+      await userEvent.click(eye);
+      expect(screen.getByRole("group", { name: "What to see of Bia" })).toBeInTheDocument();
+      expect(eye).toHaveAttribute("aria-pressed", "true");
+      await userEvent.click(eye);
+      expect(screen.queryByRole("group", { name: "What to see of Bia" })).not.toBeInTheDocument();
     });
 
     test("visibility options choose, per person, the tile, the camera and the screen, on my screen only", async () => {
