@@ -42,7 +42,7 @@ A one-use ticket a trusted inviter (the Discord bot) prepares for one visit: a n
 _Avoid_: token, login, account
 
 **Invitation link**:
-A room link with `?listed=0|1`, a guest pass, or both, and the room code after `#`. Opening a free room from one with a code creates it private with that code.
+A room link, with a guest pass or a room code after `#`. A free room opened from a link starts unlisted; one with a code is created private with that code.
 
 **Release**:
 The moment a room that stayed empty ceases to exist and its slug becomes free.

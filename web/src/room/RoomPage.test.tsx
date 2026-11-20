@@ -112,7 +112,7 @@ describe("RoomPage", () => {
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
-      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: false, look: "ff9ec7-0e1116-0", face: "^_^" });
+      expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: true, look: "ff9ec7-0e1116-0", face: "^_^" });
     });
   });
 
@@ -337,7 +337,7 @@ describe("RoomPage", () => {
       expect(services.copied.at(-1)).toBe("https://live.test/demo");
       expect(screen.getByRole("button", { name: "Link copied" })).toBeInTheDocument();
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-      expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: false }]);
+      expect(sent(socket, 1)).toEqual([{ t: "owner", op: "listed", listed: true }]);
     });
 
     test("making it private locks it with a room code that the link carries, without touching the listing", async () => {

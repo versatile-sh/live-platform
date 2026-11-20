@@ -83,7 +83,8 @@ In a call, the screen button's menu has **The whole computer's sound**. With it 
 ### Links from a chat bot
 
 The Discord bot ([live-discord](https://github.com/versatile-sh/live-discord), private) sends people to a room with an
-invitation link: `?listed=0|1` says whether a new room is shown in the open rooms, the room code after `#` makes a free room
+invitation link. A free room opened from a link starts out of the open rooms (the doorway's switch can list it; `?listed=1`
+still lists it, for old links), the room code after `#` makes a free room
 private with that code, and `?pass=<id>` names a guest pass. The page asks `GET /api/pass/{id}` once; the server takes the pass
 from `PASS_SOURCE` with `PASS_KEY` on the private network and checks it (name, photo size, slug) before handing it over. The page
 fills in the name and the photo and chooses the access; nothing else changes, and without those variables the route does not
