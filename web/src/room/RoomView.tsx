@@ -46,6 +46,7 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { DeviceList } from "./DeviceList";
 import { EndedPanel } from "./EndedPanel";
 import { InviteCard } from "./InviteCard";
+import { Others } from "./Others";
 import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
 import { MoreMenu, type MoreItem } from "./MoreMenu";
@@ -764,27 +765,18 @@ export function RoomView({
           ) : frames.length === 0 ? (
             <p className="text-muted">{t("visibility.none")}</p>
           ) : front ? (
-            <div className="swap-in flex size-full min-h-0 gap-3 max-lg:flex-col">
+            <div className="swap-in flex size-full min-h-0 gap-3 overflow-hidden max-lg:flex-col">
               <ul className="flex min-h-0 min-w-0 flex-1">{front.render("front")}</ul>
               {frames.length > 1 ? (
-                <div className={`flex shrink-0 gap-2 max-lg:flex-col-reverse lg:flex-col ${othersHidden ? "" : "max-lg:h-28 lg:w-52"}`}>
-                  <button
-                    type="button"
-                    aria-expanded={!othersHidden}
-                    aria-controls="stage-others"
-                    aria-keyshortcuts="Control+Alt+O"
-                    title={`${t(othersHidden ? "stage.showOthers" : "stage.hideOthers", { count: frames.length - 1 })} (Ctrl+Alt+O)`}
-                    className={othersHidden ? "bubble flex items-center justify-center gap-1.5 border border-line-strong bg-card px-3 py-2 text-muted hover:text-fg max-lg:h-9 lg:w-9 lg:flex-1 lg:flex-col lg:px-0" : `${ICON_BUTTON} self-end`}
-                    onClick={() => setOthersHidden(!othersHidden)}
-                  >
-                    <span className="sr-only">{t(othersHidden ? "stage.showOthers" : "stage.hideOthers", { count: frames.length - 1 })}</span>
-                    <Icon name={othersHidden ? "expand" : "minimize"} className="size-4" />
-                    {othersHidden ? <span aria-hidden="true" className="font-mono text-xs font-bold">{frames.length - 1}</span> : null}
-                  </button>
-                  <ul id="stage-others" aria-label={t("stage.others")} hidden={othersHidden} className="no-scrollbar flex min-h-0 flex-1 gap-3 overflow-auto max-lg:[&>li]:h-full max-lg:[&>li]:w-auto lg:flex-col">
-                    {frames.filter((frame) => frame !== front).map((frame) => frame.render("strip"))}
-                  </ul>
-                </div>
+                <Others
+                  hidden={othersHidden}
+                  count={frames.length - 1}
+                  people={shownPeople.filter((person) => `person-${person.pid}` !== front.key)}
+                  photos={snapshot.photos}
+                  onToggle={() => setOthersHidden(!othersHidden)}
+                >
+                  {frames.filter((frame) => frame !== front).map((frame) => frame.render("strip"))}
+                </Others>
               ) : null}
             </div>
           ) : (
