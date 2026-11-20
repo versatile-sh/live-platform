@@ -2,6 +2,9 @@ import { FLAG } from "../domain/flags";
 import { callOutput, isHelperInput, openDesktopSound } from "./desktop-sound";
 import { DEFAULT_SETTINGS, cameraShape, screenShape, type CameraEffect, type MediaSettings } from "./settings";
 
+/** Asks for one of the camera's own formats instead of a crop to the asked size, so a 4:3 sensor keeps its whole angle. */
+const WHOLE_SENSOR = { resizeMode: { ideal: "none" } } as MediaTrackConstraints;
+
 /** The capture calls of the browser, so tests can hand the store fakes. */
 export type MediaDevicesPort = {
   user(constraints: MediaStreamConstraints): Promise<MediaStream>;
@@ -151,7 +154,7 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
     }
     if (kind === "camera") {
       const { width, height, frameRate } = cameraShape(snapshot.settings.cameraQuality);
-      rawCamera = await devices.user({ video: { width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
+      rawCamera = await devices.user({ video: { ...WHOLE_SENSOR, width: { ideal: width }, height: { ideal: height }, frameRate: { ideal: frameRate }, ...(snapshot.cameraId ? { deviceId: { exact: snapshot.cameraId } } : {}) } });
       return dress(rawCamera);
     }
     return microphone(devices);
