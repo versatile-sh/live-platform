@@ -510,7 +510,7 @@ export function RoomView({
           {
             key: "screen-me",
             render: (mode: StageMode) => (
-              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} className="bubble-sent border border-bubble bg-sunken">
+              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} floating className="bubble-sent border border-bubble bg-sunken">
                 <video ref={attach(local.screen)} autoPlay muted playsInline className={SHOW} />
                 <span className={TAG}>{t("room.yourScreen")}</span>
               </StageFrame>
@@ -521,7 +521,7 @@ export function RoomView({
     ...screens.map((person) => ({
       key: `screen-${person.pid}`,
       render: (mode: StageMode) => (
-        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} className="bubble border border-bubble bg-sunken">
+        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} floating className="bubble border border-bubble bg-sunken">
           <video ref={attach(remote[person.pid]?.screen)} autoPlay muted playsInline className={SHOW} />
           <span className={TAG} translate="no">
             {t("room.screenOf", { name: person.name })}

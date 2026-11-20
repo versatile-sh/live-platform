@@ -13,6 +13,8 @@ type StageFrameProps = Omit<ComponentProps<"li">, "children" | "onClick"> & {
   onFront(): void;
   /** Whether a click anywhere on the frame brings it to the front; off for a frame one works inside. */
   clickable?: boolean;
+  /** Whether the frame's video may float in its own window (picture-in-picture) where the browser allows it. */
+  floating?: boolean;
   children: ReactNode;
 };
 
@@ -33,10 +35,18 @@ export const SCALE = {
 
 const CONTROL = `grid ${SCALE.control} place-items-center rounded-full bg-canvas/75 text-fg transition-colors duration-200 hover:bg-fg hover:text-canvas`;
 
-/** One frame of the stage, whatever it shows: it can be brought to the front or sent back, and opened to the whole screen. */
-export function StageFrame({ mode, name, onFront, clickable = true, className = "", children, ...rest }: StageFrameProps) {
+/** One frame of the stage, whatever it shows: it can be brought to the front or sent back, opened to the whole screen, and a screen can float in its own window. */
+export function StageFrame({ mode, name, onFront, clickable = true, floating = false, className = "", children, ...rest }: StageFrameProps) {
   const t = useT();
   const frame = useRef<HTMLLIElement>(null);
+  const canFloat = floating && typeof document !== "undefined" && document.pictureInPictureEnabled === true;
+
+  function float() {
+    const video = frame.current?.querySelector("video");
+    if (!video) return;
+    if (document.pictureInPictureElement === video) void document.exitPictureInPicture().catch(() => undefined);
+    else void video.requestPictureInPicture().catch(() => undefined);
+  }
 
   function fullscreen() {
     if (document.fullscreenElement) void document.exitFullscreen?.();
@@ -66,6 +76,11 @@ export function StageFrame({ mode, name, onFront, clickable = true, className = 
         <button type="button" aria-label={t("stage.fullscreen", { name })} title={t("stage.fullscreen", { name })} className={CONTROL} onClick={fullscreen}>
           <Icon name="expand" className={SCALE.icon} />
         </button>
+        {canFloat ? (
+          <button type="button" aria-label={t("stage.float", { name })} title={t("stage.float", { name })} className={CONTROL} onClick={float}>
+            <Icon name="pip" className={SCALE.icon} />
+          </button>
+        ) : null}
       </div>
     </li>
   );
