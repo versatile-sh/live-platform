@@ -12,6 +12,7 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/panjf2000/gnet/v2"
 
+	"github.com/versatile-sh/live/server/internal/adapters/clientinfo"
 	"github.com/versatile-sh/live/server/internal/domain/room"
 	"github.com/versatile-sh/live/server/internal/domain/shared"
 )
@@ -33,6 +34,8 @@ type conn struct {
 	upgraded atomic.Bool
 	country  string
 	origin   string
+	remote   string
+	headers  clientinfo.Headers
 	limiter  bucket
 	late     *time.Timer
 	pending  atomic.Int64
@@ -240,7 +243,12 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 		if err != nil {
 			return "", room.Seat{}, err
 		}
-		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Origin: c.origin, Country: c.country}, c)
+		client := c.headers.Client(c.remote)
+		client.Discord = c.vouched(hello.Pass, slug)
+		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Origin: c.origin, Country: c.country, Client: client}, c)
+		if err == nil && client.Discord != nil {
+			c.server.passes.Spend(hello.Pass)
+		}
 		return slug, seat, err
 	case "resume":
 		if secret, ok := decodeSecret(hello.Secret); ok {
@@ -250,6 +258,18 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 		return "", room.Seat{}, shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
 	}
 	return "", room.Seat{}, shared.NewDomainError(shared.ErrCodeInvalidArgument, "the first frame is join or resume", nil)
+}
+
+func (c *conn) vouched(pass string, slug room.Slug) *room.Discord {
+	if pass == "" || c.server.passes == nil {
+		return nil
+	}
+	record, ok := c.server.passes.Recall(pass)
+	if !ok || record.Slug != slug {
+		return nil
+	}
+	discord := record.Discord
+	return &discord
 }
 
 func (c *conn) dispatch(f clientFrame) {

@@ -54,8 +54,9 @@ func (h *Hub) Adopt(rooms []HandedRoom, hold time.Duration) int {
 			continue
 		}
 		a := newActor(h, r)
+		a.founded = true
 		for _, p := range r.Roster() {
-			a.seats[p.ID] = &seat{gen: p.Gen, lastSeen: now}
+			a.seats[p.ID] = &seat{gen: p.Gen, lastSeen: now, name: p.Name, joined: now}
 			if photo := handed.Photos[p.ID]; room.CheckPhoto(photo) == nil && len(photo) > 0 {
 				a.shots[p.ID] = photo
 			}

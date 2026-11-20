@@ -283,6 +283,13 @@ describe("Session notices", () => {
 });
 
 describe("Session#owner", () => {
+  test("the join names the guest pass it came with, for the server to vouch for", () => {
+    const { session, sockets } = setup({ name: "Ana", pass: "abcdefghijklmnopqrstuv" });
+    session.start();
+    sockets[0]!.serverOpen();
+    expect(sentFrames(sockets[0]!)[0]).toMatchObject({ t: "join", name: "Ana", pass: "abcdefghijklmnopqrstuv" });
+  });
+
   test("sends the frame and records the listed choice", () => {
     const { session, sockets, storage } = setup();
     session.start();

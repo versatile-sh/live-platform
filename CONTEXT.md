@@ -77,5 +77,9 @@ The server sends a participant only the tracks their page is showing.
 **Egress budget**:
 The operator's ceiling on media the server may send; joins are refused above it.
 
+**Audit trail**:
+The append-only record of who joined, left, said and decided what in a room, kept for six months and readable only by the operators. A private room's content is never in it.
+_Avoid_: history, chat log
+
 **Whiteboard**:
 The one drawing surface a room shares. Each browser keeps it; the server relays its pieces unread and stores nothing, so it is gone when the room empties.

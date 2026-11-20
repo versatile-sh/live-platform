@@ -39,7 +39,14 @@ describe("EntryForm", () => {
       expect(forget).toHaveBeenCalled();
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", face: "", listed: true })));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", face: "", listed: true, pass: "abcdefghijklmnopqrstuv" })));
+    });
+
+    test("a join without a pass carries none, and the doorway links to the privacy policy", async () => {
+      setup(free);
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
+      expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "/privacy");
     });
 
     test("without a pass the person types their name as usual", async () => {

@@ -37,13 +37,14 @@ export function createPathnameStore(host: PathnameHost): PathnameStore {
 }
 
 /** Where a pathname leads. */
-export type Route = { kind: "home" } | { kind: "lobby" } | { kind: "room"; slug: string } | { kind: "invalid-room" } | { kind: "not-found" };
+export type Route = { kind: "home" } | { kind: "lobby" } | { kind: "privacy" } | { kind: "room"; slug: string } | { kind: "invalid-room" } | { kind: "not-found" };
 
-/** Maps a pathname to the page it shows: `/` is the home, `/lobby` the open rooms, and any other single valid segment a room. */
+/** Maps a pathname to the page it shows: `/` is the home, `/lobby` the open rooms, `/privacy` the privacy policy, and any other single valid segment a room. */
 export function resolveRoute(pathname: string): Route {
   const trimmed = pathname.replace(/\/+$/, "");
   if (trimmed === "") return { kind: "home" };
   if (trimmed === "/lobby") return { kind: "lobby" };
+  if (trimmed === "/privacy") return { kind: "privacy" };
   const segments = trimmed.split("/").slice(1);
   if (segments.length !== 1 || !segments[0]) return { kind: "not-found" };
   let segment: string;

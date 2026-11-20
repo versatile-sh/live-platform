@@ -13,7 +13,7 @@ export const NOTICE_MS = 6000;
 const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 
 /** What a person gave to enter a room. A verifier makes the room private. */
-export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: string; face?: string; photo?: string };
+export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: string; face?: string; photo?: string; pass?: string };
 
 /** One line said in the room, as this page heard it. */
 export type ChatLine = { id: number; pid: number; to?: number; name: string; text: string; at: number; image?: string };
@@ -318,6 +318,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       ...(joining.listed === undefined ? {} : { listed: joining.listed }),
       ...(joining.look ? { look: joining.look } : {}),
       ...(joining.face ? { face: joining.face } : {}),
+      ...(joining.pass ? { pass: joining.pass } : {}),
     };
   }
 

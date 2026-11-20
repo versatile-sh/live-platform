@@ -66,7 +66,7 @@ func (p fakePasses) Take(_ context.Context, id string) (outbound.GuestPass, bool
 
 func TestPasses(t *testing.T) {
 	mux := http.NewServeMux()
-	RegisterPasses(mux, fakePasses{"abcdefghijklmnopqrstuv": {Name: "Ana", Face: "AQID", Private: true, Slug: "noite-k3p9"}})
+	RegisterPasses(mux, fakePasses{"abcdefghijklmnopqrstuv": {Name: "Ana", Face: "AQID", Private: true, Slug: "noite-k3p9", DiscordUserID: "42", DiscordName: "ana", GuildID: "7", ChannelID: "9"}})
 	get := func() *httptest.ResponseRecorder {
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/pass/abcdefghijklmnopqrstuv", nil))

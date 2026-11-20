@@ -69,6 +69,7 @@ describe("resolveRoute", () => {
     ["/", { kind: "home" }],
     ["/lobby", { kind: "lobby" }],
     ["/lobby/", { kind: "lobby" }],
+    ["/privacy", { kind: "privacy" }],
     ["", { kind: "home" }],
     ["/standup", { kind: "room", slug: "standup" }],
     ["/standup/", { kind: "room", slug: "standup" }],
