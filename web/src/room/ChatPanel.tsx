@@ -180,7 +180,8 @@ export function ChatPanel({
             <ol
               aria-label={t("chat.log")}
               aria-live="polite"
-              className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-4 py-3"
+              className="chat-log flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-4 py-3"
+              onScroll={(event) => event.currentTarget.toggleAttribute("data-above", event.currentTarget.scrollTop > 0)}
             >
               {lines.map((line, index) => {
                 const mine = line.pid === me;

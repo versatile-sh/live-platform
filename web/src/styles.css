@@ -369,6 +369,59 @@ html[data-motion="iris"]::view-transition-new(root) {
   }
 }
 
+.chat-log[data-above] {
+  mask-image: linear-gradient(to bottom, transparent, #000 2.5rem);
+}
+
+.chat-toast {
+  transform-origin: bottom right;
+  transition:
+    opacity 0.3s var(--ease-settle),
+    translate 0.3s var(--ease-settle),
+    scale 0.3s var(--ease-settle),
+    width 0.3s var(--ease-settle);
+}
+
+@starting-style {
+  .chat-toast {
+    opacity: 0;
+    translate: 0 0.75rem;
+    scale: 0.96;
+  }
+}
+
+.chat-toast[data-leaving] {
+  opacity: 0;
+  translate: 0 0.5rem;
+  scale: 0.98;
+  pointer-events: none;
+  transition-duration: 0.18s;
+}
+
+.chat-toast-lines {
+  transition: height 0.3s var(--ease-settle);
+}
+
+.chat-roll {
+  animation: chat-roll 0.3s var(--ease-settle) backwards;
+}
+
+.chat-roll > :last-child {
+  animation: chat-line-in 0.3s var(--ease-settle) backwards;
+}
+
+@keyframes chat-roll {
+  from {
+    translate: 0 2.125rem;
+  }
+}
+
+@keyframes chat-line-in {
+  from {
+    opacity: 0;
+  }
+}
+
 @keyframes swap-side {
   from {
     opacity: 0;
