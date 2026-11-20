@@ -9,10 +9,10 @@ Team members: the exact commands, the secrets and the wiring are on the live-pla
 
 Any host can run it. The contract is small:
 
-- HTTP on `PORT` (3000 on the public instance), with `200` on `/up` for the proxy's health check.
-- WebSocket signalling on `SIGNAL_PORT` (3001), routed to `/ws`.
+- HTTP on `PORT`, with `200` on `/up` for the proxy's health check.
+- WebSocket signalling on `SIGNAL_PORT`, routed to `/ws`.
 - One UDP port for media, published on the host's own public address (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP`).
-- Logs on stdout; telemetry, when wanted, to `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Logs on stdout.
 - Optional: `HANDOVER_DIR` for the handover between two servers, `WEB_LIVE_DIR` for a client published over the running server, `PASS_SOURCE` and `PASS_KEY` for guest passes.
 
 ## Two kinds of deploy
