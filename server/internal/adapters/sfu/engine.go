@@ -266,7 +266,10 @@ func declared(sources map[string]string, source string) bool {
 
 func (e *Engine) incoming(p *peer, remote *webrtc.TrackRemote) {
 	p.mu.Lock()
-	source := p.sources[remote.ID()]
+	source := p.sources[remote.StreamID()]
+	if source == "" {
+		source = p.sources[remote.ID()]
+	}
 	if source == "" || p.sub == nil {
 		p.mu.Unlock()
 		return

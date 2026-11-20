@@ -39,6 +39,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
   let again = false;
   let early: { role: "pub" | "sub"; init: RTCIceCandidateInit }[] = [];
   const senders = new Map<Source, RTCRtpSender>();
+  const streams = new Map<Source, string>();
   let ceilings: Partial<Record<Source, number>> = {};
 
   function cap(source: Source) {
@@ -140,7 +141,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       const offer = await pub.createOffer();
       await pub.setLocalDescription(offer);
       const sources: Record<string, string> = {};
-      for (const [source, sender] of senders) if (sender.track) sources[sender.track.id] = source;
+      for (const [source, sender] of senders) if (sender.track && streams.has(source)) sources[streams.get(source)!] = source;
       send({ role: "pub", kind: "offer", sdp: offer.sdp ?? "", sources });
     } catch {
       settled();
@@ -168,12 +169,15 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       const track = wanted[source];
       const sender = senders.get(source);
       if (track && !sender) {
-        senders.set(source, pub.addTrack(track, new MediaStream([track])));
+        const stream = new MediaStream([track]);
+        streams.set(source, stream.id);
+        senders.set(source, pub.addTrack(track, stream));
         cap(source);
         changed = true;
       } else if (!track && sender) {
         pub.getTransceivers().find((transceiver) => transceiver.sender === sender)?.stop();
         senders.delete(source);
+        streams.delete(source);
         changed = true;
       } else if (track && sender && sender.track !== track) {
         void sender.replaceTrack(track);
@@ -188,6 +192,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
     pub?.close();
     sub = pub = undefined;
     senders.clear();
+    streams.clear();
     negotiating = again = false;
     early = [];
   }
