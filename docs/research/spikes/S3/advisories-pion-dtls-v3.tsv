@@ -1,2 +1,0 @@
-GHSA-wg4g-wm44-ch5j	CVE-2026-54908	medium	2026-07-31T22:06:33Z	Pion DTLS vulnerable to denial of service via panic while parsing a crafted ECDHE_PSK ServerKeyExchange message
-GHSA-9f3f-wv7r-qc8r	CVE-2026-26014	medium	2026-02-11T15:13:12Z	Pion DTLS's usage of random nonce generation with AES GCM ciphers risks leaking the authentication key

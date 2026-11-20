@@ -24,6 +24,7 @@ describe("checkSlug", () => {
       ["api", "reserved"],
       ["lobby", "reserved"],
       ["new", "reserved"],
+      ["privacy", "reserved"],
     ] as const)("refuses %j as %s", (slug, problem) => {
       expect(checkSlug(slug)).toEqual({ ok: false, problem });
     });

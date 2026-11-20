@@ -34,6 +34,9 @@ const (
 )
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "audit" {
+		os.Exit(runAudit(os.Args[2:], os.Getenv, os.Stdout, os.Stderr))
+	}
 	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	hub := presence.NewHub(room.DefaultConfig(), presence.DefaultLiveness(), time.Now)
 
@@ -46,9 +49,13 @@ func main() {
 		starCount = stars.Count
 	}
 	httpapi.Register(mux, hub, starCount)
+	ledger := guestpass.NewLedger(time.Now)
 	if passes, ok := guestpass.NewSource(os.Getenv("PASS_SOURCE"), os.Getenv("PASS_KEY"), &http.Client{Timeout: 3 * time.Second}); ok {
-		httpapi.RegisterPasses(mux, passes)
+		httpapi.RegisterPasses(mux, guestpass.Remembering{Passes: passes, Ledger: ledger})
 	}
+	trail, drainTrail := startAudit(ctx, log, hub, os.Getenv)
+	defer drainTrail()
+	go reportMetrics(ctx, log, hub, trail, os.Getenv)
 	if dir := os.Getenv("WEB_DIR"); dir != "" {
 		var files fs.FS = os.DirFS(dir)
 		if over := os.Getenv("WEB_LIVE_DIR"); over != "" {
@@ -100,6 +107,7 @@ func main() {
 		})
 	}
 	signalling := signal.NewServer(rooms, signalCfg)
+	signalling.UsePasses(ledger)
 	signalAddr := net.JoinHostPort(env("HOST", "127.0.0.1"), env("SIGNAL_PORT", "8081"))
 
 	failed := make(chan error, 2)

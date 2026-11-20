@@ -1,5 +1,0 @@
-# idle
-negotiated after 3s: subs_done/pcs=30 30
-cpu_start: usage_usec 4888081 nr_periods 125 nr_throttled 0 throttled_usec 0 
-cpu_end: usage_usec 28956783 nr_periods 733 nr_throttled 2 throttled_usec 104314 
-wall: 1794839487.289233627 1794839548.119083024

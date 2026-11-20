@@ -9,7 +9,7 @@ import type { JoinEntry } from "../session/session";
 import { Arrow } from "../ui/Arrow";
 import { Field } from "../ui/Field";
 import { withMotion } from "../ui/motion";
-import { button } from "../ui/styles";
+import { button, QUIET_LINK } from "../ui/styles";
 import { AccessSettings, type Access } from "./AccessSettings";
 
 type EntryFormProps = {
@@ -27,6 +27,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const creating = !room.exists;
   const [invite] = useState(() => services.invite.read());
   const [photo, setPhoto] = useState<string>();
+  const [passId, setPassId] = useState<string>();
   const [name, setName] = useState(() => services.nameMemory.read());
   const [access, setAccess] = useState<Access>(() => (creating && services.readPasswordHash() ? "private" : "public"));
   const [listed, setListed] = useState(invite.listed ?? false);
@@ -38,6 +39,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     void services.takePass(invite.pass).then((pass) => {
       if (!current || !pass) return;
       services.nameMemory.write(pass.name);
+      setPassId(invite.pass);
       setName(pass.name);
       setPhoto(pass.face || undefined);
       if (creating) {
@@ -79,6 +81,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
       look: services.lookMemory.read(),
       face: services.faceMemory.read(),
       ...(photo ? { photo } : {}),
+      ...(passId ? { pass: passId } : {}),
       ...(derived ? { verifier: derived.verifier, password: code.trim() } : {}),
       ...(creating ? { listed } : {}),
     };
@@ -141,6 +144,12 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
         </div>
       ) : null}
       {submitButton}
+      <p className="mt-4 text-xs text-muted">
+        {t("entry.privacy")}{" "}
+        <a href="/privacy" target="_blank" rel="noopener" className={QUIET_LINK}>
+          {t("entry.privacyLink")}
+        </a>
+      </p>
     </form>
   );
 }

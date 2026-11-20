@@ -24,8 +24,8 @@ One Go binary, three listeners, one process.
 
 | Part | Choice | Why |
 | --- | --- | --- |
-| Media | Our own SFU on Pion, for every room | A mesh costs each person an upload per listener; a hosted SFU puts media on someone else's server. [ADR 0001](docs/adr/0001-sfu-on-pion-for-every-room.md) |
-| Signalling | gnet with gobwas/ws | An event loop holds idle sockets cheaply. gnet carries signalling only; media and HTTP use the tools made for them. [ADR 0008](docs/adr/0008-gnet-for-signalling-only.md) |
+| Media | Our own SFU on Pion, for every room | A mesh costs each person an upload per listener; a hosted SFU puts media on someone else's server. |
+| Signalling | gnet with gobwas/ws | An event loop holds idle sockets cheaply. gnet carries signalling only; media and HTTP use the tools made for them. |
 | Page and API | `net/http` | Nothing here needs more |
 | Client | React 19, Vite, TypeScript, Tailwind 4. No router, no state library | Three pages and one store per concern do not need them |
 
@@ -36,7 +36,7 @@ server/internal/
   domain/room        the Room aggregate: pure, no clock, no I/O
   application/       one goroutine per room (an actor) and the hub that finds them
   ports/             what the application offers and needs
-  adapters/          signal (gnet), httpapi, page, sfu (Pion), github
+  adapters/          signal (gnet), httpapi, page, sfu (Pion), handoff, guestpass, github
 ```
 
 Dependencies point inward. The room is a value that is told the time and answers with what changed, so every rule about presence is a plain test.
@@ -48,17 +48,17 @@ Dependencies point inward. The room is a value that is told the time and answers
 
 ### No ghosts
 
-The server is the only authority on who is present ([ADR 0003](docs/adr/0003-server-is-the-only-authority-on-presence.md)). A participant is seen through three signals: the socket, a heartbeat, and the media path. At the first missed signal the others see them as *unstable*. After a 4 second grace they are *reconnecting*; a participant who is not back is removed. Leaving on purpose is immediate. Measured with stand-in clients, the worst case from a silent loss to removal is 17 seconds (`docs/research/spikes`).
+The server is the only authority on who is present. A participant is seen through three signals: the socket, a heartbeat, and the media path. At the first missed signal the others see them as *unstable*. After a 4 second grace they are *reconnecting*; a participant who is not back is removed. Leaving on purpose is immediate. Measured with stand-in clients, the worst case from a silent loss to removal is 17 seconds.
 
 A participant who reloads keeps the same seat: the browser holds a secret per room for the tab's lifetime and presents it to resume. The secret rotates on every resume, and the old one is refused.
 
 ### The password never reaches the server
 
-In a private room the browser derives 64 bytes from the room code with PBKDF2-SHA-256 (600,000 rounds, salted with the room's address). The first half is a verifier, sent to the server, which stores only its SHA-256. The second half is reserved as the media key and never leaves the browser ([ADR 0006](docs/adr/0006-password-never-reaches-the-server.md)). A shared link carries the code after `#`, the part of an address browsers do not send. Ten wrong attempts lock the room's door for five minutes.
+In a private room the browser derives 64 bytes from the room code with PBKDF2-SHA-256 (600,000 rounds, salted with the room's address). The first half is a verifier, sent to the server, which stores only its SHA-256. The second half is reserved as the media key and never leaves the browser. A shared link carries the code after `#`, the part of an address browsers do not send. Ten wrong attempts lock the room's door for five minutes.
 
 ### Media
 
-Each participant holds two peer connections: one to publish, one to receive everything else. The server forwards packets without decoding them and names each forwarded stream by who sent it and what it is. The strong voice filter is RNNoise running in the browser ([ADR 0010](docs/adr/0010-strong-voice-filter-is-rnnoise-in-the-browser.md)); no audio is processed on the server.
+Each participant holds two peer connections: one to publish, one to receive everything else. The server forwards packets without decoding them and names each forwarded stream by who sent it and what it is. The strong voice filter is RNNoise running in the browser; no audio is processed on the server.
 
 ### The computer's sound with the screen
 
@@ -90,14 +90,20 @@ from `PASS_SOURCE` with `PASS_KEY` on the private network and checks it (name, p
 fills in the name and the photo and chooses the access; nothing else changes, and without those variables the route does not
 exist and the person types their name as usual.
 
+### Audit trail and metrics
+
+With `AUDIT_DIR` set, the server appends one JSON line per fact to `audit-YYYY-MM-DD.jsonl` (UTC day) in that directory: room created, join, leave, chat, owner action, room ended. A join carries the address (`CF-Connecting-IP`, else the socket's), the location headers Cloudflare adds when present, the User-Agent with a parsed browser, system and device, the language, who was in the room, and the Discord user, server and call when the visit began from a guest pass. The Discord part comes from the server's own memory of the pass it handed out; a browser only names the pass id and can never state it. The chat text of a public room is recorded, a private room keeps who, when and the length, never the content. Writing goes through a bounded queue off the signalling path: when it is full the event is dropped and counted. Files older than `AUDIT_RETENTION_DAYS` (default 183, six months for the Marco Civil da Internet) are deleted daily. Without `AUDIT_DIR` nothing is recorded.
+
+Read it where the server runs, with the same variables: `live audit --dir "$AUDIT_DIR" [--room SLUG] [--ip ADDRESS] [--discord-user ID] [--guild ID] [--kind KIND] [--from DAY] [--to DAY] [--json]`. An address or Discord filter follows that participant from join to leave. There is no HTTP route for it. The server also logs one `metrics` line every `METRICS_INTERVAL` (default `1m`, `0` turns it off): rooms, people, joins, audit queue depth, written, dropped and failed. Joins and leaves are logged without address, name or text. The page `/privacy` tells visitors what is kept.
+
 ### The whiteboard
 
-Excalidraw, pinned and built into our bundle, loaded only when opened. The board lives in the browsers; the server relays its pieces unread and keeps nothing ([ADR 0009](docs/adr/0009-whiteboard-is-excalidraw-relayed-not-stored.md)).
+Excalidraw, pinned and built into our bundle, loaded only when opened. The board lives in the browsers; the server relays its pieces unread and keeps nothing.
 
 ## Security
 
-- **Content security policy**: `default-src 'none'`; scripts, styles, fonts and connections only from our own origin; no inline script or style. `'wasm-unsafe-eval'` exists for the voice filter alone.
-- **Limits on the signalling socket**: 64 KiB per frame, 1 MiB of unsent data, 20 frames a second with a burst of 80. A client past them is disconnected and told why.
+- **Content security policy**: `default-src 'none'`; scripts, styles, fonts and connections only from our own origin; no inline script or style. `'wasm-unsafe-eval'` exists for the voice filter and the background blur, which compile WebAssembly from our own files.
+- **Limits on the signalling socket**: 128 KiB per frame, 2 MiB of unsent data, 20 frames a second with a burst of 80. A client past them is disconnected and told why.
 - **Dependencies**: exact versions, lockfile committed, install scripts disabled, Dependabot on Go, npm, Docker and Actions. `govulncheck` reports nothing. `npm audit` reports one advisory, GHSA-fc5q-39xc-vjpf (ReDoS in picomatch through 4.0.7, no fixed release yet), reached only through build and test tools (vite, vitest, the Excalidraw build chain); no glob it evaluates comes from a visitor, and none of it ships to the browser or the server.
 - **Image**: distroless, static, non-root, base images pinned by digest.
 
@@ -105,11 +111,11 @@ Excalidraw, pinned and built into our bundle, loaded only when opened. The board
 
 Stated plainly, because an open project is only as safe as what it admits:
 
-- **Private rooms are not end-to-end encrypted yet.** Media is encrypted to the server (DTLS-SRTP) and the server could read it. Chat, private messages and the whiteboard pass through the server in clear. The design is decided ([ADR 0002](docs/adr/0002-private-rooms-are-end-to-end-encrypted.md)); the code is not written.
+- **Private rooms are not end-to-end encrypted yet.** Media is encrypted to the server (DTLS-SRTP) and the server could read it. Chat, private messages and the whiteboard pass through the server in clear. The design is decided; the code is not written.
 - **No TURN relay.** A participant on a network that blocks UDP cannot send or receive media.
 - **No forwarding on demand.** The server sends every stream to everyone, including those a participant chose to hide.
-- **Rooms do not survive a restart** of the server.
-- Not built: transcription, recording, background blur, extensions.
+- **Rooms do not survive a crash** of the server. A planned replacement hands them to the next server (`HANDOVER_DIR`).
+- Not built: transcription, recording, extensions.
 
 ## Run it
 
@@ -130,6 +136,10 @@ cd web && npm ci && npm run dev        # http://localhost:5173
 | `WEB_DIR` | built client to serve; empty serves the API only |
 | `MEDIA` | `off` runs without the SFU |
 | `MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP` | the one UDP port media uses and the address browsers reach it at |
+| `AUDIT_DIR` | directory of the audit trail; empty turns the trail off |
+| `AUDIT_RETENTION_DAYS` | days the trail is kept, 183 by default |
+| `AUDIT_QUEUE` | events that may wait to be written, 8192 by default |
+| `METRICS_INTERVAL` | how often the metrics line is logged, `1m` by default, `0` for never |
 | `GITHUB_REPO` | repository whose star count the front page shows |
 
 ## Test it
@@ -145,8 +155,7 @@ Tests assert what a person or a peer can observe: what is on the page, what goes
 
 ## How decisions are recorded
 
-- [`docs/research`](docs/research): the study the architecture came from: charter, scouting, independent proposals, measured spikes, synthesis.
-- [`docs/adr`](docs/adr): one file per decision that is hard to undo, with the trade-off it settled.
+- The design records (one per decision that is hard to undo, with the trade-off it settled and the measurement behind it) are kept outside this repository.
 - [`CONTEXT.md`](CONTEXT.md): the words of the product and what each means.
 - [`web/DESIGN.md`](web/DESIGN.md): colour, type, the speech-bubble shapes and the rules for using them.
 

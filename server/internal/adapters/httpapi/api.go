@@ -66,6 +66,7 @@ func RegisterPasses(mux *http.ServeMux, passes outbound.GuestPasses) {
 			write(w, http.StatusNotFound, map[string]string{"error": "no pass"})
 			return
 		}
+		pass.DiscordUserID, pass.DiscordName, pass.GuildID, pass.ChannelID = "", "", "", ""
 		write(w, http.StatusOK, pass)
 	})
 }

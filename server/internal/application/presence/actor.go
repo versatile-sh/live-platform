@@ -19,6 +19,8 @@ type seat struct {
 	gen      uint32
 	lastSeen time.Time
 	online   bool
+	name     string
+	joined   time.Time
 }
 
 type actor struct {
@@ -31,12 +33,14 @@ type actor struct {
 	wires    chan func()
 	silent   map[room.PID]bool
 	pictured map[room.PID]time.Time
+	born     time.Time
+	founded  bool
 
 	summary atomic.Pointer[room.Summary]
 }
 
 func newActor(h *Hub, r *room.Room) *actor {
-	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, shots: map[room.PID][]byte{}, inbox: make(chan func(*actor), inboxSize)}
+	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, shots: map[room.PID][]byte{}, inbox: make(chan func(*actor), inboxSize), born: h.now()}
 	a.publish()
 	if h.media != nil {
 		a.wires = make(chan func(), inboxSize)
@@ -63,6 +67,7 @@ func (a *actor) run() {
 		a.sweep()
 		a.publish()
 		if a.room.ReleaseDue(a.now()) && a.hub.release(a) {
+			a.record(outbound.AuditEvent{Kind: outbound.AuditRoomEnded, DurationMS: a.now().Sub(a.born).Milliseconds()})
 			if a.wires != nil {
 				close(a.wires)
 			}
@@ -126,12 +131,21 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 	if err != nil {
 		return room.Seat{}, err
 	}
+	present := a.people()
 	p, events, err := a.room.Join(a.now(), entry.Name, entry.Look, entry.Face, sha256.Sum256(secret[:]), a.room.Count() == 0)
 	if err != nil {
 		return room.Seat{}, err
 	}
 	a.room.From(p.ID, entry.Origin)
-	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
+	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true, name: p.Name, joined: a.now()}
+	a.hub.joins.Add(1)
+	client := entry.Client
+	who := &outbound.AuditPerson{PID: uint32(p.ID), Name: p.Name}
+	if !a.founded {
+		a.founded = true
+		a.record(outbound.AuditEvent{Kind: outbound.AuditRoomCreated, Actor: who, Client: &client})
+	}
+	a.record(outbound.AuditEvent{Kind: outbound.AuditJoin, Actor: who, Client: &client, Look: string(entry.Look), Present: present})
 	a.apply(events)
 	a.showPhotos(session)
 	a.wire(p.ID, p.Gen, session)
@@ -184,8 +198,10 @@ func (a *actor) remove(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
 		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
 	}
+	named := a.target(target)
 	events, err := a.room.Remove(a.now(), by, target)
 	a.apply(events)
+	a.owned(err, by, "remove", named)
 	return err
 }
 
@@ -193,8 +209,10 @@ func (a *actor) ban(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
 		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
 	}
+	named := a.target(target)
 	events, err := a.room.Ban(a.now(), by, target)
 	a.apply(events)
+	a.owned(err, by, "ban", named)
 	return err
 }
 
@@ -202,8 +220,10 @@ func (a *actor) quiet(by room.PID, gen uint32, op room.QuietOp, target room.PID)
 	if !a.holds(by, gen) {
 		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
 	}
+	named := a.target(target)
 	events, err := a.room.Quiet(op, by, target)
 	a.apply(events)
+	a.owned(err, by, string(op), named)
 	return err
 }
 
@@ -233,8 +253,10 @@ func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
 		return shared.NewDomainError(shared.ErrCodeNotFound, "participant not found", nil)
 	}
+	named := a.target(target)
 	events, err := a.room.Transfer(by, target)
 	a.apply(events)
+	a.owned(err, by, "transfer", named)
 	return err
 }
 
@@ -255,6 +277,7 @@ func (a *actor) chat(pid room.PID, gen uint32, to room.PID, text string, image [
 	if !ok {
 		return
 	}
+	a.recordChat(message)
 	var slow []room.PID
 	for id, s := range a.seats {
 		if to != 0 && id != to && id != pid {
@@ -352,6 +375,9 @@ func (a *actor) apply(events []room.Event) {
 			continue
 		}
 		a.gone = append(a.gone, room.Departure{PID: e.PID, Reason: e.Reason})
+		if s := a.seats[e.PID]; s != nil {
+			a.record(outbound.AuditEvent{Kind: outbound.AuditLeave, Actor: &outbound.AuditPerson{PID: uint32(e.PID), Name: s.name}, Reason: string(e.Reason), DurationMS: a.now().Sub(s.joined).Milliseconds()})
+		}
 		if s := a.seats[e.PID]; s != nil && s.online {
 			switch e.Reason {
 			case room.ReasonLeft:

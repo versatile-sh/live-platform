@@ -30,6 +30,7 @@ const (
 
 type clientFrame struct {
 	T         string            `json:"t"`
+	Pass      string            `json:"pass"`
 	Slug      string            `json:"slug"`
 	Name      string            `json:"name"`
 	PID       uint32            `json:"pid"`

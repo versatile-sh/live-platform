@@ -18,6 +18,7 @@ import (
 	"github.com/panjf2000/gnet/v2/pkg/logging"
 
 	"github.com/versatile-sh/live/server/internal/ports/inbound"
+	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
 const (
@@ -66,6 +67,7 @@ type Server struct {
 	conns    atomic.Int64
 	salt     [16]byte
 	open     sync.Map
+	passes   outbound.PassLedger
 }
 
 // NewServer builds the signalling endpoint over the presence port.
@@ -76,6 +78,9 @@ func NewServer(presence inbound.Presence, cfg Config) *Server {
 	}
 	return s
 }
+
+// UsePasses lets a join name a guest pass by id and have the server, not the browser, attach the Discord origin the pass vouched for.
+func (s *Server) UsePasses(ledger outbound.PassLedger) { s.passes = ledger }
 
 // Run serves on addr until Stop is called.
 func (s *Server) Run(addr string) error {
@@ -116,9 +121,12 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 		return nil, gnet.Close
 	}
 	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, time.Now())}
-	if s.cfg.AddressHeader == "" && raw.RemoteAddr() != nil {
+	if raw.RemoteAddr() != nil {
 		if host, _, err := net.SplitHostPort(raw.RemoteAddr().String()); err == nil {
-			c.origin = s.originOf(host)
+			c.remote = host
+			if s.cfg.AddressHeader == "" {
+				c.origin = s.originOf(host)
+			}
 		}
 	}
 	c.late = time.AfterFunc(s.cfg.HelloTimeout, c.expireHello)
@@ -198,12 +206,14 @@ func (c *conn) upgrader() ws.Upgrader {
 		},
 		OnHost: func(h []byte) error { host = string(h); return nil },
 		OnHeader: func(key, value []byte) error {
+			c.headers.Observe(key, value)
 			switch {
 			case string(key) == "Origin":
 				origin = string(value)
 			case c.server.cfg.CountryHeader != "" && strings.EqualFold(string(key), c.server.cfg.CountryHeader):
 				c.country = countryCode(value)
 			case c.server.cfg.AddressHeader != "" && strings.EqualFold(string(key), c.server.cfg.AddressHeader):
+				c.headers.ObserveAddress(value)
 				first, _, _ := strings.Cut(string(value), ",")
 				if ip := net.ParseIP(strings.TrimSpace(first)); ip != nil {
 					c.origin = c.server.originOf(ip.String())

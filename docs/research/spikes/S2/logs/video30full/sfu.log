@@ -1,5 +1,0 @@
-turn listening 172.31.0.1:3478 mode ip
-sfu listening 172.31.0.1 scenario video30full turn ip
-sfu pc 0 selected pair: local=host/172.31.0.1:7882 remote=prflx/192.168.18.31:11042 state=succeeded
-sfu pc 1 selected pair: local=host/172.31.0.1:7882 remote=prflx/192.168.18.31:7626 state=succeeded
-sfu pc 2 selected pair: local=host/172.31.0.1:7882 remote=prflx/192.168.18.31:14587 state=succeeded

@@ -31,7 +31,7 @@ type Config struct {
 	PasswordWindow time.Duration
 }
 
-// DefaultConfig returns the capacity and timers agreed in ADR 0003 and ADR 0005.
+// DefaultConfig returns the default capacity and the presence and release timers.
 func DefaultConfig() Config {
 	return Config{
 		Capacity:       10,

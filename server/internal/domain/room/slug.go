@@ -9,7 +9,7 @@ const (
 
 var reservedSlugs = map[string]struct{}{
 	"api": {}, "ws": {}, "up": {}, "assets": {}, "lobby": {}, "static": {},
-	"favicon.ico": {}, "robots.txt": {}, "new": {}, "about": {}, "docs": {},
+	"favicon.ico": {}, "robots.txt": {}, "new": {}, "about": {}, "docs": {}, "privacy": {},
 }
 
 // Slug is the name a person chooses for a room and its address.

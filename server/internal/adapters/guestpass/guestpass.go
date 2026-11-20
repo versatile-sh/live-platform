@@ -21,6 +21,8 @@ import (
 const (
 	maxBody = 32 << 10
 	maxName = 40
+
+	maxDiscordName = 64
 	// maxFace is the client's limit for a photo in base64 characters (PHOTO_MAX_BASE64 in web/src/browser-services.ts).
 	maxFace = 13_000
 )
@@ -71,6 +73,28 @@ func (s *Source) Take(ctx context.Context, id string) (Pass, bool) {
 	return p, valid(&p)
 }
 
+var snowflakeID = regexp.MustCompile(`^[0-9]{1,24}$`)
+
+func snowflake(id string) string {
+	if snowflakeID.MatchString(id) {
+		return id
+	}
+	return ""
+}
+
+func plain(s string, limit int) string {
+	s = strings.Map(func(r rune) rune {
+		if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, strings.TrimSpace(s))
+	if utf8.RuneCountInString(s) > limit {
+		s = string([]rune(s)[:limit])
+	}
+	return s
+}
+
 func valid(p *Pass) bool {
 	p.Name = strings.TrimSpace(p.Name)
 	n := utf8.RuneCountInString(p.Name)
@@ -80,6 +104,8 @@ func valid(p *Pass) bool {
 	if len(p.Face) > maxFace {
 		return false
 	}
+	p.DiscordUserID, p.GuildID, p.ChannelID = snowflake(p.DiscordUserID), snowflake(p.GuildID), snowflake(p.ChannelID)
+	p.DiscordName = plain(p.DiscordName, maxDiscordName)
 	if p.Face != "" {
 		if _, err := base64.StdEncoding.DecodeString(p.Face); err != nil {
 			return false
