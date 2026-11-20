@@ -14,9 +14,10 @@ export type Params = Record<string, string | number>;
 /** Looks up a message and fills its placeholders. */
 export type Translate = (key: MessageKey, params?: Params) => string;
 
-/** The interface is in English unless the visitor chose another language it speaks. */
-export function chosenLocale(saved: string | null | undefined): Locale {
-  return saved === "pt-BR" ? "pt-BR" : "en";
+/** The language a visitor chose, kept from earlier visits; without one, Portuguese for a Portuguese browser and English otherwise. */
+export function chosenLocale(saved: string | null | undefined, browser: readonly string[] = []): Locale {
+  if (saved === "pt-BR" || saved === "en") return saved;
+  return /^pt\b/i.test(browser[0] ?? "") ? "pt-BR" : "en";
 }
 
 /** Builds the translate function of a locale. */

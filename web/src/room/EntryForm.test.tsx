@@ -99,12 +99,20 @@ describe("EntryForm", () => {
       expect(onEnter).not.toHaveBeenCalled();
     });
 
+    test("whoever opens a new room chooses right there whether it is public or private and shown in the open rooms", async () => {
+      setup(free);
+      expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByRole("radio", { name: /Public/ })).toBeVisible();
+      expect(screen.getByRole("radio", { name: /Private/ })).toBeVisible();
+      expect(screen.getByRole("switch", { name: /open rooms/i })).toBeVisible();
+    });
+
     test("keeps the options chosen when they are put away with Escape or Back, and gives focus back to the toggle", async () => {
       setup(free);
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       const more = screen.getByRole("button", { name: "More options" });
       await userEvent.click(more);
       expect(screen.getByLabelText("Room name")).toHaveFocus();
-      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       await userEvent.keyboard("{Escape}");
       expect(more).toHaveAttribute("aria-expanded", "false");
       expect(more).toHaveFocus();

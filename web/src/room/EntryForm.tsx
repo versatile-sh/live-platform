@@ -150,6 +150,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
       <p role="alert" className="mt-1 mb-1 min-h-6 text-sm text-amber lg:mt-2">
         {refusal ? t(`refused.${refusal}`) : ""}
       </p>
+      {creating ? <AccessSettings access={access} onAccess={setAccess} listed={listed} onListed={setListed} code={code} onRenew={() => setCode(services.generatePassword())} /> : null}
       {submitButton}
       {creating ? (
         <OptionsPane control={more} label={t("more.label")} back={t("home.back")} footer={submitButton} className="mt-1 lg:mt-3">
@@ -175,7 +176,6 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
               setProblems(({ room: _gone, ...kept }) => kept);
             }}
           />
-          <AccessSettings access={access} onAccess={setAccess} listed={listed} onListed={setListed} code={code} onRenew={() => setCode(services.generatePassword())} />
         </OptionsPane>
       ) : null}
     </form>

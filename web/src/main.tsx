@@ -36,7 +36,7 @@ if (container) {
       return;
     }
   };
-  const locale = chosenLocale(read());
+  const locale = chosenLocale(read(), navigator.languages ?? [navigator.language]);
   document.documentElement.lang = locale;
   createRoot(container).render(
     <StrictMode>
