@@ -1,6 +1,7 @@
 import { useRef, type ComponentProps, type ReactNode } from "react";
 
 import { useT } from "../i18n/I18nProvider";
+import { canFloatPage } from "../media/floating-window";
 import { Icon } from "../ui/icons";
 
 /** Where a frame stands on the stage: among equals in the grid, alone in front, or small in the strip beside whoever is in front. */
@@ -13,8 +14,8 @@ type StageFrameProps = Omit<ComponentProps<"li">, "children" | "onClick"> & {
   onFront(): void;
   /** Whether a click anywhere on the frame brings it to the front; off for a frame one works inside. */
   clickable?: boolean;
-  /** Whether the frame's video may float in its own window (picture-in-picture) where the browser allows it. */
-  floating?: boolean;
+  /** Floats the frame in its own window (picture-in-picture); the button shows only where the browser can. */
+  onFloat?(video: HTMLVideoElement | null): void;
   children: ReactNode;
 };
 
@@ -36,17 +37,10 @@ export const SCALE = {
 const CONTROL = `grid ${SCALE.control} place-items-center rounded-full bg-canvas/75 text-fg transition-colors duration-200 hover:bg-fg hover:text-canvas`;
 
 /** One frame of the stage, whatever it shows: it can be brought to the front or sent back, opened to the whole screen, and a screen can float in its own window. */
-export function StageFrame({ mode, name, onFront, clickable = true, floating = false, className = "", children, ...rest }: StageFrameProps) {
+export function StageFrame({ mode, name, onFront, clickable = true, onFloat, className = "", children, ...rest }: StageFrameProps) {
   const t = useT();
   const frame = useRef<HTMLLIElement>(null);
-  const canFloat = floating && typeof document !== "undefined" && document.pictureInPictureEnabled === true;
-
-  function float() {
-    const video = frame.current?.querySelector("video");
-    if (!video) return;
-    if (document.pictureInPictureElement === video) void document.exitPictureInPicture().catch(() => undefined);
-    else void video.requestPictureInPicture().catch(() => undefined);
-  }
+  const canFloat = onFloat !== undefined && (canFloatPage() || document.pictureInPictureEnabled === true);
 
   function fullscreen() {
     if (document.fullscreenElement) void document.exitFullscreen?.();
@@ -77,7 +71,7 @@ export function StageFrame({ mode, name, onFront, clickable = true, floating = f
           <Icon name="expand" className={SCALE.icon} />
         </button>
         {canFloat ? (
-          <button type="button" aria-label={t("stage.float", { name })} title={t("stage.float", { name })} className={CONTROL} onClick={float}>
+          <button type="button" aria-label={t("stage.float", { name })} title={t("stage.float", { name })} className={CONTROL} onClick={() => onFloat?.(frame.current?.querySelector("video") ?? null)}>
             <Icon name="pip" className={SCALE.icon} />
           </button>
         ) : null}

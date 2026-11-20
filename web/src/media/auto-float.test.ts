@@ -1,42 +1,30 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { screenToFloat, useAutoFloat } from "./auto-float";
-
-function stage(html: string) {
-  const root = document.createElement("ul");
-  root.innerHTML = html;
-  return root;
-}
-
-describe("screenToFloat", () => {
-  test("picks the screen in front, else someone else's, else mine", () => {
-    const front = stage('<li data-float="mine"><video id="m"></video></li><li data-float="other" data-mode="front"><video id="f"></video></li>');
-    expect(screenToFloat(front)?.id).toBe("f");
-    const other = stage('<li data-float="mine"><video id="m"></video></li><li data-float="other"><video id="o"></video></li>');
-    expect(screenToFloat(other)?.id).toBe("o");
-    expect(screenToFloat(stage('<li data-float="mine"><video id="m"></video></li>'))?.id).toBe("m");
-    expect(screenToFloat(stage("<li><video></video></li>"))).toBeNull();
-  });
-});
+import { useAutoFloat } from "./auto-float";
 
 describe("useAutoFloat", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  test("registers the browser's picture-in-picture action while a screen is shared, and removes it after", () => {
+  test("registers the browser's picture-in-picture action while a screen is shared, calls the latest float, and removes it after", () => {
     const setActionHandler = vi.fn();
     vi.stubGlobal("navigator", { ...navigator, mediaSession: { setActionHandler } });
-    const { rerender, unmount } = renderHook(({ on }) => useAutoFloat(on), { initialProps: { on: false } });
+    const first = vi.fn();
+    const latest = vi.fn();
+    const { rerender } = renderHook(({ on, float }) => useAutoFloat(on, float), { initialProps: { on: false, float: first } });
     expect(setActionHandler).not.toHaveBeenCalled();
-    rerender({ on: true });
+    rerender({ on: true, float: first });
     expect(setActionHandler).toHaveBeenCalledWith("enterpictureinpicture", expect.any(Function));
-    rerender({ on: false });
+    rerender({ on: true, float: latest });
+    setActionHandler.mock.calls[0]![1]();
+    expect(latest).toHaveBeenCalledOnce();
+    expect(first).not.toHaveBeenCalled();
+    rerender({ on: false, float: latest });
     expect(setActionHandler).toHaveBeenLastCalledWith("enterpictureinpicture", null);
-    unmount();
   });
 
   test("a browser without the action changes nothing and throws nothing", () => {
     vi.stubGlobal("navigator", { ...navigator, mediaSession: { setActionHandler: () => { throw new TypeError("unsupported"); } } });
-    expect(() => renderHook(() => useAutoFloat(true))).not.toThrow();
+    expect(() => renderHook(() => useAutoFloat(true, () => undefined))).not.toThrow();
   });
 });

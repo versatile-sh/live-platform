@@ -1,21 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useEffectEvent } from "react";
 
 const ACTION = "enterpictureinpicture" as MediaSessionAction;
 
-/** The screen worth floating when the tab is left: the one in front, else someone else's, else mine. */
-export function screenToFloat(root: ParentNode = document): HTMLVideoElement | null {
-  return (
-    root.querySelector<HTMLVideoElement>('[data-float][data-mode="front"] video') ??
-    root.querySelector<HTMLVideoElement>('[data-float="other"] video') ??
-    root.querySelector<HTMLVideoElement>("[data-float] video")
-  );
-}
-
 /**
- * While a screen is shared, asks the browser to float it when the tab is left, as video calls do: Chromium opens
- * picture-in-picture by itself through the media session's enterpictureinpicture action, while the page uses the microphone or camera.
+ * While a screen is shared, asks the browser to float the room when the tab is left, as video calls do: Chromium calls
+ * the media session's enterpictureinpicture action by itself, while the page uses the microphone or camera.
  */
-export function useAutoFloat(active: boolean) {
+export function useAutoFloat(active: boolean, float: () => void) {
+  const onLeave = useEffectEvent(float);
   useEffect(() => {
     const session = typeof navigator === "undefined" ? undefined : navigator.mediaSession;
     if (!active || !session) return;
@@ -27,7 +19,7 @@ export function useAutoFloat(active: boolean) {
         return false;
       }
     };
-    if (!set(() => void screenToFloat()?.requestPictureInPicture().catch(() => undefined))) return;
+    if (!set(() => onLeave())) return;
     return () => void set(null);
   }, [active]);
 }
