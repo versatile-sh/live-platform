@@ -1,4 +1,4 @@
-import { formatLook, parseLook, randomLook } from "./domain/look";
+import { cleanFace, formatLook, parseLook, randomLook } from "./domain/look";
 import { stageCamera } from "./media/camera-effect";
 import { parseSettings } from "./media/settings";
 import { createTheme } from "./ui/theme";
@@ -91,7 +91,10 @@ export function createBrowserServices(): Services {
     cameraEffects: typeof HTMLCanvasElement !== "undefined" && "captureStream" in HTMLCanvasElement.prototype && typeof WebAssembly !== "undefined" ? (raw, effect) => stageCamera(raw, effect, async () => (await import("./media/camera-segmenter")).createPersonFinder()) : undefined,
     entryIntent: createEntryIntent(),
     faceMemory: {
-      read: () => local?.getItem(FACE_KEY) ?? "",
+      read() {
+        const face = local?.getItem(FACE_KEY) ?? "";
+        return cleanFace(face) === face ? face : "";
+      },
       write(face) {
         try {
           local?.setItem(FACE_KEY, face);

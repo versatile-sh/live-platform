@@ -49,6 +49,15 @@ describe("Session#start", () => {
       expect(sentFrames(sockets[0]!)[0]).toMatchObject({ verifier: "v", listed: false, look: "ff9ec7-0e1116-0" });
     });
 
+    test("a photo from the entry goes once, right after the room took the person in, never in the join itself", () => {
+      const { session, sockets } = setup({ name: "Ana", photo: "AQID" });
+      session.start();
+      enter(sockets[0]!);
+      const frames = sentFrames(sockets[0]!);
+      expect(frames[0]).not.toHaveProperty("photo");
+      expect(frames.filter((f) => f.t === "photo")).toEqual([{ t: "photo", data: "AQID" }]);
+    });
+
     test("stores the seat once joined", () => {
       const { session, sockets, storage } = setup();
       session.start();
