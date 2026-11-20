@@ -6,16 +6,20 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { shareLink } from "../domain/share-link";
 import { createBoardSync } from "../board/board-sync";
 import { chime } from "../media/chime";
 import { useAutoFloat } from "../media/auto-float";
+import { canFloatPage, useFloatingWindow } from "../media/floating-window";
 import { createSpeaking } from "../media/speaking";
 import { CAMERA_EFFECTS, cameraShape, screenShape } from "../media/settings";
 import { Choice } from "../ui/Choice";
 import { Switch } from "../ui/Switch";
+import { FloatingRoom } from "./FloatingRoom";
 import { MediaSettings } from "./MediaSettings";
+import { FULL, heard, ScreenVolume, type Loudness } from "./ScreenVolume";
 import { ScreenSoundGuide } from "./ScreenSoundGuide";
 import { soundRoute } from "../media/desktop-sound";
 import { StageFrame, type StageMode } from "./StageFrame";
@@ -191,11 +195,12 @@ function attach(stream: MediaStream | undefined) {
   };
 }
 
-/** Plays a stream like attach, on the given output when the browser can choose one. */
-function play(stream: MediaStream | undefined, speaker: string | undefined) {
+/** Plays a stream like attach, at the given volume, on the given output when the browser can choose one. */
+function play(stream: MediaStream | undefined, speaker: string | undefined, volume = 1) {
   const show = attach(stream);
   return (element: HTMLMediaElement | null) => {
     show(element);
+    if (element && element.volume !== volume) element.volume = volume;
     if (element && speaker && typeof element.setSinkId === "function" && element.sinkId !== speaker) element.setSinkId(speaker).catch(() => undefined);
   };
 }
@@ -242,6 +247,10 @@ export function RoomView({
   const drawn = useSyncExternalStore(board.subscribe, board.getSnapshot);
   const [boardGone, setBoardGone] = useState(false);
   const [pinned, setPinned] = useState<string | null | undefined>();
+  const [floated, setFloated] = useState<string | null>(null);
+  const [loudness, setLoudness] = useState<Readonly<Record<number, Loudness>>>({});
+  const loudnessOf = (pid: number) => loudness[pid] ?? FULL;
+  const floater = useFloatingWindow();
   useEffect(() => {
     const stop = session.onRtc((event) => {
       if (event.kind === "signal") return roomMedia.signal(event.signal);
@@ -422,7 +431,6 @@ export function RoomView({
       remote[person.pid]?.screen &&
       sees(person.pid).screen,
   );
-  useAutoFloat(Boolean(local.screen) || screens.length > 0);
   const roomQuiet = inRoom && connection.roster.quiet === true;
   const boardLocked = inRoom && connection.roster.locked === true;
   const iMayDraw = me === undefined || !hasFlag(me.flags, "noDraw");
@@ -512,7 +520,7 @@ export function RoomView({
           {
             key: "screen-me",
             render: (mode: StageMode) => (
-              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} floating data-float="mine" className="bubble-sent border border-bubble bg-sunken">
+              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} onFloat={(video) => float("screen-me", video)} className="bubble-sent border border-bubble bg-sunken">
                 <video ref={attach(local.screen)} autoPlay muted playsInline className={SHOW} />
                 <span className={TAG}>{t("room.yourScreen")}</span>
               </StageFrame>
@@ -523,8 +531,9 @@ export function RoomView({
     ...screens.map((person) => ({
       key: `screen-${person.pid}`,
       render: (mode: StageMode) => (
-        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} floating data-float="other" className="bubble border border-bubble bg-sunken">
+        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} onFloat={(video) => float(`screen-${person.pid}`, video)} className="bubble border border-bubble bg-sunken">
           <video ref={attach(remote[person.pid]?.screen)} autoPlay muted playsInline className={SHOW} />
+          {remote[person.pid]?.screenAudio ? <ScreenVolume name={t("room.screenOf", { name: person.name })} loudness={loudnessOf(person.pid)} onChange={(next) => setLoudness({ ...loudness, [person.pid]: next })} /> : null}
           <span className={TAG} translate="no">
             {t("room.screenOf", { name: person.name })}
           </span>
@@ -552,6 +561,25 @@ export function RoomView({
   const chosen = frames.find((frame) => frame.key === pinned);
   const front = pinned === null ? undefined : (chosen ?? frames.find((frame) => frame.key === "board" || frame.key.startsWith("screen-")));
   const bring = (key: string) => withMotion("words", () => setPinned(front?.key === key ? null : key));
+
+  const screenOf = (key: string | undefined) => {
+    if (key === "screen-me") return local.screen ? { stream: local.screen, name: t("room.yourScreen") } : undefined;
+    const person = screens.find((p) => `screen-${p.pid}` === key);
+    const stream = person && remote[person.pid]?.screen;
+    return person && stream ? { stream, name: t("room.screenOf", { name: person.name }) } : undefined;
+  };
+  const bestScreen = front?.key.startsWith("screen-") ? front.key : (screens[0] ? `screen-${screens[0].pid}` : local.screen ? "screen-me" : undefined);
+  function float(key: string | undefined, video: HTMLVideoElement | null) {
+    if (canFloatPage()) {
+      if (floater.floating) return floater.close();
+      setFloated(key ?? null);
+      return void floater.open();
+    }
+    if (!video) return;
+    if (document.pictureInPictureElement === video) void document.exitPictureInPicture().catch(() => undefined);
+    else void video.requestPictureInPicture().catch(() => undefined);
+  }
+  useAutoFloat(bestScreen !== undefined, () => float(bestScreen, null));
 
   function leave() {
     withMotion("back", () => {
@@ -798,7 +826,7 @@ export function RoomView({
                     ? [
                         <audio
                           key={`${pid}-${source}`}
-                          ref={play(sources[source], local.speaker)}
+                          ref={play(sources[source], local.speaker, source === "screenAudio" ? heard(loudnessOf(Number(pid))) : 1)}
                           autoPlay
                         />,
                       ]
@@ -1295,6 +1323,18 @@ export function RoomView({
           </button>
         </div>
       </footer>
+      {floater.floating
+        ? createPortal(
+            <FloatingRoom
+              screen={screenOf(floated ?? bestScreen) ?? screenOf(bestScreen)}
+              microphone={{ on: local.microphone !== undefined, busy: local.busy !== undefined, toggle: () => void media.toggle("microphone") }}
+              camera={{ on: local.camera !== undefined, busy: local.busy !== undefined, toggle: () => void media.toggle("camera") }}
+              onBack={floater.close}
+              onLeave={leave}
+            />,
+            floater.floating.document.body,
+          )
+        : null}
     </div>
   );
 }
