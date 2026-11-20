@@ -17,6 +17,9 @@ document.addEventListener("contextmenu", (event) => {
 
 document.addEventListener("dragstart", (event) => event.preventDefault());
 
+/** How long the first-load entrance (styles.css, html[data-enter]) lasts before the page is left to its own transitions. */
+const ENTRANCE_MS = 2400;
+
 const container = document.getElementById("root");
 
 if (container) {
@@ -36,6 +39,9 @@ if (container) {
       return;
     }
   };
+  const root = document.documentElement;
+  root.dataset.enter = "";
+  window.setTimeout(() => delete root.dataset.enter, ENTRANCE_MS);
   const locale = chosenLocale(read(), navigator.languages ?? [navigator.language]);
   document.documentElement.lang = locale;
   createRoot(container).render(
