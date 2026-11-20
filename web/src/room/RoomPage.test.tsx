@@ -708,17 +708,19 @@ describe("RoomPage", () => {
       expect(screen.getByRole("button", { name: "Show everyone else (1)" })).toBeInTheDocument();
     });
 
-    test("the handle of the others collapses them into a rail of dots that expands again, and says so to assistive technology", async () => {
+    test("the handle of the others folds them into a thin rail with how many there are, which opens them again, and says so to assistive technology", async () => {
       await inCall();
       await userEvent.click(screen.getByRole("listitem", { name: /Bia, connected/ }));
       const handle = screen.getByRole("button", { name: "Hide everyone else" });
       expect(handle).toHaveAttribute("aria-expanded", "true");
       expect(handle).toHaveAttribute("aria-controls", "stage-others");
       expect(handle).toHaveAttribute("aria-keyshortcuts", "Control+Alt+O");
-      expect(screen.queryByRole("button", { name: "Ana: show everyone else" })).toBeNull();
       await userEvent.click(handle);
-      expect(screen.getByRole("button", { name: "Show everyone else (1)" })).toHaveAttribute("aria-expanded", "false");
-      await userEvent.click(screen.getByRole("button", { name: "Ana: show everyone else" }));
+      const rail = screen.getByRole("button", { name: "Show everyone else (1)" });
+      expect(rail).toHaveAttribute("aria-expanded", "false");
+      expect(rail).toHaveTextContent("1");
+      expect(screen.queryByRole("button", { name: "Hide everyone else" })).toBeNull();
+      await userEvent.click(rail);
       expect(screen.getByRole("button", { name: "Hide everyone else" })).toHaveAttribute("aria-expanded", "true");
       expect(screen.getByRole("list", { name: "Everyone else" })).toBeVisible();
     });

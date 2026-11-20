@@ -771,8 +771,6 @@ export function RoomView({
                 <Others
                   hidden={othersHidden}
                   count={frames.length - 1}
-                  people={shownPeople.filter((person) => `person-${person.pid}` !== front.key)}
-                  photos={snapshot.photos}
                   onToggle={() => setOthersHidden(!othersHidden)}
                 >
                   {frames.filter((frame) => frame !== front).map((frame) => frame.render("strip"))}
