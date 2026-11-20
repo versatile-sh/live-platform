@@ -13,6 +13,9 @@ export const ptBR: Record<MessageKey, string> = {
   "social.x": "Seguir a versatile.sh no X",
   "social.follow": "Siga a gente",
   "social.language": "Idioma",
+  "community.label": "Comunidade",
+  "community.discord": "Entre no nosso Discord",
+  "community.bot": "Adicione o bot Live Versatile ao seu servidor",
 
   "home.line1": "Compartilhe qualquer coisa.",
   "home.line2": "Assista de qualquer lugar.",
@@ -261,6 +264,8 @@ export const ptBR: Record<MessageKey, string> = {
   "palette.rooms": "Ver salas abertas",
   "palette.github": "O código-fonte no GitHub",
   "palette.x": "Seguir a versatile.sh no X",
+  "palette.discord": "Entrar no servidor do Discord",
+  "palette.bot": "Adicionar o bot Live Versatile ao seu servidor do Discord",
   "more.palette": "Buscar algo para fazer",
   "shortcut.palette": "Buscar algo para fazer",
   "board.label": "Quadro",
