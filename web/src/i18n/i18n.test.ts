@@ -40,6 +40,17 @@ describe("chosenLocale", () => {
   ] as const)("reads a saved %j as %s", (saved, locale) => {
     expect(chosenLocale(saved)).toBe(locale);
   });
+
+  test("without a saved choice, follows the browser: Portuguese for pt, English for the rest", () => {
+    expect(chosenLocale(null, ["pt-BR", "en"])).toBe("pt-BR");
+    expect(chosenLocale(null, ["pt"])).toBe("pt-BR");
+    expect(chosenLocale(null, ["en-US", "pt-BR"])).toBe("en");
+  });
+
+  test("a saved choice wins over the browser, so English chosen once stays English", () => {
+    expect(chosenLocale("en", ["pt-BR"])).toBe("en");
+    expect(chosenLocale("pt-BR", ["en-US"])).toBe("pt-BR");
+  });
 });
 
 describe("createTranslate", () => {
