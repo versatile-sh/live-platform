@@ -3,6 +3,7 @@ package audit
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -192,4 +193,20 @@ func kinds(events []outbound.AuditEvent) []outbound.AuditKind {
 		out[i] = e.Kind
 	}
 	return out
+}
+
+func TestMirrorEmitsEachWrittenEventAsOneLogRecordWithoutPrivateText(t *testing.T) {
+	var out bytes.Buffer
+	w, err := Open(Config{Dir: t.TempDir(), Mirror: slog.New(slog.NewJSONHandler(&out, nil))})
+	require.NoError(t, err)
+	w.Record(joinEvent(noon, "plaza", 1, "Ana", "203.0.113.1", &room.Discord{UserID: "42", GuildID: "g1"}))
+	w.Record(outbound.AuditEvent{At: noon, Kind: outbound.AuditChat, Room: "vault", Private: true, Actor: &outbound.AuditPerson{PID: 1, Name: "Ana"}, Length: 28, Text: "the launch code is swordfish"})
+	closeWriter(t, w)
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	require.Len(t, lines, 2)
+	assert.True(t, strings.HasPrefix(lines[0], `{"time":"`))
+	assert.Contains(t, lines[0], `"msg":"audit"`)
+	assert.Contains(t, lines[0], `"kind":"join"`)
+	assert.Contains(t, lines[0], `"guild_id":"g1"`)
+	assert.NotContains(t, out.String(), "swordfish")
 }

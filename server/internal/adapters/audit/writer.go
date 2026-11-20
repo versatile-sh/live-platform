@@ -44,12 +44,15 @@ type Config struct {
 	Dir   string
 	Queue int
 	Log   *slog.Logger
+	// Mirror, when set, also receives every written event as a log record with the message "audit" and the event under "event".
+	Mirror *slog.Logger
 }
 
 // Writer appends events from a buffered queue on its own goroutine; a full queue drops the event and counts it, so the signalling path never waits.
 type Writer struct {
 	dir     string
 	log     *slog.Logger
+	mirror  *slog.Logger
 	queue   chan outbound.AuditEvent
 	stop    chan struct{}
 	done    chan struct{}
@@ -73,7 +76,7 @@ func Open(cfg Config) (*Writer, error) {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	w := &Writer{dir: cfg.Dir, log: cfg.Log, queue: make(chan outbound.AuditEvent, cfg.Queue), stop: make(chan struct{}), done: make(chan struct{})}
+	w := &Writer{dir: cfg.Dir, log: cfg.Log, mirror: cfg.Mirror, queue: make(chan outbound.AuditEvent, cfg.Queue), stop: make(chan struct{}), done: make(chan struct{})}
 	go w.run()
 	return w, nil
 }
@@ -201,6 +204,9 @@ func (w *Writer) run() {
 			return
 		}
 		w.written.Add(1)
+		if w.mirror != nil {
+			w.mirror.Info("audit", "event", e)
+		}
 		if len(w.queue) == 0 {
 			if err := s.flush(); err != nil {
 				report(err)
