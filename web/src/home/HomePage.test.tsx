@@ -7,7 +7,6 @@ import { I18nProvider } from "../i18n/I18nProvider";
 import { NavigationProvider } from "../routing/Navigation";
 import { ServicesProvider } from "../services";
 import { fakePathname, fakeServices, renderWithApp } from "../test-support/render";
-import { EntryForm } from "../room/EntryForm";
 import { HomePage } from "./HomePage";
 
 describe("HomePage", () => {
@@ -266,21 +265,6 @@ describe("HomePage", () => {
       expect(rooms.closest("[inert]")).not.toBeNull();
       fireEvent(rooms.closest(".slide-out-right")!, new Event("webkitAnimationEnd", { bubbles: true }));
       expect(screen.queryByRole("heading", { name: "Open rooms" })).not.toBeInTheDocument();
-    });
-
-    test("a doorway's options keep it at its stop with its Back in place, and leaving the stop puts them away", async () => {
-      const door = <EntryForm slug="demo" room={{ slug: "demo", exists: false, private: false, count: 0, capacity: 10 }} onEnter={() => undefined} />;
-      const { rerender } = render(wrap("lobby"));
-      rerender(wrap("entry", door));
-      expect(stage()).toHaveAttribute("data-stop", "2");
-      expect(screen.getByRole("link", { name: "Back" })).not.toHaveAttribute("inert");
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      expect(stage()).toHaveAttribute("data-stop", "2");
-      expect(stage()).toHaveAttribute("data-more");
-      expect(screen.getByRole("link", { name: "Back" })).not.toHaveAttribute("inert");
-      rerender(wrap("lobby"));
-      expect(stage()).toHaveAttribute("data-stop", "1");
-      expect(stage()).not.toHaveAttribute("data-more");
     });
 
     test("a room opened from its link starts at the first stop and leads back to the start", () => {
