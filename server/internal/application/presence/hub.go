@@ -20,7 +20,7 @@ type Liveness struct {
 	SuspectAfter  time.Duration
 }
 
-// DefaultLiveness returns the silence thresholds measured in spike S1.
+// DefaultLiveness returns the silence thresholds the removal bound was measured with.
 func DefaultLiveness() Liveness {
 	return Liveness{UnstableAfter: 5 * time.Second, SuspectAfter: 12 * time.Second}
 }
