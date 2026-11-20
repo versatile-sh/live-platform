@@ -157,14 +157,19 @@ func (b *browser) describe(pc *webrtc.PeerConnection, kind webrtc.SDPType, sdp s
 
 func (b *browser) publish(source string) {
 	b.t.Helper()
-	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "track-"+source, "stream")
+	b.publishKeyed(source, "stream-"+source)
+}
+
+func (b *browser) publishKeyed(source, key string) {
+	b.t.Helper()
+	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "track-"+source, "stream-"+source)
 	require.NoError(b.t, err)
 	_, err = b.pub.AddTrack(track)
 	require.NoError(b.t, err)
 	offer, err := b.pub.CreateOffer(nil)
 	require.NoError(b.t, err)
 	require.NoError(b.t, b.pub.SetLocalDescription(offer))
-	b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: offer.SDP, Sources: map[string]string{"track-" + source: source}})
+	b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: offer.SDP, Sources: map[string]string{key: source}})
 	stop := make(chan struct{})
 	b.t.Cleanup(func() { close(stop) })
 	go func() {
@@ -234,6 +239,11 @@ func TestEngine(t *testing.T) {
 		assert.LessOrEqual(t, packets.Load()-before, int64(1), "nothing more arrives while silenced")
 		engine.Silence("bk", 1, false)
 		require.Eventually(t, func() bool { return packets.Load() > before+3 }, wait, 20*time.Millisecond)
+	})
+
+	t.Run("a client older than stream ids, naming its source by track id, is still carried", func(t *testing.T) {
+		bia.publishKeyed("screen", "track-screen")
+		require.Eventually(t, func() bool { stream, ok := ana.hears("screen"); return ok && stream == "2:screen" }, wait, 20*time.Millisecond)
 	})
 
 	t.Run("signals from a connection the participant no longer holds are ignored", func(t *testing.T) {

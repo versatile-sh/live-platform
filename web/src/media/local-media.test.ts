@@ -105,6 +105,18 @@ describe("settings", () => {
     expect(display.mock.calls[0]![0]).toMatchObject({ systemAudio: "include", surfaceSwitching: "include", selfBrowserSurface: "exclude", monitorTypeSurfaces: "include" });
   });
 
+  test("a store taken back into use after a dispose keeps what it captures, as when React mounts the room twice", async () => {
+    const { devices } = setup();
+    const display = devices.display as unknown as ReturnType<typeof vi.fn>;
+    display.mockResolvedValue(fakeStream());
+    const media = createLocalMedia(devices, () => undefined, undefined, { ...DEFAULT_SETTINGS, screenQuality: "1440p60" });
+    media.dispose();
+    media.revive();
+    await media.toggle("screen");
+    expect(media.getSnapshot().screen).toBeDefined();
+    expect(media.getSnapshot().settings.screenQuality).toBe("1440p60");
+  });
+
   test("the screen asks the browser to leave the call's own sound out of the computer's sound", async () => {
     const { devices } = setup();
     const display = devices.display as unknown as ReturnType<typeof vi.fn>;

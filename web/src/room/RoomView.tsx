@@ -363,7 +363,10 @@ export function RoomView({
   const [othersHidden, setOthersHidden] = useState(false);
   const [stage, measureStage] = useBox();
   if (side && side !== shown) setShown(side);
-  useEffect(() => () => media.dispose(), [media]);
+  useEffect(() => {
+    media.revive();
+    return () => media.dispose();
+  }, [media]);
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (!event.ctrlKey || event.metaKey) return;
