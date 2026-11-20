@@ -1318,6 +1318,7 @@ export function RoomView({
       ) : sheet === "visibility" ? (
         <Sheet
           title={t("more.visibility")}
+          icon="eye"
           closeLabel={t("more.close")}
           onClose={() => setSheet(undefined)}
         >
@@ -1380,6 +1381,16 @@ export function RoomView({
             onClick={media.toggleHand}
           >
             <Icon name="hand" />
+          </button>
+          <button
+            type="button"
+            aria-pressed={sheet === "visibility"}
+            aria-label={t("more.visibility")}
+            title={t("more.visibility")}
+            className={`${DOCK.round} ${sheet === "visibility" ? DOCK.on : DOCK.off}`}
+            onClick={() => setSheet(sheet === "visibility" ? undefined : "visibility")}
+          >
+            <Icon name="eye" />
           </button>
           <button type="button" className={`${button({ size: "lg" })} max-sm:px-3.5`} onClick={leave}>
             <Icon name="leave" />
