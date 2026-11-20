@@ -1,6 +1,0 @@
-## relaytest (mode=ipport): one client, relay-only ICE policy, publishes audio through TURN to the SFU mux
-client selected pair: local=relay/172.31.0.1:49161 remote=host/172.31.0.1:7882 state=succeeded
-{"connected":1,"recv":0,"reneg":1,"sent":249,"ts":1794839863175674350}
-{"connected":1,"recv":0,"reneg":1,"sent":499,"ts":1794839868177800419}
-{"connected":1,"final":true,"recv":0,"reneg":1,"sent":748,"ts":1794839873162621573}
-sfu rtp_in before 0 after 648
