@@ -43,7 +43,7 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className={`enter-iris bubble-half-below no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+    <section className={`enter-iris-below bubble-half-below no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
       <AppLink href="/" aria-label={t("app.home")} className="enter-rise relative self-start lg:z-30" style={at(0.15)}>
         <Wordmark onAccent className="text-lg" />
       </AppLink>
@@ -108,10 +108,10 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
 
   return (
     <div data-view={view} data-stop={stop} data-more={more ? "" : undefined} className="group relative isolate flex h-dvh flex-col overflow-hidden bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
-      <div aria-hidden="true" className="enter-iris absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 lg:flex">
+      <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 lg:flex">
         {[0, 1].map((pair) => (
           <div key={pair} className="flex w-1/2">
-            <div className="bubble-half relative w-1/2 overflow-hidden bg-bubble">
+            <div className="enter-iris bubble-half relative w-1/2 overflow-hidden bg-bubble">
               <div className="backdrop-glow absolute inset-0" />
               <div className="backdrop-grid-ink absolute inset-0" />
             </div>
