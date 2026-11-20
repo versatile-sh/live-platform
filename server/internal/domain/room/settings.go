@@ -45,6 +45,7 @@ type Entry struct {
 	Listed  bool
 	Country string
 	Origin  string
+	Client  Client
 }
 
 // Settings returns the room this entry creates when its slug is free.
