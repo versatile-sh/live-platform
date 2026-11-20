@@ -34,7 +34,8 @@ export const SCALE = {
   small: "text-[clamp(0.5625rem,4.5cqmin,0.75rem)]",
 } as const;
 
-const CONTROL = `grid ${SCALE.control} place-items-center rounded-full bg-canvas/75 text-fg transition-colors duration-200 hover:bg-fg hover:text-canvas`;
+/** A round control on a frame, sized with the frame. */
+export const CONTROL = `grid ${SCALE.control} place-items-center rounded-full bg-canvas/75 text-fg transition-colors duration-200 hover:bg-fg hover:text-canvas`;
 
 /** One frame of the stage, whatever it shows: it can be brought to the front or sent back, opened to the whole screen, and a screen can float in its own window. */
 export function StageFrame({ mode, name, onFront, clickable = true, onFloat, className = "", children, ...rest }: StageFrameProps) {
