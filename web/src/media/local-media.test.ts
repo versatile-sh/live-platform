@@ -85,14 +85,14 @@ describe("settings", () => {
     expect(track.enabled).toBe(true);
   });
 
-  test("the camera and the screen are asked for in the size chosen", async () => {
+  test("the camera and the screen are asked for in the size chosen, the camera in one of its own formats so nothing of its angle is cropped", async () => {
     const { user, devices } = setup();
     const display = devices.display as unknown as ReturnType<typeof vi.fn>;
     display.mockResolvedValue(fakeStream());
     const media = createLocalMedia(devices, () => undefined);
     await media.setSettings({ cameraQuality: "1080", screenQuality: "1440p60", screenAudio: false });
     await media.toggle("camera");
-    expect(user.mock.calls.at(-1)![0].video).toMatchObject({ width: { ideal: 1920 }, height: { ideal: 1080 } });
+    expect(user.mock.calls.at(-1)![0].video).toMatchObject({ width: { ideal: 1920 }, height: { ideal: 1080 }, resizeMode: { ideal: "none" } });
     await media.toggle("screen");
     expect(display.mock.calls[0]![0]).toMatchObject({ video: { width: { ideal: 2560 }, frameRate: { ideal: 60 } }, audio: false });
   });

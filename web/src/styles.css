@@ -534,3 +534,7 @@ html[data-motion="iris"]::view-transition-new(root) {
   --color-selection: var(--color-bubble);
   --color-logo-text: var(--color-paper);
 }
+
+[data-mode]:fullscreen video {
+  object-fit: contain;
+}
