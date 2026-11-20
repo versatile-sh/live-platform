@@ -305,6 +305,7 @@ Everything is read from the environment at start.
 | `AUDIT_DIR` | empty | Directory of the audit trail. Empty turns it off. |
 | `AUDIT_RETENTION_DAYS` | `183` | Days of audit files kept; older ones are deleted daily. |
 | `AUDIT_QUEUE` | `8192` | Audit events that may wait to be written; past it, events are dropped and counted. |
+| `AUDIT_LOG_STDOUT` | empty | `1` also writes each audit event to standard output as one JSON log record (`"msg":"audit"`, the event under `event`), after it reached the file, for a log collector. The record carries the same data as the file (addresses, names, public chat text), so keep that output as restricted as the files. The files stay the record. |
 | `METRICS_INTERVAL` | `1m` | How often the `metrics` log line is written (Go duration); `0` turns it off. |
 | `PASS_SOURCE`, `PASS_KEY` | empty | `http(s)` base URL of a trusted guest-pass issuer and the key it expects (at least 32 characters). Without both, `GET /api/pass/{id}` does not exist. |
 | `GITHUB_REPO` | empty | `owner/name` of a repository whose star count the front page shows. |

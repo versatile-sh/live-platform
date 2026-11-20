@@ -23,7 +23,11 @@ func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, getenv
 		return nil, func() {}
 	}
 	queue, _ := strconv.Atoi(getenv("AUDIT_QUEUE"))
-	writer, err := audit.Open(audit.Config{Dir: dir, Queue: queue, Log: log})
+	cfg := audit.Config{Dir: dir, Queue: queue, Log: log}
+	if on, _ := strconv.ParseBool(getenv("AUDIT_LOG_STDOUT")); on {
+		cfg.Mirror = log
+	}
+	writer, err := audit.Open(cfg)
 	if err != nil {
 		log.Error("audit unusable, continuing without it", "error", err.Error())
 		return nil, func() {}
