@@ -20,8 +20,9 @@ type OthersProps = {
 export function Others({ hidden, count, people, photos, onToggle, children }: OthersProps) {
   const t = useT();
   const label = t(hidden ? "stage.showOthers" : "stage.hideOthers", { count });
+  const fade = "absolute inset-0 transition-opacity duration-300 ease-(--ease-glide) motion-reduce:transition-none";
   return (
-    <div className={`relative flex min-h-0 min-w-0 shrink-0 flex-col ${hidden ? "max-lg:h-9 lg:w-9" : "max-lg:h-28 lg:w-52"}`}>
+    <div className={`relative flex min-h-0 min-w-0 shrink-0 transition-[width,height] duration-500 ease-(--ease-glide) motion-reduce:transition-none ${hidden ? "max-lg:h-9 lg:w-9" : "max-lg:h-28 lg:w-52"}`}>
       <button
         type="button"
         aria-expanded={!hidden}
@@ -32,13 +33,19 @@ export function Others({ hidden, count, people, photos, onToggle, children }: Ot
         onClick={onToggle}
       >
         <span className="sr-only">{label}</span>
-        <Icon name="chevron" className={`size-4 transition-transform duration-200 ${hidden ? "rotate-180 max-lg:-rotate-90" : "max-lg:rotate-90"}`} />
+        <Icon name="chevron" className={`size-4 transition-transform duration-500 ease-(--ease-glide) motion-reduce:transition-none ${hidden ? "rotate-180 max-lg:-rotate-90" : "max-lg:rotate-90"}`} />
       </button>
-      <ul id="stage-others" aria-label={t("stage.others")} hidden={hidden} className="no-scrollbar flex min-h-0 flex-1 gap-3 overflow-auto max-lg:[&>li]:h-full max-lg:[&>li]:w-auto lg:flex-col">
-        {children}
-      </ul>
-      {hidden ? (
-        <ul className="no-scrollbar flex min-h-0 flex-1 items-center gap-1.5 overflow-auto max-lg:justify-center max-lg:pt-3 lg:flex-col lg:py-1 lg:pl-3">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        <ul
+          id="stage-others"
+          aria-label={t("stage.others")}
+          aria-hidden={hidden}
+          inert={hidden}
+          className={`no-scrollbar flex gap-3 overflow-auto max-lg:[&>li]:h-full max-lg:[&>li]:w-auto lg:right-0 lg:left-auto lg:w-52 lg:flex-col max-lg:top-auto max-lg:h-28 ${fade} ${hidden ? "opacity-0" : "opacity-100"}`}
+        >
+          {children}
+        </ul>
+        <ul inert={!hidden} aria-hidden={!hidden} className={`no-scrollbar flex items-center gap-1.5 overflow-auto max-lg:justify-center max-lg:pt-3 lg:flex-col lg:py-1 lg:pl-3 ${fade} ${hidden ? "opacity-100 delay-200" : "opacity-0"}`}>
           {people.map((person) => (
             <li key={person.pid} className="shrink-0">
               <button type="button" aria-label={t("stage.dot", { name: person.name })} title={person.name} className={AVATAR_BUTTON} onClick={onToggle}>
@@ -47,7 +54,7 @@ export function Others({ hidden, count, people, photos, onToggle, children }: Ot
             </li>
           ))}
         </ul>
-      ) : null}
+      </div>
     </div>
   );
 }
