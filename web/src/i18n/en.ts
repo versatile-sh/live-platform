@@ -11,6 +11,9 @@ export const en = {
   "social.x": "Follow versatile.sh on X",
   "social.follow": "Follow us",
   "social.language": "Language",
+  "community.label": "Community",
+  "community.discord": "Join our Discord",
+  "community.bot": "Add the Live Versatile bot to your server",
 
   "home.line1": "Share anything.",
   "home.line2": "Watch anywhere.",
@@ -259,6 +262,8 @@ export const en = {
   "palette.rooms": "See open rooms",
   "palette.github": "The source code on GitHub",
   "palette.x": "Follow versatile.sh on X",
+  "palette.discord": "Join our Discord server",
+  "palette.bot": "Add the Live Versatile bot to your Discord server",
   "more.palette": "Search for something to do",
   "shortcut.palette": "Search for something to do",
   "board.label": "Whiteboard",

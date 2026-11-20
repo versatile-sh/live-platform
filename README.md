@@ -82,7 +82,7 @@ In a call, the screen button's menu has **The whole computer's sound**. With it 
 
 ### Links from a chat bot
 
-The Discord bot ([live-discord](https://github.com/versatile-sh/live-discord), private) sends people to a room with an
+Our Discord bot (closed source) sends people to a room with an
 invitation link. A free room opened from a link starts out of the open rooms (the doorway's switch can list it; `?listed=1`
 still lists it, for old links), the room code after `#` makes a free room
 private with that code, and `?pass=<id>` names a guest pass. The page asks `GET /api/pass/{id}` once; the server takes the pass
