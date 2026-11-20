@@ -13,7 +13,7 @@ export const NOTICE_MS = 6000;
 const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 
 /** What a person gave to enter a room. A verifier makes the room private. */
-export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: string; face?: string };
+export type JoinEntry = { name: string; verifier?: string; listed?: boolean; password?: string; look?: string; face?: string; photo?: string };
 
 /** One line said in the room, as this page heard it. */
 export type ChatLine = { id: number; pid: number; to?: number; name: string; text: string; at: number; image?: string };
@@ -110,6 +110,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   const boardListeners = new Set<(from: number, data: unknown) => void>();
   const rtcListeners = new Set<(event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void>();
   let mediaFlags = 0;
+  let photoSent = false;
   let beatAt = 0;
   let nextChatId = 1;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
@@ -209,6 +210,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       link?.send({ t: "hb" });
     }, HEARTBEAT_MS);
     if (mediaFlags !== 0) link?.send({ t: "media", flags: mediaFlags });
+    if (entry?.photo && !photoSent) photoSent = Boolean(link?.send({ t: "photo", data: entry.photo }));
     rtcListeners.forEach((listener) => listener({ kind: "seated" }));
   }
 

@@ -708,6 +708,48 @@ describe("RoomPage", () => {
       expect(screen.getByRole("button", { name: "Show everyone else (1)" })).toBeInTheDocument();
     });
 
+    test("the handle of the others collapses them into a rail of dots that expands again, and says so to assistive technology", async () => {
+      await inCall();
+      await userEvent.click(screen.getByRole("listitem", { name: /Bia, connected/ }));
+      const handle = screen.getByRole("button", { name: "Hide everyone else" });
+      expect(handle).toHaveAttribute("aria-expanded", "true");
+      expect(handle).toHaveAttribute("aria-controls", "stage-others");
+      expect(handle).toHaveAttribute("aria-keyshortcuts", "Control+Alt+O");
+      expect(screen.queryByRole("button", { name: "Ana: show everyone else" })).toBeNull();
+      await userEvent.click(handle);
+      expect(screen.getByRole("button", { name: "Show everyone else (1)" })).toHaveAttribute("aria-expanded", "false");
+      await userEvent.click(screen.getByRole("button", { name: "Ana: show everyone else" }));
+      expect(screen.getByRole("button", { name: "Hide everyone else" })).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("list", { name: "Everyone else" })).toBeVisible();
+    });
+
+    test("with twelve people the grid sizes its tiles to the stage and, with one in front, the strip holds the other eleven", async () => {
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(private readonly report: (entries: { contentRect: { width: number; height: number } }[]) => void) {}
+          observe() {
+            this.report([{ contentRect: { width: 1280, height: 640 } }]);
+          }
+          disconnect() {}
+        },
+      );
+      try {
+        const { socket } = await inCall();
+        const names = Array.from({ length: 12 }, (_, index) => (index === 0 ? "Ana" : `Guest${index}`));
+        await send(socket, { t: "roster", v: 3, people: names.map((name, index) => person(index + 1, name, { flags: index === 0 ? 32 : 0, state: "active" })), gone: [] });
+        const grid = screen.getByRole("listitem", { name: /Guest1, connected/ }).parentElement!;
+        expect(within(grid).getAllByRole("listitem", { name: /connected/ })).toHaveLength(12);
+        expect(grid.style.gridTemplateColumns).toMatch(/^repeat\(\d+, \d+px\)$/);
+        expect(Number.parseInt(grid.style.gridAutoRows)).toBeGreaterThanOrEqual(81);
+        await userEvent.click(screen.getByRole("listitem", { name: /Guest1, connected/ }));
+        expect(within(screen.getByRole("list", { name: "Everyone else" })).getAllByRole("listitem", { name: /connected/ })).toHaveLength(11);
+        expect(screen.getByRole("button", { name: "Hide everyone else" })).toBeInTheDocument();
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
+
     test("the whiteboard someone opens comes to the front for me too, and I can close it for myself or open it for the room", async () => {
       const { socket } = await inCall();
       expect(screen.queryByRole("listitem", { name: "Whiteboard" })).not.toBeInTheDocument();

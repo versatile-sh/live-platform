@@ -310,6 +310,7 @@ export const ptBR: Record<MessageKey, string> = {
   "stage.others": "Todos os outros",
   "stage.hideOthers": "Ocultar os outros",
   "stage.showOthers": "Mostrar os outros ({count})",
+  "stage.dot": "{name}: mostrar os outros",
   "board.of": "Quadro, aberto por {name}",
   "quiet.muteAll": "Mutar todos",
   "quiet.unmuteAll": "Liberar todos para falar",

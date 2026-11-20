@@ -30,19 +30,20 @@ describe("EntryForm", () => {
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).not.toBeChecked();
     });
 
-    test("a guest pass fills in the name and the photo, chooses the access, and is asked for once; the query leaves the address", async () => {
+    test("a guest pass fills in the name, carries the photo into the entry without touching the face, chooses the access, and is asked for once; the query leaves the address", async () => {
       const faces: string[] = [];
       const forget = vi.fn();
-      const takePass = vi.fn(async () => ({ name: "Ana Souza", face: "AQID", private: true, listed: true }));
+      const takePass = vi.fn(async () => ({ name: "Ana Souza", face: "AQID", private: false, listed: true }));
       const services = fakeServices({ invite: { read: () => ({ listed: undefined, pass: "abcdefghijklmnopqrstuv" }), forget }, takePass, faceMemory: { read: () => "", write: (face) => void faces.push(face) } });
-      setup(free, { services });
+      const { onEnter } = setup(free, { services });
       await waitFor(() => expect(screen.getByLabelText("Your name")).toHaveValue("Ana Souza"));
       expect(takePass).toHaveBeenCalledWith("abcdefghijklmnopqrstuv");
-      expect(faces).toEqual(["AQID"]);
+      expect(faces).toEqual([]);
       expect(forget).toHaveBeenCalled();
       await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
+      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", face: "", listed: true })));
     });
 
     test("without a pass the person types their name as usual", async () => {

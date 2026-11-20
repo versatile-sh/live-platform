@@ -13,6 +13,7 @@ const PATHS = {
   close: "M6 6l12 12M18 6L6 18",
   signal: "M5 19v-4M10 19v-8M15 19V8M20 19V4",
   back: "M15 5l-7 7 7 7",
+  chevron: "M9 6l6 6-6 6",
   minimize: "M6 18h12",
   board: "M4 5h16v11H4zM9 20l3-4 3 4M8 12l3-3 2 2 3-3",
   front: "M4 5h16v10H4zM8 19h8",
