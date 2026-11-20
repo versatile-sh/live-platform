@@ -28,7 +28,7 @@ export type ServerFrame =
 export type RtcSignal = { role: "pub" | "sub"; kind: "offer" | "answer" | "ice"; sdp?: string; candidate?: string; sources?: Record<string, string> };
 
 export type Hello =
-  | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean; look?: string; face?: string }
+  | { t: "join"; slug: string; name: string; verifier?: string; listed?: boolean; look?: string; face?: string; pass?: string }
   | { t: "resume"; slug: string; pid: number; secret: string };
 
 export type OwnerOp =
