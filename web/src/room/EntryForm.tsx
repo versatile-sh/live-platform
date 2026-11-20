@@ -33,7 +33,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const [invite] = useState(() => services.invite.read());
   const [name, setName] = useState(() => services.nameMemory.read());
   const [access, setAccess] = useState<Access>(() => (creating && services.readPasswordHash() ? "private" : "public"));
-  const [listed, setListed] = useState(invite.listed ?? true);
+  const [listed, setListed] = useState(invite.listed ?? false);
   const [code, setCode] = useState(() => (creating ? services.readPasswordHash() || services.generatePassword() : services.readPasswordHash()));
   useEffect(() => {
     services.invite.forget();

@@ -54,7 +54,7 @@ describe("EntryForm", () => {
   });
 
   describe("for a free slug", () => {
-    test("asks only for a name, and keeps the room public and shown in the open rooms under More options", async () => {
+    test("asks only for a name, and keeps the room public and out of the open rooms under More options", async () => {
       setup(free);
       expect(screen.getByRole("heading", { name: "Create demo" })).toBeInTheDocument();
       expect(screen.getByText(/This name is free/)).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe("EntryForm", () => {
       await userEvent.click(more);
       expect(more).toHaveAttribute("aria-expanded", "true");
       expect(screen.getByRole("radio", { name: /Public/ })).toBeChecked();
-      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
+      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).not.toBeChecked();
       expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
     });
 
@@ -81,7 +81,7 @@ describe("EntryForm", () => {
       await userEvent.type(room, "Sala-Nova ");
       expect(screen.getByRole("heading", { name: "Create sala-nova" })).toBeInTheDocument();
       await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(put).toHaveBeenCalledWith("sala-nova", { name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true }));
+      await waitFor(() => expect(put).toHaveBeenCalledWith("sala-nova", { name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false }));
       expect(onEnter).not.toHaveBeenCalled();
     });
 
@@ -123,12 +123,12 @@ describe("EntryForm", () => {
       expect(onEnter).not.toHaveBeenCalled();
     });
 
-    test("creates a public listed room without deriving anything", async () => {
+    test("creates a public room out of the open rooms without deriving anything", async () => {
       const { onEnter, services } = setup(free);
       const derive = vi.spyOn(services, "derive");
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false }));
       expect(derive).not.toHaveBeenCalled();
     });
 
@@ -140,7 +140,7 @@ describe("EntryForm", () => {
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
       await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: false }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: true }));
     });
 
     test("draws a new code on request and copies the one shown", async () => {
