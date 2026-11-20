@@ -307,6 +307,7 @@ export const ptBR: Record<MessageKey, string> = {
   "stage.front": "Trazer {name} para a frente",
   "stage.back": "Devolver {name} para a grade",
   "stage.fullscreen": "Mostrar {name} na tela inteira",
+  "stage.float": "Ver {name} numa janela flutuante",
   "stage.others": "Todos os outros",
   "stage.hideOthers": "Ocultar os outros",
   "stage.showOthers": "Mostrar os outros ({count})",
