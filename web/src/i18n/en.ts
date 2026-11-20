@@ -308,7 +308,6 @@ export const en = {
   "stage.others": "Everyone else",
   "stage.hideOthers": "Hide everyone else",
   "stage.showOthers": "Show everyone else ({count})",
-  "stage.dot": "{name}: show everyone else",
   "board.of": "Whiteboard, opened by {name}",
   "quiet.muteAll": "Mute everyone",
   "quiet.unmuteAll": "Let everyone speak",
