@@ -31,6 +31,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const creating = !room.exists;
   const [roomName, setRoomName] = useState(slug);
   const [invite] = useState(() => services.invite.read());
+  const [photo, setPhoto] = useState<string>();
   const [name, setName] = useState(() => services.nameMemory.read());
   const [access, setAccess] = useState<Access>(() => (creating && services.readPasswordHash() ? "private" : "public"));
   const [listed, setListed] = useState(invite.listed ?? false);
@@ -42,8 +43,8 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     void services.takePass(invite.pass).then((pass) => {
       if (!current || !pass) return;
       services.nameMemory.write(pass.name);
-      if (pass.face) services.faceMemory.write(pass.face);
       setName(pass.name);
+      setPhoto(pass.face || undefined);
       if (creating) {
         setAccess(pass.private ? "private" : "public");
         setListed(pass.listed);
@@ -92,6 +93,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
       name: who.name,
       look: services.lookMemory.read(),
       face: services.faceMemory.read(),
+      ...(photo ? { photo } : {}),
       ...(derived ? { verifier: derived.verifier, password: code.trim() } : {}),
       ...(creating ? { listed } : {}),
     };
