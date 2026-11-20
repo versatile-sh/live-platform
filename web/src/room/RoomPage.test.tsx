@@ -107,8 +107,7 @@ describe("RoomPage", () => {
 
     test("sends the join with the listed choice", async () => {
       const { services } = await setup();
-      await userEvent.click(await screen.findByRole("button", { name: "More options" }));
-      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
+      await userEvent.click(await screen.findByRole("switch", { name: /Show in open rooms/ }));
       await submitName("Ana");
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
