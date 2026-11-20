@@ -1,3 +1,0 @@
-qdisc netem 8002: root refcnt 17 limit 1000 loss 2% seed 10385637081825129850  Sent 11526077 bytes 106531 pkt (dropped 2147, overlimits 0 requeues 0)  
-qdisc netem 8003: root refcnt 17 limit 1000 loss 2% seed 9526462838204945222  Sent 28070871 bytes 190354 pkt (dropped 4029, overlimits 0 requeues 0)  
-qdisc netem 8007: root refcnt 17 limit 1000 loss 2% seed 7661981448469410426  Sent 28063362 bytes 190314 pkt (dropped 3890, overlimits 0 requeues 0)  

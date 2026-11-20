@@ -1,5 +1,0 @@
-{"gen":1,"k":"joined","name":"c8","pid":"p8","ts":1794847420133868570}
-{"ts":1794847420135023833,"k":"roster_rx","name":"c8","msg":{"roster":[{"name":"c1","pid":"p1","state":"active"},{"name":"c2","pid":"p2","state":"active"},{"name":"c3","pid":"p3","state":"active"},{"name":"c4","pid":"p4","state":"active"},{"name":"c5","pid":"p5","state":"active"},{"name":"c6","pid":"p6","state":"active"},{"name":"c7","pid":"p7","state":"active"},{"name":"c8","pid":"p8","state":"connecting"}],"rv":15,"t":"roster"}}
-{"k":"ice","name":"c8","st":"checking","ts":1794847420136163227}
-{"k":"ice","name":"c8","st":"connected","ts":1794847420136411346}
-{"ts":1794847420136510814,"k":"roster_rx","name":"c8","msg":{"roster":[{"name":"c1","pid":"p1","state":"active"},{"name":"c2","pid":"p2","state":"active"},{"name":"c3","pid":"p3","state":"active"},{"name":"c4","pid":"p4","state":"active"},{"name":"c5","pid":"p5","state":"active"},{"name":"c6","pid":"p6","state":"active"},{"name":"c7","pid":"p7","state":"active"},{"name":"c8","pid":"p8","state":"active"}],"rv":16,"t":"roster"}}

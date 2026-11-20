@@ -1,8 +1,0 @@
-{"from":"connecting","gen":1,"k":"state","pid":"p1","room":"healthy","to":"active","ts":1794847415361351080,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p2","room":"healthy","to":"active","ts":1794847416046152946,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p3","room":"healthy","to":"active","ts":1794847416733550987,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p4","room":"healthy","to":"active","ts":1794847417613638759,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p5","room":"healthy","to":"active","ts":1794847418094313581,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p6","room":"healthy","to":"active","ts":1794847418779648759,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p7","room":"healthy","to":"active","ts":1794847419459147896,"why":"ice-connected"}
-{"from":"connecting","gen":1,"k":"state","pid":"p8","room":"healthy","to":"active","ts":1794847420136356202,"why":"ice-connected"}

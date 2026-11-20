@@ -1,9 +1,7 @@
 # Deploy
 
-The public instance runs at https://live.versatile.sh on Versatile's own hosting, deployed with [Kamal](https://kamal-deploy.org).
-The deploy configuration of that hosting (`config/deploy.yml`, `.kamal/`, `deploy/`) is kept out of this repository on purpose; see `.gitignore`.
-
-Team members: the exact commands, the secrets and the wiring are on the live-platform ops page in the internal hosting docs.
+The public instance runs at https://live.versatile.sh on Versatile's own hosting.
+The deploy configuration of that hosting is kept out of this repository on purpose; see `.gitignore`. Its runbook and secrets are kept privately.
 
 ## What the app needs
 
@@ -18,14 +16,14 @@ Any host can run it. The contract is small:
 ## Two kinds of deploy
 
 **The page changed (anything under `web/`):** nobody in a call is touched.
-The client is built and laid over the running server (ADR 0014). Scripts and styles go first and the old ones stay, so a tab opened before still finds its files; `index.html` goes last. People already on the site keep the page they have until they reload.
+The client is built and laid over the running server (`WEB_LIVE_DIR`). Scripts and styles go first and the old ones stay, so a tab opened before still finds its files; `index.html` goes last. People already on the site keep the page they have until they reload.
 
 **The server changed (anything under `server/` or the `Dockerfile`):** the call blinks for a second or two and comes back by itself.
-The new container starts beside the old one on the other media port (two ports alternate from one deploy to the next), the old one hands its rooms over, and every browser returns to its place (ADR 0014). Stopping the app or putting it in maintenance is not part of a deploy.
+The new container starts beside the old one on the other media port (two ports alternate from one deploy to the next), the old one hands its rooms over, and every browser returns to its place (`HANDOVER_DIR`). Stopping the app or putting it in maintenance is not part of a deploy.
 
 ## Media
 
-Audio and video do not pass through the Cloudflare Tunnel. The container publishes one UDP port on the server's own address, and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room (ADR 0004).
+Audio and video do not pass through the proxy in front of the site. The container publishes one UDP port on the server's own address, and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room.
 
 ## Guest passes
 

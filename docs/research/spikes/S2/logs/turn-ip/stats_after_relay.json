@@ -1,1 +1,0 @@
-{"armed":true,"decoy_from":{"192.168.18.31:49172":"probe 172.31.0.1:7999 (SFU IP, non-mux port, decoy listener)"},"decoy_rx":1,"gc":1,"gomaxprocs":2,"goroutines":7,"heap_alloc":1579568,"hwm_kb":21552,"inbox_full":0,"inbox_len":0,"inbox_max":0,"numcpu":16,"pcs":1,"rss_kb":21552,"rtp_in":649,"rtp_out_expected":0,"subs_done":1,"sys":17410328,"ts":1794839851610637168}
