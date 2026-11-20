@@ -18,6 +18,8 @@ import { MediaSettings } from "./MediaSettings";
 import { ScreenSoundGuide } from "./ScreenSoundGuide";
 import { soundRoute } from "../media/desktop-sound";
 import { StageFrame, type StageMode } from "./StageFrame";
+import { fitStage } from "../domain/stage-fit";
+import { useBox } from "../ui/useBox";
 import { hasFlag } from "../domain/flags";
 import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
@@ -196,15 +198,6 @@ function play(stream: MediaStream | undefined, speaker: string | undefined) {
   };
 }
 
-function grid(count: number): string {
-  if (count <= 1) return "grid-cols-1 max-w-4xl";
-  if (count <= 2) return "grid-cols-1 sm:grid-cols-2 max-w-6xl";
-  if (count <= 4) return "grid-cols-2 max-w-5xl";
-  if (count <= 6) return "grid-cols-2 lg:grid-cols-3";
-  if (count <= 9) return "grid-cols-3";
-  return "grid-cols-3 lg:grid-cols-4";
-}
-
 function NoticeLine({ notice }: { notice: Notice }) {
   const t = useT();
   const text =
@@ -354,6 +347,7 @@ export function RoomView({
   const [stats, setStats] = useState(false);
   const [seen, setSeen] = useState(0);
   const [othersHidden, setOthersHidden] = useState(false);
+  const [stage, measureStage] = useBox();
   if (side && side !== shown) setShown(side);
   useEffect(() => () => media.dispose(), [media]);
   useEffect(() => {
@@ -551,6 +545,7 @@ export function RoomView({
       ),
     })),
   ];
+  const fit = stage && fitStage(stage, frames.length + (alone ? 1 : 0));
   const chosen = frames.find((frame) => frame.key === pinned);
   const front = pinned === null ? undefined : (chosen ?? frames.find((frame) => frame.key === "board" || frame.key.startsWith("screen-")));
   const bring = (key: string) => withMotion("words", () => setPinned(front?.key === key ? null : key));
@@ -793,10 +788,15 @@ export function RoomView({
               ) : null}
             </div>
           ) : (
-            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length + (alone ? 1 : 0))}`}>
-              {frames.map((frame) => frame.render("grid"))}
-              {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
-            </ul>
+            <div ref={measureStage} className="no-scrollbar absolute inset-0 overflow-x-hidden overflow-y-auto">
+              <ul
+                className={`m-auto grid gap-3 ${fit ? "w-fit" : "w-full grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]"}`}
+                style={fit ? { gridTemplateColumns: `repeat(${fit.columns}, ${fit.tile.width}px)`, gridAutoRows: `${fit.tile.height}px` } : undefined}
+              >
+                {frames.map((frame) => frame.render("grid"))}
+                {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
+              </ul>
+            </div>
           )}
           {Object.entries(remote).flatMap(([pid, sources]) =>
             Number(pid) === myPid

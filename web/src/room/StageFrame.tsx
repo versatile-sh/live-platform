@@ -22,7 +22,16 @@ const SIZE: Record<StageMode, string> = {
   strip: "aspect-video w-full shrink-0",
 };
 
-const CONTROL = "grid size-8 place-items-center rounded-full bg-canvas/75 text-fg transition-colors duration-200 hover:bg-fg hover:text-canvas";
+/** Sizes that follow the frame they sit in (its container), so controls and labels shrink with a small tile and never spill. */
+export const SCALE = {
+  edge: "[--edge:clamp(0.25rem,3cqmin,0.625rem)]",
+  control: "size-[clamp(1.25rem,11cqmin,2rem)]",
+  icon: "size-3/5",
+  text: "text-[clamp(0.625rem,5.5cqmin,0.875rem)]",
+  small: "text-[clamp(0.5625rem,4.5cqmin,0.75rem)]",
+} as const;
+
+const CONTROL = `grid ${SCALE.control} place-items-center rounded-full bg-canvas/75 text-fg transition-colors duration-200 hover:bg-fg hover:text-canvas`;
 
 /** One frame of the stage, whatever it shows: it can be brought to the front or sent back, and opened to the whole screen. */
 export function StageFrame({ mode, name, onFront, clickable = true, className = "", children, ...rest }: StageFrameProps) {
@@ -38,7 +47,7 @@ export function StageFrame({ mode, name, onFront, clickable = true, className = 
     <li
       ref={frame}
       data-mode={mode}
-      className={`group/frame relative isolate flex min-h-0 min-w-0 items-center justify-center overflow-hidden ${SIZE[mode]} ${clickable ? "cursor-pointer" : ""} ${className}`}
+      className={`group/frame ${SCALE.edge} relative isolate [container-type:size] flex min-h-0 min-w-0 items-center justify-center overflow-hidden ${SIZE[mode]} ${clickable ? "cursor-pointer" : ""} ${className}`}
       onClick={
         clickable
           ? (event) => {
@@ -50,12 +59,12 @@ export function StageFrame({ mode, name, onFront, clickable = true, className = 
       {...rest}
     >
       {children}
-      <div className="absolute top-2.5 left-2.5 z-10 flex gap-1.5 opacity-0 transition-opacity duration-200 group-focus-within/frame:opacity-100 group-hover/frame:opacity-100">
+      <div className="absolute top-(--edge) left-(--edge) z-10 flex gap-1.5 opacity-0 transition-opacity duration-200 group-focus-within/frame:opacity-100 group-hover/frame:opacity-100">
         <button type="button" aria-pressed={mode === "front"} aria-label={t(mode === "front" ? "stage.back" : "stage.front", { name })} title={t(mode === "front" ? "stage.back" : "stage.front", { name })} className={CONTROL} onClick={onFront}>
-          <Icon name={mode === "front" ? "grid" : "front"} className="size-4" />
+          <Icon name={mode === "front" ? "grid" : "front"} className={SCALE.icon} />
         </button>
         <button type="button" aria-label={t("stage.fullscreen", { name })} title={t("stage.fullscreen", { name })} className={CONTROL} onClick={fullscreen}>
-          <Icon name="expand" className="size-4" />
+          <Icon name="expand" className={SCALE.icon} />
         </button>
       </div>
     </li>
