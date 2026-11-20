@@ -15,7 +15,7 @@ const (
 	metricsDefault = time.Minute
 )
 
-// startAudit opens the audit trail in the AUDIT_DIR directory and wires it to the hub; it answers a function that drains it, or nil when the directory is not set.
+// startAudit opens the audit trail in the AUDIT_DIR directory and wires it to the hub; it returns the writer and a function that drains it, or a nil writer when the directory is not set.
 func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, getenv func(string) string) (*audit.Writer, func()) {
 	dir := getenv("AUDIT_DIR")
 	if dir == "" {
