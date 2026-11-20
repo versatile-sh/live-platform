@@ -556,7 +556,52 @@ html[data-motion="iris"]::view-transition-new(root) {
 }
 
 html[data-enter] .enter-iris {
-  animation: enter-iris 0.95s cubic-bezier(0.45, 0, 0.15, 1) 0.1s both;
+  isolation: isolate;
+  background-color: transparent;
+}
+
+html[data-enter] .enter-iris::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 0;
+  width: 300vmax;
+  height: 300vmax;
+  margin: -150vmax 0 0 -150vmax;
+  border-radius: 50%;
+  background: var(--color-bubble);
+  transform: scale(0);
+  will-change: transform;
+  animation: enter-iris 0.95s cubic-bezier(0.45, 0, 0.15, 1) 0.1s forwards;
+}
+
+html[data-enter] .enter-iris > * {
+  animation: enter-fade 0.6s ease 0.6s both;
+}
+
+@media (width < 64rem) {
+  html[data-enter] .enter-iris-below {
+    isolation: isolate;
+    overflow: hidden;
+    background-color: transparent;
+  }
+
+  html[data-enter] .enter-iris-below::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    left: 0;
+    width: 300vmax;
+    height: 300vmax;
+    margin: -150vmax 0 0 -150vmax;
+    border-radius: 50%;
+    background: var(--color-bubble);
+    transform: scale(0);
+    will-change: transform;
+    animation: enter-iris 0.95s cubic-bezier(0.45, 0, 0.15, 1) 0.1s forwards;
+  }
 }
 
 html[data-enter] .enter-rise {
@@ -578,11 +623,8 @@ html[data-enter] .enter-fade {
 }
 
 @keyframes enter-iris {
-  from {
-    clip-path: circle(0 at 0% 50%);
-  }
   to {
-    clip-path: circle(150vmax at 0% 50%);
+    transform: scale(1);
   }
 }
 
@@ -615,7 +657,12 @@ html[data-enter] .enter-fade {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-enter] :is(.enter-iris, .enter-rise, .enter-typed, .enter-pop, .enter-fade) {
+  html[data-enter] :is(.enter-iris, .enter-iris-below, .enter-rise, .enter-typed, .enter-pop, .enter-fade) {
     animation: none;
+  }
+
+  html[data-enter] :is(.enter-iris, .enter-iris-below)::before {
+    animation: none;
+    transform: scale(1);
   }
 }
