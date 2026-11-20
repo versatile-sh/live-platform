@@ -1,47 +1,35 @@
 # Deploy
 
-This app runs on the Versatile hosting at https://live.versatile.sh (open to everyone).
-The hosting repo is at `/home/gengar/Projects/hosting`.
+The public instance runs at https://live.versatile.sh on Versatile's own hosting, deployed with [Kamal](https://kamal-deploy.org).
+The deploy configuration of that hosting (`config/deploy.yml`, `.kamal/`, `deploy/`) is kept out of this repository on purpose; see `.gitignore`.
 
-```bash
-# first time
-op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal setup
-# each update (approve the 1Password prompt)
-op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal deploy
-# logs, rollback
-op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal app logs -f
-op run --env-file /home/gengar/Projects/hosting/infra/ssh.env.op -- /home/gengar/Projects/hosting/infra/kamal/kamal rollback <version>
-```
+Team members: the exact commands, the secrets and the wiring are on the live-platform ops page in the internal hosting docs.
 
-The service token in `ssh.env.op` lets Kamal reach the server without a browser login. The contract the app must meet
-(port, `/up`, logs, telemetry, the Access check) is in the hosting docs, page "Deploy a repo".
+## What the app needs
+
+Any host can run it. The contract is small:
+
+- HTTP on `PORT` (3000 on the public instance), with `200` on `/up` for the proxy's health check.
+- WebSocket signalling on `SIGNAL_PORT` (3001), routed to `/ws`.
+- One UDP port for media, published on the host's own public address (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP`).
+- Logs on stdout; telemetry, when wanted, to `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Optional: `HANDOVER_DIR` for the handover between two servers, `WEB_LIVE_DIR` for a client published over the running server, `PASS_SOURCE` and `PASS_KEY` for guest passes.
 
 ## Two kinds of deploy
 
 **The page changed (anything under `web/`):** nobody in a call is touched.
+The client is built and laid over the running server (ADR 0014). Scripts and styles go first and the old ones stay, so a tab opened before still finds its files; `index.html` goes last. People already on the site keep the page they have until they reload.
 
-```sh
-deploy/web.sh
-```
-
-It builds the client and lays it over the running server (ADR 0014). People already on the site keep the page they have until they reload.
-
-**The server changed (anything under `server/`, the `Dockerfile` or `config/deploy.yml`):** the call blinks for a second or two and comes back by itself.
-
-```sh
-deploy/server.sh
-```
-
-The new container starts beside the old one on the other media port, the old one hands its rooms over, and every browser returns to its place (ADR 0014). `kamal app stop` and `kamal app maintenance` are not part of a deploy.
+**The server changed (anything under `server/` or the `Dockerfile`):** the call blinks for a second or two and comes back by itself.
+The new container starts beside the old one on the other media port (two ports alternate from one deploy to the next), the old one hands its rooms over, and every browser returns to its place (ADR 0014). Stopping the app or putting it in maintenance is not part of a deploy.
 
 ## Media
 
-Audio and video do not pass through the Cloudflare Tunnel. The container publishes one UDP port on the server's own address, 40000 or 40001 by turns (`MEDIA_UDP_PORT`, `MEDIA_PUBLIC_IP`), and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room.
+Audio and video do not pass through the Cloudflare Tunnel. The container publishes one UDP port on the server's own address, and browsers send media straight to it. The server's address is therefore visible to anyone who enters a room (ADR 0004).
 
 ## Guest passes
 
-`PASS_SOURCE` points at the Discord bot on the Kamal network and `PASS_KEY` comes from the 1Password item `API Key - LiveBot Discord` (id `gge7yyj7veadoq4nlwny2blazm`)
-(vault Adaptable Chat, section App), the same key the bot checks. Deploying the server reads it through `.kamal/secrets`.
+With `PASS_SOURCE` and `PASS_KEY` set, the server takes guest passes from a trusted inviter (the Discord bot) on a private network, authenticated with a shared key. The key is a secret: it is injected at deploy time and never committed. Without those variables the route does not exist.
 
 ## Check a deploy
 
