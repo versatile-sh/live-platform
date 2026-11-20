@@ -3,7 +3,7 @@ import { useT } from "../i18n/I18nProvider";
 import { Avatar } from "../ui/Avatar";
 import { Icon } from "../ui/icons";
 import { describePerson } from "./person";
-import { StageFrame, type StageMode } from "./StageFrame";
+import { SCALE, StageFrame, type StageMode } from "./StageFrame";
 
 type TileProps = { person: Person; isMe: boolean; video?: MediaStream | undefined; photo?: string | undefined; mode?: StageMode; speaking?: boolean; onFront?(): void; onMenu?(at: { x: number; y: number }): void };
 
@@ -37,32 +37,32 @@ export function Tile({ person, isMe, video, photo, mode = "grid", speaking = fal
       {video ? (
         <video ref={attach(video)} autoPlay muted playsInline className={`absolute inset-0 -z-10 size-full ${mode === "front" ? "object-contain" : "object-cover"} ${isMe ? "-scale-x-100" : ""}`} />
       ) : (
-        <Avatar look={person.look} face={person.face} name={person.name} photo={photo} className={`${mode === "strip" ? "text-[3.25rem]" : "text-[clamp(4.5rem,14vw,9rem)]"} ${view.trouble ? "opacity-50" : ""}`} />
+        <Avatar look={person.look} face={person.face} name={person.name} photo={photo} className={`text-[clamp(1.5rem,28cqmin,12rem)] ${view.trouble ? "opacity-50" : ""}`} />
       )}
 
-      <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5">
+      <div className="absolute top-(--edge) right-(--edge) flex items-center gap-1.5">
         {hand ? (
-          <span className="grid size-8 place-items-center rounded-full bg-bubble text-on-bubble" title={t("flag.hand")}>
-            <Icon name="hand" className="size-4" />
+          <span className={`grid ${SCALE.control} place-items-center rounded-full bg-bubble text-on-bubble`} title={t("flag.hand")}>
+            <Icon name="hand" className={SCALE.icon} />
             <span className="sr-only">{t("flag.hand")}</span>
           </span>
         ) : null}
         {muted ? (
-          <span className="grid size-8 place-items-center rounded-full bg-canvas/70 text-muted">
-            <Icon name="micOff" className="size-4" />
+          <span className={`grid ${SCALE.control} place-items-center rounded-full bg-canvas/70 text-muted`}>
+            <Icon name="micOff" className={SCALE.icon} />
             <span className="sr-only">{t("tile.muted")}</span>
           </span>
         ) : null}
       </div>
 
-      <div className="absolute inset-x-2.5 bottom-2.5 flex items-center gap-1.5">
-        <span className={`min-w-0 truncate bubble-word bg-canvas/70 px-2.5 py-1 text-sm font-semibold ${view.trouble ? "opacity-70" : ""}`} translate="no">
+      <div className="absolute inset-x-(--edge) bottom-(--edge) flex items-center gap-1.5">
+        <span className={`min-w-0 truncate bubble-word bg-canvas/70 px-[1.2em] py-[0.35em] ${SCALE.text} font-semibold ${view.trouble ? "opacity-70" : ""}`} translate="no">
           {person.name}
         </span>
-        {isMe ? <span className="bubble-word shrink-0 bg-bubble px-2 py-0.5 font-mono text-xs text-on-bubble">{t("room.you")}</span> : null}
-        {view.isOwner ? <span className="bubble-word shrink-0 border border-accent/40 bg-canvas/70 px-2 py-0.5 font-mono text-xs text-accent">{t("room.owner")}</span> : null}
+        {isMe ? <span className={`bubble-word shrink-0 bg-bubble px-[0.7em] py-[0.15em] font-mono ${SCALE.small} text-on-bubble`}>{t("room.you")}</span> : null}
+        {view.isOwner ? <span className={`bubble-word shrink-0 border border-accent/40 bg-canvas/70 px-[0.7em] py-[0.15em] font-mono ${SCALE.small} text-accent`}>{t("room.owner")}</span> : null}
         {view.trouble || view.tone === "dashed" ? (
-          <span className={`bubble-word flex shrink-0 items-center gap-1.5 px-2 py-0.5 font-mono text-xs ${view.trouble ? "border border-fg/40 bg-canvas/80 text-fg" : "bg-canvas/70 text-muted"}`}>
+          <span className={`bubble-word flex shrink-0 items-center gap-1.5 px-[0.7em] py-[0.15em] font-mono ${SCALE.small} ${view.trouble ? "border border-fg/40 bg-canvas/80 text-fg" : "bg-canvas/70 text-muted"}`}>
             {view.tone === "dashed" ? <span aria-hidden="true" className="pulse inline-block size-1.5 rounded-full bg-accent" /> : null}
             {t(view.stateKey)}
           </span>

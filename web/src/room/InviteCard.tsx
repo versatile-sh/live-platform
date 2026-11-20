@@ -9,7 +9,7 @@ export function InviteCard({ link, copied, onCopy }: { link: string; copied: Cop
   const t = useT();
   const id = useId();
   return (
-    <li aria-labelledby={id} className="arrive bubble flex min-w-0 flex-col justify-center gap-3 border border-dashed border-line-strong bg-card p-5 sm:aspect-video sm:p-8">
+    <li aria-labelledby={id} className="arrive bubble flex min-w-0 flex-col justify-center gap-3 border border-dashed border-line-strong bg-card size-full overflow-auto p-5 sm:p-8">
       <h2 id={id} className="font-display text-2xl leading-tight font-bold tracking-[-0.03em]">
         {t("invite.aloneTitle")}
       </h2>

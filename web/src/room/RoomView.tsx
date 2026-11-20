@@ -18,6 +18,8 @@ import { MediaSettings } from "./MediaSettings";
 import { ScreenSoundGuide } from "./ScreenSoundGuide";
 import { soundRoute } from "../media/desktop-sound";
 import { StageFrame, type StageMode } from "./StageFrame";
+import { fitStage } from "../domain/stage-fit";
+import { useBox } from "../ui/useBox";
 import { hasFlag } from "../domain/flags";
 import { useChooseLocale, useLocale, useT } from "../i18n/I18nProvider";
 import { createRoomMedia, type Source } from "../media/room-media";
@@ -44,6 +46,7 @@ import { ConnectionStatus } from "./ConnectionStatus";
 import { DeviceList } from "./DeviceList";
 import { EndedPanel } from "./EndedPanel";
 import { InviteCard } from "./InviteCard";
+import { Others } from "./Others";
 import { LookPicker } from "./LookPicker";
 import { OwnerPanel } from "./OwnerPanel";
 import { MoreMenu, type MoreItem } from "./MoreMenu";
@@ -196,15 +199,6 @@ function play(stream: MediaStream | undefined, speaker: string | undefined) {
   };
 }
 
-function grid(count: number): string {
-  if (count <= 1) return "grid-cols-1 max-w-4xl";
-  if (count <= 2) return "grid-cols-1 sm:grid-cols-2 max-w-6xl";
-  if (count <= 4) return "grid-cols-2 max-w-5xl";
-  if (count <= 6) return "grid-cols-2 lg:grid-cols-3";
-  if (count <= 9) return "grid-cols-3";
-  return "grid-cols-3 lg:grid-cols-4";
-}
-
 function NoticeLine({ notice }: { notice: Notice }) {
   const t = useT();
   const text =
@@ -354,6 +348,7 @@ export function RoomView({
   const [stats, setStats] = useState(false);
   const [seen, setSeen] = useState(0);
   const [othersHidden, setOthersHidden] = useState(false);
+  const [stage, measureStage] = useBox();
   if (side && side !== shown) setShown(side);
   useEffect(() => () => media.dispose(), [media]);
   useEffect(() => {
@@ -551,6 +546,7 @@ export function RoomView({
       ),
     })),
   ];
+  const fit = stage && fitStage(stage, frames.length + (alone ? 1 : 0));
   const chosen = frames.find((frame) => frame.key === pinned);
   const front = pinned === null ? undefined : (chosen ?? frames.find((frame) => frame.key === "board" || frame.key.startsWith("screen-")));
   const bring = (key: string) => withMotion("words", () => setPinned(front?.key === key ? null : key));
@@ -769,34 +765,30 @@ export function RoomView({
           ) : frames.length === 0 ? (
             <p className="text-muted">{t("visibility.none")}</p>
           ) : front ? (
-            <div className="swap-in flex size-full min-h-0 gap-3 max-lg:flex-col">
+            <div className="swap-in flex size-full min-h-0 gap-3 overflow-hidden max-lg:flex-col">
               <ul className="flex min-h-0 min-w-0 flex-1">{front.render("front")}</ul>
               {frames.length > 1 ? (
-                <div className={`flex shrink-0 gap-2 max-lg:flex-col-reverse lg:flex-col ${othersHidden ? "" : "max-lg:h-28 lg:w-52"}`}>
-                  <button
-                    type="button"
-                    aria-expanded={!othersHidden}
-                    aria-controls="stage-others"
-                    aria-keyshortcuts="Control+Alt+O"
-                    title={`${t(othersHidden ? "stage.showOthers" : "stage.hideOthers", { count: frames.length - 1 })} (Ctrl+Alt+O)`}
-                    className={othersHidden ? "bubble flex items-center justify-center gap-1.5 border border-line-strong bg-card px-3 py-2 text-muted hover:text-fg max-lg:h-9 lg:w-9 lg:flex-1 lg:flex-col lg:px-0" : `${ICON_BUTTON} self-end`}
-                    onClick={() => setOthersHidden(!othersHidden)}
-                  >
-                    <span className="sr-only">{t(othersHidden ? "stage.showOthers" : "stage.hideOthers", { count: frames.length - 1 })}</span>
-                    <Icon name={othersHidden ? "expand" : "minimize"} className="size-4" />
-                    {othersHidden ? <span aria-hidden="true" className="font-mono text-xs font-bold">{frames.length - 1}</span> : null}
-                  </button>
-                  <ul id="stage-others" aria-label={t("stage.others")} hidden={othersHidden} className="no-scrollbar flex min-h-0 flex-1 gap-3 overflow-auto max-lg:[&>li]:h-full max-lg:[&>li]:w-auto lg:flex-col">
-                    {frames.filter((frame) => frame !== front).map((frame) => frame.render("strip"))}
-                  </ul>
-                </div>
+                <Others
+                  hidden={othersHidden}
+                  count={frames.length - 1}
+                  people={shownPeople.filter((person) => `person-${person.pid}` !== front.key)}
+                  photos={snapshot.photos}
+                  onToggle={() => setOthersHidden(!othersHidden)}
+                >
+                  {frames.filter((frame) => frame !== front).map((frame) => frame.render("strip"))}
+                </Others>
               ) : null}
             </div>
           ) : (
-            <ul className={`mx-auto grid max-h-full w-full content-center gap-3 ${grid(frames.length + (alone ? 1 : 0))}`}>
-              {frames.map((frame) => frame.render("grid"))}
-              {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
-            </ul>
+            <div ref={measureStage} className="no-scrollbar absolute inset-0 overflow-x-hidden overflow-y-auto">
+              <ul
+                className={`m-auto grid gap-3 ${fit ? "w-fit" : "w-full grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]"}`}
+                style={fit ? { gridTemplateColumns: `repeat(${fit.columns}, ${fit.tile.width}px)`, gridAutoRows: `${fit.tile.height}px` } : undefined}
+              >
+                {frames.map((frame) => frame.render("grid"))}
+                {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
+              </ul>
+            </div>
           )}
           {Object.entries(remote).flatMap(([pid, sources]) =>
             Number(pid) === myPid

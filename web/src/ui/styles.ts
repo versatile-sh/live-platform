@@ -25,6 +25,12 @@ export function button({ variant = "primary", size = "md" }: ButtonOptions = {})
   return `bubble-word inline-flex shrink-0 items-center justify-center gap-2 font-semibold whitespace-nowrap ${PRESS} ${BUTTON_VARIANT[variant]} ${BUTTON_SIZE[size]}`;
 }
 
+/** Visible keyboard focus for a control drawn without a skin of its own. */
+export const FOCUS_RING = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg";
+
+/** A round avatar that is also a button: small, pressed like the rest, ringed on keyboard focus. */
+export const AVATAR_BUTTON = `rounded-full ${PRESS} ${FOCUS_RING}`;
+
 /** Class string of a button that is only an icon: round, quiet until pointed at. Everything with words is a `button()`. */
 export const ICON_BUTTON = `grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-fg/10 hover:text-fg ${PRESS}`;
 
