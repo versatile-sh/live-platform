@@ -497,6 +497,43 @@ describe("RoomPage", () => {
       expect(panels().getByRole("button", { name: "Chat" })).not.toHaveTextContent("1");
     });
 
+    test("shows the last two new messages in a balloon while the chat is hidden, until it is closed or the chat opens", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "one", at: 1_700_000_001_000 });
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "two", at: 1_700_000_002_000 });
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "three", at: 1_700_000_003_000 });
+      await waitFor(() => expect(screen.queryByText("one")).not.toBeInTheDocument());
+      expect(screen.getByText("two")).toBeInTheDocument();
+      expect(screen.getByText("three")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Close the new messages" }));
+      await waitFor(() => expect(screen.queryByText("three")).not.toBeInTheDocument());
+      expect(panels().getByRole("button", { name: "Chat" })).toHaveTextContent("3");
+      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "four", at: 1_700_000_004_000 });
+      expect(screen.getByText("four")).toBeInTheDocument();
+      expect(screen.queryByText("three")).not.toBeInTheDocument();
+      await userEvent.click(screen.getByText("four"));
+      expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Close the new messages" })).not.toBeInTheDocument());
+    });
+
+    test("the balloon leaves by itself ten seconds after the newest message, leaving the count on the chat button", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        await send(socket, { t: "chat", pid: 2, name: "Bia", text: "one", at: 1_700_000_001_000 });
+        await act(() => vi.advanceTimersByTimeAsync(9_000));
+        expect(screen.getByText("one")).toBeInTheDocument();
+        await act(() => vi.advanceTimersByTimeAsync(1_500));
+        await act(() => vi.advanceTimersByTimeAsync(300));
+        expect(screen.queryByText("one")).not.toBeInTheDocument();
+        expect(panels().getByRole("button", { name: "Chat" })).toHaveTextContent("1");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     test("turning the microphone on asks the browser and tells the room, and raising a hand tells it too", async () => {
       const track = { stop: () => undefined, addEventListener: () => undefined };
       const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;
