@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -17,14 +17,11 @@ function setup(room: RoomSummary, extra: { refusal?: "PERMISSION_DENIED"; servic
   return { onEnter, services };
 }
 
-const pane = () => screen.getByRole("region", { name: "More options", hidden: true });
-
 describe("EntryForm", () => {
   describe("from an invitation link", () => {
-    test("a link with a room code to a free room creates it private with that code, and its query says whether it is shown", async () => {
+    test("a link with a room code to a free room creates it private with that code, and its query says whether it is shown", () => {
       const services = fakeServices({ readPasswordHash: () => "8ABH-23HK", invite: { read: () => ({ listed: false, pass: undefined }), forget: () => undefined } });
       setup(free, { services });
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
       expect(screen.getByRole("radio", { name: /Private/ })).toBeChecked();
       expect(screen.getByLabelText("Room code")).toHaveValue("8ABH-23HK");
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).not.toBeChecked();
@@ -40,9 +37,8 @@ describe("EntryForm", () => {
       expect(takePass).toHaveBeenCalledWith("abcdefghijklmnopqrstuv");
       expect(faces).toEqual([]);
       expect(forget).toHaveBeenCalled();
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
-      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
+      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
       await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", face: "", listed: true })));
     });
 
@@ -55,79 +51,23 @@ describe("EntryForm", () => {
   });
 
   describe("for a free slug", () => {
-    test("asks only for a name, and keeps the room public and out of the open rooms under More options", async () => {
+    test("whoever opens a new room names it by its address and chooses right there whether it is public or private and shown in the open rooms", () => {
       setup(free);
       expect(screen.getByRole("heading", { name: "Create demo" })).toBeInTheDocument();
       expect(screen.getByText(/This name is free/)).toBeInTheDocument();
       expect(screen.getByLabelText("Your name")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Create and enter" })).toBeInTheDocument();
-      const more = screen.getByRole("button", { name: "More options" });
-      expect(more).toHaveAttribute("aria-expanded", "false");
-      expect(screen.getByLabelText("Room name").closest("[inert]")).not.toBeNull();
-      await userEvent.click(more);
-      expect(more).toHaveAttribute("aria-expanded", "true");
+      expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Room name")).not.toBeInTheDocument();
       expect(screen.getByRole("radio", { name: /Public/ })).toBeChecked();
+      expect(screen.getByRole("radio", { name: /Private/ })).toBeVisible();
       expect(screen.getByRole("switch", { name: /Show in open rooms/ })).not.toBeChecked();
       expect(screen.getByLabelText("Room code").closest("[inert]")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Create and enter" })).toBeInTheDocument();
     });
 
-    test("shows the room name taken from the address, and a changed name opens that room instead, carrying what was chosen", async () => {
-      const { onEnter, services } = setup(free);
-      const put = vi.spyOn(services.entryIntent, "put");
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      const room = screen.getByLabelText("Room name");
-      expect(room).toHaveValue("demo");
-      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.clear(room);
-      await userEvent.type(room, "Sala-Nova ");
-      expect(screen.getByRole("heading", { name: "Create sala-nova" })).toBeInTheDocument();
-      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
-      await waitFor(() => expect(put).toHaveBeenCalledWith("sala-nova", { name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: false }));
-      expect(onEnter).not.toHaveBeenCalled();
-    });
-
-    test("refuses a room name the site cannot use", async () => {
+    test("explains a missing name and does not create the room", async () => {
       const { onEnter } = setup(free);
-      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      await userEvent.clear(screen.getByLabelText("Room name"));
-      await userEvent.type(screen.getByLabelText("Room name"), "a");
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
-      expect(await screen.findByText("Use 2 to 40 characters.")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "true");
-      expect(onEnter).not.toHaveBeenCalled();
-    });
-
-    test("whoever opens a new room chooses right there whether it is public or private and shown in the open rooms", async () => {
-      setup(free);
-      expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "false");
-      expect(screen.getByRole("radio", { name: /Public/ })).toBeVisible();
-      expect(screen.getByRole("radio", { name: /Private/ })).toBeVisible();
-      expect(screen.getByRole("switch", { name: /open rooms/i })).toBeVisible();
-    });
-
-    test("keeps the options chosen when they are put away with Escape or Back, and gives focus back to the toggle", async () => {
-      setup(free);
-      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
-      const more = screen.getByRole("button", { name: "More options" });
-      await userEvent.click(more);
-      expect(screen.getByLabelText("Room name")).toHaveFocus();
-      await userEvent.keyboard("{Escape}");
-      expect(more).toHaveAttribute("aria-expanded", "false");
-      expect(more).toHaveFocus();
-      await userEvent.click(more);
-      await userEvent.click(within(pane()).getByRole("button", { name: "Back" }));
-      expect(more).toHaveAttribute("aria-expanded", "false");
-      expect(more).toHaveFocus();
-      expect(screen.getByRole("radio", { name: /Private/, hidden: true })).toBeChecked();
-    });
-
-    test("puts the options away when their own button is pressed without a name, so the name's note shows", async () => {
-      const { onEnter } = setup(free);
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
-      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
-      expect(screen.getByRole("button", { name: "More options" })).toHaveAttribute("aria-expanded", "false");
       expect(screen.getByLabelText("Your name")).toBeInvalid();
       expect(onEnter).not.toHaveBeenCalled();
     });
@@ -144,18 +84,16 @@ describe("EntryForm", () => {
     test("a private room carries the room code it shows, and may still be shown in the open rooms or not", async () => {
       const { onEnter } = setup(free, { services: fakeServices({ generatePassword: () => "8ABH-23HK" }) });
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       expect(screen.getByLabelText("Room code")).toHaveTextContent("8ABH-23HK");
       await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
-      await userEvent.click(within(pane()).getByRole("button", { name: "Create and enter" }));
+      await userEvent.click(screen.getByRole("button", { name: "Create and enter" }));
       await waitFor(() => expect(onEnter).toHaveBeenCalledWith({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", verifier: "v:demo:8ABH-23HK", password: "8ABH-23HK", listed: true }));
     });
 
     test("draws a new code on request and copies the one shown", async () => {
       const codes = ["8ABH-23HK", "9XYZ-45QR"];
       const { services } = setup(free, { services: fakeServices({ generatePassword: () => codes.shift() ?? "none" }) });
-      await userEvent.click(screen.getByRole("button", { name: "More options" }));
       await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
       await userEvent.click(screen.getByRole("button", { name: "New" }));
       expect(screen.getByLabelText("Room code")).toHaveTextContent("9XYZ-45QR");
