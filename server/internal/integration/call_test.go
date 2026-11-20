@@ -157,14 +157,14 @@ func (c *tab) rtc(f frame) {
 
 func (c *tab) publish(source string) {
 	c.t.Helper()
-	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "t-"+source, "s")
+	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "t-"+source, "s-"+source)
 	require.NoError(c.t, err)
 	_, err = c.pub.AddTrack(track)
 	require.NoError(c.t, err)
 	offer, err := c.pub.CreateOffer(nil)
 	require.NoError(c.t, err)
 	require.NoError(c.t, c.pub.SetLocalDescription(offer))
-	c.send(map[string]any{"t": "rtc", "role": "pub", "kind": "offer", "sdp": offer.SDP, "sources": map[string]string{"t-" + source: source}})
+	c.send(map[string]any{"t": "rtc", "role": "pub", "kind": "offer", "sdp": offer.SDP, "sources": map[string]string{"s-" + source: source}})
 	go func() {
 		for seq := uint16(0); ; seq++ {
 			time.Sleep(20 * time.Millisecond)

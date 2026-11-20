@@ -24,7 +24,7 @@ export type ServerFrame =
   | { t: "board"; pid: number; data: unknown }
   | { t: "hb" };
 
-/** One step of setting up media: a session description or a network candidate, for the connection I publish on or the one I am sent the room on. */
+/** One step of setting up media for the connection I publish on or the one I am sent the room on; an offer I publish names each stream's source by stream id, since Firefox puts a random track id in the SDP. */
 export type RtcSignal = { role: "pub" | "sub"; kind: "offer" | "answer" | "ice"; sdp?: string; candidate?: string; sources?: Record<string, string> };
 
 export type Hello =

@@ -6,7 +6,10 @@ import { createRoomMedia } from "./room-media";
 const settle = () => new Promise((done) => setTimeout(done, 0));
 
 class FakeStream {
-  constructor(private readonly tracks: unknown[]) {}
+  readonly id: string;
+  constructor(private readonly tracks: { id: string }[]) {
+    this.id = tracks[0]?.id ?? "";
+  }
   getTracks() {
     return this.tracks;
   }

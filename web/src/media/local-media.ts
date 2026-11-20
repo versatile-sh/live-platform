@@ -83,6 +83,8 @@ export type LocalMedia = {
   setSettings(change: Partial<MediaSettings>): Promise<void>;
   /** Holds or lets go of the talk key. */
   talk(held: boolean): void;
+  /** Takes the store back into use after a dispose, as React's development mode does when it mounts a component twice. */
+  revive(): void;
   dispose(): void;
 };
 
@@ -366,12 +368,15 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       patch({ talking: held });
       gateKey();
     },
+    revive() {
+      disposed = false;
+    },
     dispose() {
       disposed = true;
       end(snapshot.microphone);
       end(snapshot.camera);
       end(snapshot.screen);
-      snapshot = OFF;
+      snapshot = { ...OFF, settings: snapshot.settings };
     },
   };
   return store;
