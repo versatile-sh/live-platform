@@ -17,6 +17,16 @@ describe("dressLike", () => {
     expect(target.head.textContent).toContain(".x");
     style.remove();
   });
+
+  test("links a stylesheet file instead of copying it, which the site's CSP would refuse", () => {
+    const target = document.implementation.createHTMLDocument("");
+    const sheet = { href: "https://live.versatile.sh/assets/index.css", get cssRules(): CSSRuleList { throw new Error("must not be read"); } };
+    dressLike(target, { documentElement: document.documentElement, body: document.body, styleSheets: [sheet] as unknown as StyleSheetList });
+    const link = target.head.querySelector("link");
+    expect(link?.rel).toBe("stylesheet");
+    expect(link?.href).toBe("https://live.versatile.sh/assets/index.css");
+    expect(target.head.querySelector("style")).toBeNull();
+  });
 });
 
 describe("useFloatingWindow", () => {
