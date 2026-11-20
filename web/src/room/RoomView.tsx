@@ -10,6 +10,7 @@ import {
 import { shareLink } from "../domain/share-link";
 import { createBoardSync } from "../board/board-sync";
 import { chime } from "../media/chime";
+import { useAutoFloat } from "../media/auto-float";
 import { createSpeaking } from "../media/speaking";
 import { CAMERA_EFFECTS, cameraShape, screenShape } from "../media/settings";
 import { Choice } from "../ui/Choice";
@@ -421,6 +422,7 @@ export function RoomView({
       remote[person.pid]?.screen &&
       sees(person.pid).screen,
   );
+  useAutoFloat(Boolean(local.screen) || screens.length > 0);
   const roomQuiet = inRoom && connection.roster.quiet === true;
   const boardLocked = inRoom && connection.roster.locked === true;
   const iMayDraw = me === undefined || !hasFlag(me.flags, "noDraw");
@@ -510,7 +512,7 @@ export function RoomView({
           {
             key: "screen-me",
             render: (mode: StageMode) => (
-              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} floating className="bubble-sent border border-bubble bg-sunken">
+              <StageFrame key="screen-me" mode={mode} name={t("room.yourScreen")} onFront={() => bring("screen-me")} floating data-float="mine" className="bubble-sent border border-bubble bg-sunken">
                 <video ref={attach(local.screen)} autoPlay muted playsInline className={SHOW} />
                 <span className={TAG}>{t("room.yourScreen")}</span>
               </StageFrame>
@@ -521,7 +523,7 @@ export function RoomView({
     ...screens.map((person) => ({
       key: `screen-${person.pid}`,
       render: (mode: StageMode) => (
-        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} floating className="bubble border border-bubble bg-sunken">
+        <StageFrame key={`screen-${person.pid}`} mode={mode} name={t("room.screenOf", { name: person.name })} onFront={() => bring(`screen-${person.pid}`)} floating data-float="other" className="bubble border border-bubble bg-sunken">
           <video ref={attach(remote[person.pid]?.screen)} autoPlay muted playsInline className={SHOW} />
           <span className={TAG} translate="no">
             {t("room.screenOf", { name: person.name })}
