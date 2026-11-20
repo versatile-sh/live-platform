@@ -5,10 +5,10 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { renderWithApp } from "../test-support/render";
 import { StageFrame } from "./StageFrame";
 
-function show(floating: boolean) {
+function show(onFloat?: (video: HTMLVideoElement | null) => void) {
   renderWithApp(
     <ul>
-      <StageFrame mode="grid" name="Bia's screen" onFront={() => undefined} floating={floating}>
+      <StageFrame mode="grid" name="Bia's screen" onFront={() => undefined} onFloat={onFloat}>
         <video />
       </StageFrame>
     </ul>,
@@ -17,33 +17,26 @@ function show(floating: boolean) {
 }
 
 describe("StageFrame picture-in-picture", () => {
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Object.defineProperty(document, "pictureInPictureEnabled", { configurable: true, value: false });
+  });
 
-  test("a screen floats in its own window and comes back on a second press, where the browser allows it", async () => {
-    const request = vi.fn(async () => ({}) as PictureInPictureWindow);
-    const exit = vi.fn(async () => undefined);
-    let floating: Element | null = null;
-    Object.defineProperty(HTMLVideoElement.prototype, "requestPictureInPicture", {
-      configurable: true,
-      value(this: HTMLVideoElement) {
-        floating = this;
-        return request();
-      },
-    });
+  test("the float button hands over the frame's video, where the browser can float a page", async () => {
+    vi.stubGlobal("documentPictureInPicture", { requestWindow: vi.fn() });
+    const onFloat = vi.fn();
+    await userEvent.click(show(onFloat)!);
+    expect(onFloat).toHaveBeenCalledWith(expect.any(HTMLVideoElement));
+  });
+
+  test("also where the browser can float only a video", () => {
     Object.defineProperty(document, "pictureInPictureEnabled", { configurable: true, value: true });
-    Object.defineProperty(document, "pictureInPictureElement", { configurable: true, get: () => floating });
-    Object.defineProperty(document, "exitPictureInPicture", { configurable: true, value: exit });
-    const button = show(true)!;
-    await userEvent.click(button);
-    expect(request).toHaveBeenCalledOnce();
-    await userEvent.click(button);
-    expect(exit).toHaveBeenCalledOnce();
+    expect(show(vi.fn())).not.toBeNull();
   });
 
   test("offers nothing where the browser cannot, or for a frame that does not float", () => {
-    Object.defineProperty(document, "pictureInPictureEnabled", { configurable: true, value: false });
-    expect(show(true)).toBeNull();
-    Object.defineProperty(document, "pictureInPictureEnabled", { configurable: true, value: true });
-    expect(show(false)).toBeNull();
+    expect(show(vi.fn())).toBeNull();
+    vi.stubGlobal("documentPictureInPicture", { requestWindow: vi.fn() });
+    expect(show()).toBeNull();
   });
 });
