@@ -10,4 +10,4 @@ pre-commit:
 pre-push:
   jobs:
     - name: server check
-      run: make -C server check
+      run: make check

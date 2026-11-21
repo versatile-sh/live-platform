@@ -155,8 +155,8 @@ All variables: [Configuration](docs/configuration.md).
 ```sh
 mise install                           # the pinned Go and golangci-lint
 lefthook install                       # once: format on commit, server check on push
-make -C server check                   # gofmt, go vet, go-lint, golangci-lint, then the race tests
-make -C server test                    # go test -race -count=1 ./...
+make check                             # gofmt, go vet, go-lint, golangci-lint, then the race tests
+make test                              # go test -race -count=1 ./...
 cd web && npx vitest run
 cd web && npm run test:live            # the client against a real server
 cd web && npm run typecheck && npm run build
