@@ -1,6 +1,6 @@
 # Configuration
 
-Everything is read from the environment at start.
+Everything is read from the environment once, at start. A value that cannot be read (a port that is not a number, a duration that is not one) stops the server with the name of the setting.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |

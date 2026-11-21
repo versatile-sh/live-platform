@@ -44,7 +44,8 @@ The server follows ports and adapters; dependencies point inward.
 
 ```
 server/
-  cmd/live/                 composition root: reads the environment, wires everything; `live audit` reads the audit trail
+  cmd/live/                 the binary: starts the server through app/; `live audit` reads the audit trail
+  app/                      composition root: reads and checks the environment once, wires everything
   core/room/                the Room aggregate: seats, flags, roster, owner rules. Pure: no clock, no I/O
   port/                     the coded error and its codes
   port/inbound|outbound/    what the application offers and what it needs
