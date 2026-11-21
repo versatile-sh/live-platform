@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gobwas/ws"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/versatile-sh/live/server/core/room"
@@ -32,6 +33,30 @@ func TestFrames(t *testing.T) {
 		}
 		assert.Equal(t, textFrame(encodePhoto(1, nil)), photoText(1, nil))
 		assert.InDelta(t, 1.0, testing.AllocsPerRun(50, func() { photoText(1, make([]byte, 0)) }), 0)
+	})
+
+	t.Run("a text frame is what the WebSocket library compiles, in one allocation", func(t *testing.T) {
+		for _, size := range []int{0, 125, 126, 65535, 65536} {
+			payload := bytes.Repeat([]byte{'x'}, size)
+			assert.Equal(t, ws.MustCompileFrame(ws.NewTextFrame(payload)), textFrame(payload))
+		}
+		payload := make([]byte, 300)
+		assert.InDelta(t, 1.0, testing.AllocsPerRun(50, func() { textFrame(payload) }), 0)
+	})
+
+	t.Run("sharing a frame allocates nothing, for every kind of broadcast", func(t *testing.T) {
+		var f frames
+		snapshot := room.Snapshot{Version: 9, Participants: []room.Participant{{ID: 1, Name: "Ana"}}}
+		message := room.ChatMessage{From: 1, Name: "Ana", Text: "oi", Image: []byte{1}, At: time.UnixMilli(5)}
+		jpeg := []byte{0xff, 0xd8}
+		f.rosterFrame(snapshot)
+		f.chatFrame(message)
+		f.photoFrame(1, jpeg)
+		assert.Zero(t, testing.AllocsPerRun(100, func() {
+			f.rosterFrame(snapshot)
+			f.chatFrame(message)
+			f.photoFrame(1, jpeg)
+		}))
 	})
 
 	t.Run("a roster, a chat message and a photo are shared the same way", func(t *testing.T) {

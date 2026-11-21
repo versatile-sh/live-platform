@@ -8,14 +8,14 @@ import (
 
 // memo keeps the last frame encoded for one kind of broadcast, so a room sending one value to everyone encodes it once and every connection queues the same bytes.
 // It holds the value it was built from, so the memory a key points at cannot be reused for something else while the key is kept.
-type memo[K comparable] struct {
+type memo[K comparable, H any] struct {
 	mu    sync.Mutex
 	key   K
-	hold  any
+	hold  H
 	frame []byte
 }
 
-func (m *memo[K]) get(key K, hold any, build func() []byte) []byte {
+func (m *memo[K, H]) get(key K, hold H, build func() []byte) []byte {
 	m.mu.Lock()
 	if m.frame != nil && m.key == key {
 		frame := m.frame
@@ -61,10 +61,10 @@ type photoKey struct {
 
 // frames holds one memo per kind of broadcast the rooms send.
 type frames struct {
-	roster memo[rosterKey]
-	chat   memo[chatKey]
-	board  memo[boardKey]
-	photo  memo[photoKey]
+	roster memo[rosterKey, room.Snapshot]
+	chat   memo[chatKey, []byte]
+	board  memo[boardKey, struct{}]
+	photo  memo[photoKey, []byte]
 }
 
 func first[T any](s []T) *T {
@@ -85,7 +85,7 @@ func (f *frames) chatFrame(m room.ChatMessage) []byte {
 }
 
 func (f *frames) boardFrame(u room.BoardUpdate) []byte {
-	return f.board.get(boardKey{from: u.From, data: u.Data}, nil, func() []byte { return boardText(u) })
+	return f.board.get(boardKey{from: u.From, data: u.Data}, struct{}{}, func() []byte { return boardText(u) })
 }
 
 func (f *frames) photoFrame(pid room.PID, jpeg []byte) []byte {

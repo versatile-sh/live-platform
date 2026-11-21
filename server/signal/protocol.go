@@ -178,7 +178,9 @@ func closeCode(reason room.CloseReason) ws.StatusCode {
 }
 
 func textFrame(payload []byte) []byte {
-	return ws.MustCompileFrame(ws.NewTextFrame(payload))
+	frame, at := textFrameOf(len(payload))
+	copy(frame[at:], payload)
+	return frame
 }
 
 func closeFrame(code ws.StatusCode, reason string) []byte {
