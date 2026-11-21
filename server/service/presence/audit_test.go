@@ -3,6 +3,7 @@ package presence
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -154,4 +155,18 @@ func TestAuditRecordsOwnerActionsWithActorAndTarget(t *testing.T) {
 	assert.True(t, owner[2].Private)
 	assert.Equal(t, "bia", owner[3].Target.Name)
 	assert.Equal(t, "cai", owner[4].Target.Name)
+}
+
+func TestAuditLeaveAfterAResumeKeepsTheStayStartNameAndTrace(t *testing.T) {
+	h, log := audited()
+	ana := enterAs(t, h, room.Entry{Name: "ana", TraceID: "4bf92f3577b34da6a3ce929d0e0e4736", SpanID: "00f067aa0ba902b7"})
+	resumed, err := h.Resume("bk", ana.PID, ana.Secret, &fakeSession{})
+	require.NoError(t, err)
+	h.Leave("bk", resumed.PID, resumed.Gen)
+	require.Eventually(t, log.count(outbound.AuditLeave), wait, tick)
+	left := log.of(outbound.AuditLeave)[0]
+	assert.Equal(t, "ana", left.Actor.Name)
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", left.TraceID)
+	assert.Equal(t, "00f067aa0ba902b7", left.SpanID)
+	assert.Less(t, left.DurationMS, int64(time.Minute/time.Millisecond))
 }
