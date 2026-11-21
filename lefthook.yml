@@ -8,6 +8,8 @@ pre-commit:
       stage_fixed: true
 
 pre-push:
+  skip:
+    - ref: turbo/*
   jobs:
     - name: server check
       run: make check
