@@ -26,7 +26,10 @@ const (
 	maxFace        = 13_000
 )
 
-var passID = regexp.MustCompile(`^[A-Za-z0-9_-]{16,64}$`)
+var (
+	passID      = regexp.MustCompile(`^[A-Za-z0-9_-]{16,64}$`)
+	traceParent = regexp.MustCompile(`^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$`)
+)
 
 // Pass is the pass as the issuer sends it.
 type Pass = outbound.GuestPass
@@ -105,6 +108,9 @@ func valid(p *Pass) bool {
 	}
 	p.DiscordUserID, p.GuildID, p.ChannelID = snowflake(p.DiscordUserID), snowflake(p.GuildID), snowflake(p.ChannelID)
 	p.DiscordName = plain(p.DiscordName, maxDiscordName)
+	if !traceParent.MatchString(p.TraceParent) {
+		p.TraceParent = ""
+	}
 	if p.Face != "" {
 		if _, err := base64.StdEncoding.DecodeString(p.Face); err != nil {
 			return false

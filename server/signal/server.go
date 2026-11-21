@@ -16,6 +16,10 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/panjf2000/gnet/v2"
 	"github.com/panjf2000/gnet/v2/pkg/logging"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/versatile-sh/live/server/port/inbound"
 	"github.com/versatile-sh/live/server/port/outbound"
@@ -68,6 +72,7 @@ type Server struct {
 	salt     [16]byte
 	open     sync.Map
 	passes   outbound.PassLedger
+	join     func(parent string, attrs ...attribute.KeyValue) trace.Span
 }
 
 // NewServer builds the signalling endpoint over the presence port.
@@ -80,7 +85,15 @@ func NewServer(presence inbound.Presence, cfg Config) *Server {
 }
 
 // UsePasses lets a join name a guest pass by id and have the server, not the browser, attach the Discord origin the pass vouched for.
-func (s *Server) UsePasses(ledger outbound.PassLedger) { s.passes = ledger }
+// A join continues, under ctx, the trace its pass carries.
+func (s *Server) UsePasses(ctx context.Context, ledger outbound.PassLedger) {
+	s.passes = ledger
+	s.join = func(parent string, attrs ...attribute.KeyValue) trace.Span {
+		ctx := propagation.TraceContext{}.Extract(ctx, propagation.MapCarrier{"traceparent": parent})
+		_, span := otel.Tracer("live/signal").Start(ctx, "live.join", trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(attrs...))
+		return span
+	}
+}
 
 // Run serves on addr until Stop is called.
 func (s *Server) Run(addr string) error {

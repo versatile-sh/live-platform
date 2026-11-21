@@ -11,10 +11,15 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/panjf2000/gnet/v2"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/versatile-sh/live/server/clientinfo"
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/port"
+	"github.com/versatile-sh/live/server/port/outbound"
 )
 
 type phase uint8
@@ -238,9 +243,22 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 			return "", room.Seat{}, err
 		}
 		client := c.headers.Client(c.remote)
-		client.Discord = c.vouched(hello.Pass, slug)
-		seat, err := c.server.presence.Join(slug, room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Origin: c.origin, Country: c.country, Client: client}, c)
-		if err == nil && client.Discord != nil {
+		record, vouched := c.vouched(hello.Pass, slug)
+		if vouched {
+			client.Discord = &record.Discord
+		}
+		span := c.joinSpan(record.TraceParent, slug, vouched)
+		defer span.End()
+		ids := span.SpanContext()
+		entry := room.Entry{Name: hello.Name, Look: room.NewLook(hello.Look), Face: face, Proof: proof, Listed: hello.Listed, Origin: c.origin, Country: c.country, Client: client}
+		if ids.IsSampled() {
+			entry.TraceID, entry.SpanID = ids.TraceID().String(), ids.SpanID().String()
+		}
+		seat, err := c.server.presence.Join(slug, entry, c)
+		if err != nil {
+			span.SetStatus(codes.Error, err.Error())
+		}
+		if err == nil && vouched {
 			c.server.passes.Spend(hello.Pass)
 		}
 		return slug, seat, err
@@ -254,16 +272,22 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 	return "", room.Seat{}, port.NewError(port.CodeInvalidArgument, "the first frame is join or resume")
 }
 
-func (c *conn) vouched(pass string, slug room.Slug) *room.Discord {
+func (c *conn) joinSpan(parent string, slug room.Slug, vouched bool) trace.Span {
+	if c.server.join == nil {
+		return noop.Span{}
+	}
+	return c.server.join(parent, attribute.String("live.room", string(slug)), attribute.Bool("live.discord", vouched))
+}
+
+func (c *conn) vouched(pass string, slug room.Slug) (outbound.PassRecord, bool) {
 	if pass == "" || c.server.passes == nil {
-		return nil
+		return outbound.PassRecord{}, false
 	}
 	record, ok := c.server.passes.Recall(pass)
 	if !ok || record.Slug != slug {
-		return nil
+		return outbound.PassRecord{}, false
 	}
-	discord := record.Discord
-	return &discord
+	return record, true
 }
 
 func (c *conn) dispatch(f clientFrame) {

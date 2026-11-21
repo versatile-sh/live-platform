@@ -11,6 +11,10 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/guestpass"
@@ -49,7 +53,7 @@ func auditedServer(t *testing.T) (string, *recorder, *guestpass.Ledger) {
 	hub.UseAudit(rec)
 	ledger := guestpass.NewLedger(time.Now)
 	srv := NewServer(presence.WithoutMedia{Hub: hub}, DefaultConfig(nil))
-	srv.UsePasses(ledger)
+	srv.UsePasses(context.Background(), ledger)
 	probe, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	addr := probe.Addr().String()
@@ -122,4 +126,25 @@ func TestOnlyTheServersOwnLedgerNamesTheDiscordOrigin(t *testing.T) {
 	assert.False(t, again, "a pass that let someone in is spent")
 	_, kept := ledger.Recall("pass-for-other-0000")
 	assert.True(t, kept, "a pass used for the wrong room stays")
+}
+
+func TestJoinContinuesThePassTraceAndAuditsIt(t *testing.T) {
+	spans := tracetest.NewSpanRecorder()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)))
+	t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
+	url, rec, ledger := auditedServer(t)
+	ledger.Remember("pass-for-bk-0000000", outbound.PassRecord{Slug: "bk", Discord: room.Discord{UserID: "42"}, TraceParent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"})
+	genuine := dial(t, url)
+	genuine.send(`{"t":"join","slug":"bk","name":"ana","pass":"pass-for-bk-0000000"}`)
+	_, err := genuine.next()
+	require.NoError(t, err)
+
+	joins := rec.joins()
+	require.Len(t, joins, 1)
+	assert.Equal(t, "4bf92f3577b34da6a3ce929d0e0e4736", joins[0].TraceID)
+	ended := spans.Ended()
+	require.Len(t, ended, 1)
+	assert.Equal(t, "live.join", ended[0].Name())
+	assert.Equal(t, "00f067aa0ba902b7", ended[0].Parent().SpanID().String())
+	assert.Equal(t, ended[0].SpanContext().SpanID().String(), joins[0].SpanID)
 }
