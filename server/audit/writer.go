@@ -46,11 +46,13 @@ type Config struct {
 	Log   *slog.Logger
 	// Mirror, when set, also receives every written event as a log record with the message "audit" and the event under "event".
 	Mirror *slog.Logger
+	Now    func() time.Time
 }
 
 // Writer appends events from a buffered queue on its own goroutine; a full queue drops the event and counts it, so the signalling path never waits.
 type Writer struct {
 	dir     string
+	now     func() time.Time
 	log     *slog.Logger
 	mirror  *slog.Logger
 	queue   chan outbound.AuditEvent
@@ -67,6 +69,9 @@ func Open(cfg Config) (*Writer, error) {
 	if cfg.Dir == "" {
 		return nil, errors.New("audit directory is empty")
 	}
+	if cfg.Now == nil {
+		return nil, errors.New("audit clock is missing")
+	}
 	if err := os.MkdirAll(cfg.Dir, dirMode); err != nil {
 		return nil, fmt.Errorf("audit directory: %w", err)
 	}
@@ -76,7 +81,7 @@ func Open(cfg Config) (*Writer, error) {
 	if cfg.Log == nil {
 		cfg.Log = slog.New(slog.DiscardHandler)
 	}
-	w := &Writer{dir: cfg.Dir, log: cfg.Log, mirror: cfg.Mirror, queue: make(chan outbound.AuditEvent, cfg.Queue), stop: make(chan struct{}), done: make(chan struct{})}
+	w := &Writer{dir: cfg.Dir, now: cfg.Now, log: cfg.Log, mirror: cfg.Mirror, queue: make(chan outbound.AuditEvent, cfg.Queue), stop: make(chan struct{}), done: make(chan struct{})}
 	go w.run()
 	return w, nil
 }
@@ -193,7 +198,7 @@ func (w *Writer) run() {
 	var lastReport time.Time
 	report := func(err error) {
 		w.failed.Add(1)
-		if now := time.Now(); now.Sub(lastReport) >= errorEvery {
+		if now := w.now(); now.Sub(lastReport) >= errorEvery {
 			lastReport = now
 			w.log.Error("audit write failed", "error", err.Error())
 		}

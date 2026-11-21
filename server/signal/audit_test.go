@@ -48,7 +48,7 @@ func auditedServer(t *testing.T) (string, *recorder, *guestpass.Ledger) {
 	rec := &recorder{}
 	hub.UseAudit(rec)
 	ledger := guestpass.NewLedger(time.Now)
-	srv := NewServer(presence.WithoutMedia{Hub: hub}, DefaultConfig(nil))
+	srv := NewServer(presence.WithoutMedia{Hub: hub}, DefaultConfig(nil, time.Now))
 	srv.UsePasses(ledger)
 	probe, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)

@@ -42,12 +42,14 @@ type Config struct {
 	FrameBurst   float64
 	MaxPending   int64
 	MaxConns     int64
+	Now          func() time.Time
 }
 
-// DefaultConfig returns the limits of lv.1 for the given allowed origins.
-func DefaultConfig(origins []string) Config {
+// DefaultConfig returns the limits of lv.1 for the given allowed origins, reading time from now.
+func DefaultConfig(origins []string, now func() time.Time) Config {
 	return Config{
 		Origins:      origins,
+		Now:          now,
 		HelloTimeout: 5 * time.Second,
 		ReadLimit:    128 << 10,
 		FramesPerSec: 20,
@@ -120,7 +122,7 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 	if s.conns.Add(1) > s.cfg.MaxConns {
 		return nil, gnet.Close
 	}
-	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, time.Now())}
+	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, s.cfg.Now())}
 	if raw.RemoteAddr() != nil {
 		if host, _, err := net.SplitHostPort(raw.RemoteAddr().String()); err == nil {
 			c.remote = host

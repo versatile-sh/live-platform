@@ -21,7 +21,7 @@ func serve(t *testing.T) (*presence.Hub, *Server, string) {
 	require.NoError(t, err)
 	addr := probe.Addr().String()
 	require.NoError(t, probe.Close())
-	srv := NewServer(presence.WithoutMedia{Hub: hub}, DefaultConfig(nil))
+	srv := NewServer(presence.WithoutMedia{Hub: hub}, DefaultConfig(nil, time.Now))
 	go func() { _ = srv.Run(addr) }()
 	<-srv.Ready()
 	t.Cleanup(func() {

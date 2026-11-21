@@ -30,10 +30,11 @@ type note struct {
 type Dir struct {
 	path string
 	id   string
+	now  func() time.Time
 }
 
 // Open prepares the directory and gives this server a name of its own, so that it never takes back what it left.
-func Open(path string) (*Dir, error) {
+func Open(path string, now func() time.Time) (*Dir, error) {
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return nil, err
 	}
@@ -41,7 +42,7 @@ func Open(path string) (*Dir, error) {
 	if _, err := rand.Read(id[:]); err != nil {
 		return nil, err
 	}
-	return &Dir{path: path, id: hex.EncodeToString(id[:])}, nil
+	return &Dir{path: path, id: hex.EncodeToString(id[:]), now: now}, nil
 }
 
 // Salt answers the secret that keys visitors' origins, the same for every server that shares the directory; it is drawn once.
@@ -120,7 +121,7 @@ func (d *Dir) take() ([]presence.HandedRoom, bool) {
 	if n.From == d.id {
 		return nil, false
 	}
-	if os.Remove(file) != nil || time.Since(info.ModTime()) > fresh {
+	if os.Remove(file) != nil || d.now().Sub(info.ModTime()) > fresh {
 		return nil, false
 	}
 	return n.Rooms, true
