@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/versatile-sh/live/server/internal/ports/inbound"
 	"net"
 	"net/http"
 	"strings"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/versatile-sh/live/server/internal/application/presence"
 	"github.com/versatile-sh/live/server/internal/domain/room"
+	"github.com/versatile-sh/live/server/internal/ports/inbound"
 )
 
 type serverFrame struct {

@@ -3,7 +3,6 @@ package main
 
 import (
 	"context"
-	"github.com/versatile-sh/live/server/internal/adapters/handoff"
 	"io/fs"
 	"log/slog"
 	"net"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/versatile-sh/live/server/internal/adapters/github"
 	"github.com/versatile-sh/live/server/internal/adapters/guestpass"
+	"github.com/versatile-sh/live/server/internal/adapters/handoff"
 	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
 	"github.com/versatile-sh/live/server/internal/adapters/page"
 	"github.com/versatile-sh/live/server/internal/adapters/sfu"
