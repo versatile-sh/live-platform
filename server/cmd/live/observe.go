@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/versatile-sh/live/server/internal/adapters/audit"
-	"github.com/versatile-sh/live/server/internal/application/presence"
+	"github.com/versatile-sh/live/server/audit"
+	"github.com/versatile-sh/live/server/service/presence"
 )
 
 const (

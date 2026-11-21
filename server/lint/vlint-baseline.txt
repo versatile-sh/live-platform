@@ -1,23 +1,14 @@
 # vlint baseline: module-relative file, analyzer, hash of the reported source line, message.
 # Regenerate with vlint -baseline <file> -write. Lines are sorted; a repeated line counts one finding each.
-internal/adapters/audit/logged.go	layout	28ae62aa	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/audit/purge.go	clockseam	61ef0a43	time.Now: read time through the injected clock port
-internal/adapters/audit/writer.go	clockseam	dd8b222f	time.Now: read time through the injected clock port
-internal/adapters/clientinfo/clientinfo.go	layout	e41e1151	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/github/stars.go	layout	0ebbe830	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/guestpass/guestpass.go	layout	ed8f65e6	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/handoff/dir.go	clockseam	7f0c0f9d	time.Since: read time through the injected clock port
-internal/adapters/handoff/dir.go	layout	9152e607	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/httpapi/api.go	layout	5e113808	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/page/layered.go	layout	35fc41c7	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/sfu/engine.go	layout	d47e437b	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/signal/bucket.go	layout	81780c66	folder internal/adapters/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/adapters/signal/conn.go	clockseam	8b62b026	time.Now: read time through the injected clock port
-internal/adapters/signal/server.go	clockseam	04b29608	time.Now: read time through the injected clock port
-internal/application/presence/actor.go	layout	fd3fd8e2	folder internal/application/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/domain/room/board.go	layout	9e697d64	folder internal/domain/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/domain/shared/errors.go	layout	6d3ac9b4	folder internal/domain/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
+audit/purge.go	clockseam	61ef0a43	time.Now: read time through the injected clock port
+audit/writer.go	clockseam	dd8b222f	time.Now: read time through the injected clock port
+handoff/dir.go	clockseam	7f0c0f9d	time.Since: read time through the injected clock port
 internal/integration/call_test.go	noskipenv	21436a09	silent test skip: fail instead, or guard the skip with testing.Short, a *_SKIP_* opt-out variable or runtime.GOOS
 internal/integration/call_test.go	noskipenv	f2ecd37d	silent test skip: fail instead, or guard the skip with testing.Short, a *_SKIP_* opt-out variable or runtime.GOOS
-internal/ports/inbound/presence.go	layout	afa43065	folder internal/ports/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
-internal/ports/outbound/audit.go	layout	be9b9934	folder internal/ports/ is outside the layout: use app/, cmd/, port/, core/, service/, schema/, api/ or a flat adapter folder at the module root
+port/inbound/presence.go	layout	e7166c6b	port/inbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/audit.go	layout	e7166c6b	port/outbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/media.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/policy.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/session.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/
+signal/conn.go	clockseam	8b62b026	time.Now: read time through the injected clock port
+signal/server.go	clockseam	04b29608	time.Now: read time through the injected clock port

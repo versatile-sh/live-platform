@@ -18,10 +18,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/versatile-sh/live/server/internal/adapters/sfu"
-	"github.com/versatile-sh/live/server/internal/adapters/signal"
-	"github.com/versatile-sh/live/server/internal/application/presence"
-	"github.com/versatile-sh/live/server/internal/domain/room"
+	"github.com/versatile-sh/live/server/core/room"
+	"github.com/versatile-sh/live/server/service/presence"
+	"github.com/versatile-sh/live/server/sfu"
+	"github.com/versatile-sh/live/server/signal"
 )
 
 const wait = 15 * time.Second

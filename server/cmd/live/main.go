@@ -14,17 +14,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/versatile-sh/live/server/internal/adapters/github"
-	"github.com/versatile-sh/live/server/internal/adapters/guestpass"
-	"github.com/versatile-sh/live/server/internal/adapters/handoff"
-	"github.com/versatile-sh/live/server/internal/adapters/httpapi"
-	"github.com/versatile-sh/live/server/internal/adapters/page"
-	"github.com/versatile-sh/live/server/internal/adapters/sfu"
-	"github.com/versatile-sh/live/server/internal/adapters/signal"
-	"github.com/versatile-sh/live/server/internal/application/presence"
-	"github.com/versatile-sh/live/server/internal/domain/room"
-	"github.com/versatile-sh/live/server/internal/ports/inbound"
-	"github.com/versatile-sh/live/server/internal/ports/outbound"
+	"github.com/versatile-sh/live/server/core/room"
+	"github.com/versatile-sh/live/server/github"
+	"github.com/versatile-sh/live/server/guestpass"
+	"github.com/versatile-sh/live/server/handoff"
+	"github.com/versatile-sh/live/server/httpapi"
+	"github.com/versatile-sh/live/server/page"
+	"github.com/versatile-sh/live/server/port/inbound"
+	"github.com/versatile-sh/live/server/port/outbound"
+	"github.com/versatile-sh/live/server/service/presence"
+	"github.com/versatile-sh/live/server/sfu"
+	"github.com/versatile-sh/live/server/signal"
 )
 
 const (

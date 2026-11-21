@@ -45,22 +45,20 @@ The server follows ports and adapters; dependencies point inward.
 ```
 server/
   cmd/live/                 composition root: reads the environment, wires everything; `live audit` reads the audit trail
-  internal/
-    domain/room/            the Room aggregate: seats, flags, roster, owner rules. Pure: no clock, no I/O
-    domain/shared/          small shared value types
-    application/presence/   the hub and one goroutine (actor) per room; liveness, handover, lobby summaries
-    ports/inbound|outbound/ what the application offers and what it needs
-    adapters/
-      signal/               lv.1 over WebSocket on gnet: frames, close codes, rate limits
-      httpapi/              JSON routes
-      page/                 serves the built client with its security headers
-      sfu/                  the Pion media engine
-      handoff/              hands rooms to the next process on a planned restart
-      guestpass/            takes guest passes from a configured issuer
-      audit/                optional append-only audit trail
-      clientinfo/           parses User-Agent and request headers for the audit trail
-      github/               the repository star count on the front page
-    integration/            end-to-end calls against a real server
+  core/room/                the Room aggregate: seats, flags, roster, owner rules. Pure: no clock, no I/O
+  port/                     the coded error and its codes
+  port/inbound|outbound/    what the application offers and what it needs
+  service/presence/         the hub and one goroutine (actor) per room; liveness, handover, lobby summaries
+  signal/                   lv.1 over WebSocket on gnet: frames, close codes, rate limits
+  httpapi/                  JSON routes
+  page/                     serves the built client with its security headers
+  sfu/                      the Pion media engine
+  handoff/                  hands rooms to the next process on a planned restart
+  guestpass/                takes guest passes from a configured issuer
+  audit/                    optional append-only audit trail
+  clientinfo/               parses User-Agent and request headers for the audit trail
+  github/                   the repository star count on the front page
+  internal/integration/     end-to-end calls against a real server
 ```
 
 - **One goroutine per room.** Every change to a room goes through its actor, in order; there are no locks around room state. The room is a value that is told the time and answers with what changed, so every presence rule is a plain unit test.

@@ -1,7 +1,7 @@
 exclusions:
   rules:
     # Temporary, each rule is removed by the fix pull request of its class.
-    - path: '^internal/adapters/audit/query\.go$|^internal/adapters/handoff/dir\.go$|^internal/domain/room/room\.go$'
+    - path: '^audit/query\.go$|^handoff/dir\.go$|^core/room/room\.go$'
       linters: [gosec]
-    - path: '^internal/adapters/guestpass/guestpass_test\.go$|^internal/adapters/sfu/engine\.go$|^internal/domain/room/room_test\.go$'
+    - path: '^guestpass/guestpass_test\.go$|^sfu/engine\.go$|^core/room/room_test\.go$'
       linters: [staticcheck]
