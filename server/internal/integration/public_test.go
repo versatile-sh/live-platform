@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -17,8 +18,8 @@ func TestPublicCall(t *testing.T) {
 	if url == "" {
 		t.Fatal("LIVE_PUBLIC_WS is not set")
 	}
-	ana := open(t, url, "ana")
-	bia := open(t, url, "bia")
+	ana := open(t, webrtc.NewAPI(), url, "ana")
+	bia := open(t, webrtc.NewAPI(), url, "bia")
 	require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, 4*wait, 50*time.Millisecond)
 	ana.publish("microphone")
 	require.Eventually(t, func() bool { return bia.hears("1:microphone") }, 4*wait, 50*time.Millisecond)
@@ -31,8 +32,8 @@ func TestPublicStay(t *testing.T) {
 	if url == "" || err != nil || stay <= 0 {
 		t.Fatal("LIVE_PUBLIC_WS and LIVE_STAY_SECONDS are not set")
 	}
-	ana := open(t, url, "ana")
-	bia := open(t, url, "bia")
+	ana := open(t, webrtc.NewAPI(), url, "ana")
+	bia := open(t, webrtc.NewAPI(), url, "bia")
 	require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, 4*wait, 50*time.Millisecond)
 	ana.publish("microphone")
 	require.Eventually(t, func() bool { return bia.hears("1:microphone") }, 4*wait, 50*time.Millisecond)

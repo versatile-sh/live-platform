@@ -166,7 +166,7 @@ func (a *actor) resume(pid room.PID, secret [32]byte, session outbound.Session) 
 	if s.online {
 		s.session.Close(room.CloseSuperseded)
 	}
-	*s = seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true}
+	s.session, s.gen, s.lastSeen, s.online = session, p.Gen, a.now(), true
 	a.apply(events)
 	a.showPhotos(session)
 	a.wire(p.ID, p.Gen, session)
