@@ -1,16 +1,16 @@
 import { createRequire } from "node:module";
 import { readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const opentype = require("opentype.js");
-const here = dirname(fileURLToPath(import.meta.url));
-const out = join(here, "..");
+const here = process.argv[2] ? resolve(process.argv[2]) : dirname(fileURLToPath(import.meta.url));
+const out = process.argv[3] ? resolve(process.argv[3]) : join(here, "..");
 const spec = JSON.parse(readFileSync(join(here, "readme.assets.json"), "utf8"));
 
 const font = (pkg, file) => {
-  const buf = readFileSync(join(here, "node_modules/@fontsource", pkg, "files", file));
+  const buf = readFileSync(require.resolve(`@fontsource/${pkg}/files/${file}`));
   return opentype.parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
 };
 const serif = font("instrument-serif", "instrument-serif-latin-400-normal.woff");
@@ -71,53 +71,73 @@ const frame = (t, w, h, label, body) => {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}"><title>${esc(label)}</title><defs><radialGradient id="l" cx="0.5" cy="0" r="0.75"><stop offset="0" stop-color="#fff" stop-opacity="${t.glow}"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><clipPath id="c"><rect width="${w}" height="${h}" rx="16"/></clipPath>${defs()}</defs><g clip-path="url(#c)"><rect width="${w}" height="${h}" fill="${t.bg}"/><path d="${grid.join("")}" stroke="${t.line}" stroke-opacity="${t.grid}" fill="none"/>${glow}${body}</g><rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="15.5" fill="none" stroke="${t.line}" stroke-opacity="0.18"/></svg>\n`;
 };
 
-const wordmark = (t, x, y) => runs([[mono, "versatile", 18, t.ink], [mono, ".sh", 18, t.accentText]], x, y);
+const wordmark = (t, x, y, size) => runs([[mono, "versatile", size, t.ink], [mono, ".sh", size, t.accentText]], x, y);
+const centered = (f, s, cx, y, size, fill) => text(f, s, cx - width(f, s, size) / 2, y, size, fill);
+const shrink = (f, s, size, min, max, what) => {
+  while (width(f, s, size) > max && size > min) size -= 2;
+  fit(f, s, size, max, what);
+  return size;
+};
 
 const hero = (t) => {
   reset();
-  const w = 1280;
-  const h = 480;
-  const max = w - 144;
-  let size = 112;
-  while (width(serif, spec.name, size) > max && size > 72) size -= 4;
-  fit(serif, spec.name, size, max, "hero name");
-  const [lead, accent, tail] = spec.pitch;
-  const pitchW = width(serif, lead, 46) + width(italic, accent, 46) + width(serif, tail ?? "", 46);
-  if (pitchW > max) throw new Error(`hero pitch overflows (${r(pitchW)} > ${max})`);
-  fit(serif, spec.sub, 34, max, "hero sub");
-  let tx = 72;
-  const pills = (spec.tags ?? [])
-    .map((tag) => {
-      const tw = width(mono, tag, 15);
-      const p = `<rect x="${tx}" y="388" width="${(tw + 32).toFixed(1)}" height="36" rx="18" fill="none" stroke="${t.line}" stroke-opacity="0.18"/>${text(mono, tag, tx + 16, 411, 15, t.muted)}`;
-      tx += tw + 44;
+  const w = 1200;
+  const h = 540;
+  const cx = w / 2;
+  const max = w - 160;
+  const size = shrink(serif, spec.name, 128, 76, max, "hero name");
+  const [lead, accent, tail = ""] = spec.pitch;
+  let ps = 50;
+  const pitchW = (n) => width(serif, lead, n) + width(italic, accent, n) + width(serif, tail, n);
+  while (pitchW(ps) > max && ps > 38) ps -= 2;
+  if (pitchW(ps) > max) throw new Error(`hero pitch overflows (${r(pitchW(ps))} > ${max})`);
+  const ss = shrink(serif, spec.sub, 36, 28, max, "hero sub");
+  const crumb = spec.badge ? `  /  ${spec.badge}` : "";
+  const topW = 40 + 14 + width(mono, "versatile.sh", 20) + width(mono, crumb, 20);
+  const tx = cx - topW / 2;
+  const tags = spec.tags ?? [];
+  const tagW = tags.map((tag) => width(mono, tag, 18) + 36);
+  const rowW = tagW.reduce((a, b) => a + b, 0) + 14 * Math.max(0, tags.length - 1);
+  if (rowW > w - 96) throw new Error("hero tags overflow");
+  let px = cx - rowW / 2;
+  const pills = tags
+    .map((tag, i) => {
+      const p = `<rect x="${r(px)}" y="430" width="${r(tagW[i])}" height="42" rx="21" fill="none" stroke="${t.line}" stroke-opacity="0.2"/>${text(mono, tag, px + 18, 457, 18, t.muted)}`;
+      px += tagW[i] + 14;
       return p;
     })
     .join("");
-  if (tx - 44 > w - 72) throw new Error("hero tags overflow");
-  const badge = spec.badge ?? "";
   const body = [
-    mark(72, 56, 48 / 1024),
-    wordmark(t, 136, 87),
-    badge ? text(mono, badge, w - 72 - width(mono, badge, 14), 86, 14, t.muted) : "",
-    text(serif, spec.name, 68, 214, size, t.ink),
-    runs([[serif, lead, 46, t.ink], [italic, accent, 46, t.accentText], [serif, tail ?? "", 46, t.ink]], 72, 284),
-    text(serif, spec.sub, 72, 334, 34, t.muted),
-    `<path d="M72 364H${w - 72}" stroke="${t.line}" stroke-opacity="0.1"/>`,
+    mark(tx, 50, 40 / 1024),
+    wordmark(t, tx + 54, 77, 20),
+    crumb ? text(mono, crumb, tx + 54 + width(mono, "versatile.sh", 20), 77, 20, t.muted) : "",
+    centered(serif, spec.name, cx, 232, size, t.ink),
+    runs([[serif, lead, ps, t.ink], [italic, accent, ps, t.accentText], [serif, tail, ps, t.ink]], cx - pitchW(ps) / 2, 312),
+    centered(serif, spec.sub, cx, 368, ss, t.muted),
+    `<path d="M${cx - 48} 400H${cx + 48}" stroke="${t.accent}" stroke-width="2"/>`,
     pills,
   ].join("");
-  return frame(t, w, h, spec.heroLabel ?? `${spec.name}: ${lead}${accent}${tail ?? ""} ${spec.sub}`, body);
+  return frame(t, w, h, spec.heroLabel ?? `${spec.name}: ${lead}${accent}${tail} ${spec.sub}`, body);
 };
 
 const section = (t, kicker, plain, accent) => {
   reset();
-  const w = 1280;
-  const h = 150;
-  fit(serif, plain, 54, 1000, "section title");
+  const w = 960;
+  const h = 168;
+  const cx = w / 2;
+  const max = w - 96;
+  let size = 64;
+  const titleW = (n) => width(serif, plain, n) + width(italic, accent, n);
+  while (titleW(size) > max && size > 44) size -= 2;
+  if (titleW(size) > max) throw new Error(`section title "${plain}${accent}" overflows (${r(titleW(size))} > ${max})`);
+  const crumb = `${spec.name}  /  ${kicker}`;
+  fit(mono, crumb, 20, max - 40, "section breadcrumb");
+  const cw = 26 + 12 + width(mono, crumb, 20);
+  const bx = cx - cw / 2;
   const body = [
-    mark(56, 47, 56 / 1024),
-    text(mono, `${spec.name}  /  ${kicker}`, 136, 58, 14, t.muted),
-    runs([[serif, plain, 54, t.ink], [italic, accent, 54, t.accentText]], 134, 114),
+    mark(bx, 38, 26 / 1024),
+    text(mono, crumb, bx + 38, 58, 20, t.muted),
+    runs([[serif, plain, size, t.ink], [italic, accent, size, t.accentText]], cx - titleW(size) / 2, 132),
   ].join("");
   return frame(t, w, h, `${plain}${accent}`.trim(), body);
 };
