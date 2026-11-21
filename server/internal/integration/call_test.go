@@ -199,7 +199,7 @@ func TestCall(t *testing.T) {
 	require.NoError(t, err)
 	addr := probe.Addr().String()
 	require.NoError(t, probe.Close())
-	server := signal.NewServer(hub, signal.DefaultConfig(nil))
+	server := signal.NewServer(hub, signal.DefaultConfig(nil, time.Now))
 	go func() { _ = server.Run(addr) }()
 	<-server.Ready()
 	t.Cleanup(func() {

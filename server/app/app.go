@@ -63,7 +63,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 		ReadHeaderTimeout: 5 * time.Second,
 		MaxHeaderBytes:    16 << 10,
 	}
-	signalCfg := signal.DefaultConfig(cfg.Origins)
+	signalCfg := signal.DefaultConfig(cfg.Origins, time.Now)
 	signalCfg.CountryHeader = cfg.CountryHeader
 	signalCfg.AddressHeader = cfg.AddressHeader
 	var rooms inbound.Presence = presence.WithoutMedia{Hub: hub}
@@ -79,7 +79,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 	rooms = presence.Governed{Presence: rooms, Rooms: hub, Policy: outbound.AllowAll{}}
 	var handover *handoff.Dir
 	if cfg.HandoverDir != "" {
-		opened, err := handoff.Open(cfg.HandoverDir)
+		opened, err := handoff.Open(cfg.HandoverDir, time.Now)
 		if err != nil {
 			log.ErrorContext(ctx, "handover directory unusable", "error", err.Error())
 			return err

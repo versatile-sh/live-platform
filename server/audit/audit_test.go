@@ -41,7 +41,7 @@ func joinEvent(at time.Time, slug string, pid uint32, name, ip string, d *room.D
 
 func TestWriterAppendsOneLinePerEventAndRotatesByDay(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "trail")
-	w, err := Open(Config{Dir: dir})
+	w, err := Open(Config{Now: time.Now, Dir: dir})
 	require.NoError(t, err)
 	w.Record(joinEvent(noon, "alpha", 1, "Ana", "203.0.113.1", nil))
 	w.Record(joinEvent(noon.Add(time.Minute), "alpha", 2, "Bia", "203.0.113.2", nil))
@@ -74,7 +74,7 @@ func TestWriterDropsAndCountsWhenTheQueueIsFull(t *testing.T) {
 
 func TestWriterNeverBlocksAndLosesNothingWhileItKeepsUp(t *testing.T) {
 	dir := t.TempDir()
-	w, err := Open(Config{Dir: dir, Queue: 100000})
+	w, err := Open(Config{Now: time.Now, Dir: dir, Queue: 100000})
 	require.NoError(t, err)
 	var wg sync.WaitGroup
 	for g := range 8 {
@@ -93,7 +93,7 @@ func TestWriterNeverBlocksAndLosesNothingWhileItKeepsUp(t *testing.T) {
 }
 
 func TestRecordAfterCloseIsDroppedNotLost(t *testing.T) {
-	w, err := Open(Config{Dir: t.TempDir()})
+	w, err := Open(Config{Now: time.Now, Dir: t.TempDir()})
 	require.NoError(t, err)
 	closeWriter(t, w)
 	w.Record(joinEvent(noon, "alpha", 1, "Ana", "203.0.113.1", nil))
@@ -102,7 +102,7 @@ func TestRecordAfterCloseIsDroppedNotLost(t *testing.T) {
 
 func TestPrivateRoomChatContentIsNeverStored(t *testing.T) {
 	dir := t.TempDir()
-	w, err := Open(Config{Dir: dir})
+	w, err := Open(Config{Now: time.Now, Dir: dir})
 	require.NoError(t, err)
 	secret := "the launch code is swordfish"
 	w.Record(outbound.AuditEvent{At: noon, Kind: outbound.AuditChat, Room: "vault", Private: true, Actor: &outbound.AuditPerson{PID: 1, Name: "Ana"}, Length: len(secret), Text: secret})
@@ -144,7 +144,7 @@ func TestDayParsesOnlyAuditFiles(t *testing.T) {
 
 func TestScanFollowsAParticipantFromTheirJoinToTheirLeave(t *testing.T) {
 	dir := t.TempDir()
-	w, err := Open(Config{Dir: dir})
+	w, err := Open(Config{Now: time.Now, Dir: dir})
 	require.NoError(t, err)
 	ana := &room.Discord{UserID: "u-1", UserName: "ana", GuildID: "g-1", ChannelID: "c-1"}
 	w.Record(joinEvent(noon, "alpha", 1, "Ana", "203.0.113.1", ana))
@@ -197,7 +197,7 @@ func kinds(events []outbound.AuditEvent) []outbound.AuditKind {
 
 func TestMirrorEmitsEachWrittenEventAsOneLogRecordWithoutPrivateText(t *testing.T) {
 	var out bytes.Buffer
-	w, err := Open(Config{Dir: t.TempDir(), Mirror: slog.New(slog.NewJSONHandler(&out, nil))})
+	w, err := Open(Config{Now: time.Now, Dir: t.TempDir(), Mirror: slog.New(slog.NewJSONHandler(&out, nil))})
 	require.NoError(t, err)
 	w.Record(joinEvent(noon, "plaza", 1, "Ana", "203.0.113.1", &room.Discord{UserID: "42", GuildID: "g1"}))
 	w.Record(outbound.AuditEvent{At: noon, Kind: outbound.AuditChat, Room: "vault", Private: true, Actor: &outbound.AuditPerson{PID: 1, Name: "Ana"}, Length: 28, Text: "the launch code is swordfish"})

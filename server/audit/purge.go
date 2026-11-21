@@ -34,11 +34,11 @@ func Purge(dir string, keepDays int, now time.Time) (int, error) {
 }
 
 // RunPurge purges at once and then every interval until ctx ends, logging what it removed and any failure.
-func RunPurge(ctx context.Context, dir string, keepDays int, interval time.Duration, log *slog.Logger) {
+func RunPurge(ctx context.Context, dir string, keepDays int, interval time.Duration, now func() time.Time, log *slog.Logger) {
 	tick := time.NewTicker(interval)
 	defer tick.Stop()
 	for {
-		switch removed, err := Purge(dir, keepDays, time.Now()); {
+		switch removed, err := Purge(dir, keepDays, now()); {
 		case err != nil:
 			log.ErrorContext(ctx, "audit purge failed", "error", err.Error())
 		case removed > 0:

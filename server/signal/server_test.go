@@ -45,7 +45,7 @@ func startServer(t *testing.T, tune func(*Config)) string {
 	t.Helper()
 	roomCfg := room.Config{Capacity: 10, ConnectTimeout: time.Second, Grace: 150 * time.Millisecond, UnhealthyCap: 300 * time.Millisecond, EmptyRelease: 200 * time.Millisecond, PasswordTries: 10, PasswordWindow: time.Minute}
 	hub := presence.NewHub(roomCfg, presence.Liveness{UnstableAfter: 200 * time.Millisecond, SuspectAfter: 500 * time.Millisecond}, time.Now)
-	cfg := DefaultConfig(nil)
+	cfg := DefaultConfig(nil, time.Now)
 	if tune != nil {
 		tune(&cfg)
 	}

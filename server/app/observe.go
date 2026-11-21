@@ -17,7 +17,7 @@ func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail 
 		log.WarnContext(ctx, "audit disabled: AUDIT_DIR is not set")
 		return nil, func() {}
 	}
-	cfg := audit.Config{Dir: dir, Queue: trail.Queue, Log: log}
+	cfg := audit.Config{Dir: dir, Queue: trail.Queue, Log: log, Now: time.Now}
 	if trail.Mirror {
 		cfg.Mirror = log
 	}
@@ -28,7 +28,7 @@ func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail 
 	}
 	keep := trail.RetentionDays
 	hub.UseAudit(audit.Logged{Log: log, Next: writer})
-	go audit.RunPurge(ctx, dir, keep, purgeEvery, log)
+	go audit.RunPurge(ctx, dir, keep, purgeEvery, time.Now, log)
 	log.InfoContext(ctx, "audit writer started", "dir", dir, "retention_days", keep)
 	return writer, func() {
 		drain, cancel := context.WithTimeout(context.WithoutCancel(ctx), 3*time.Second)
