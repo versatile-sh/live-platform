@@ -110,6 +110,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 	case stopped = <-failed:
 		log.ErrorContext(ctx, "server stopped", "error", stopped.Error())
 	}
+	signalling.Drain()
 	if handed := hub.Export(); handover != nil && len(handed) > 0 {
 		if err := handover.Leave(handed); err != nil {
 			log.ErrorContext(ctx, "rooms not handed over", "error", err.Error())

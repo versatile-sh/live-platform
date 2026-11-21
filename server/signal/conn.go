@@ -205,7 +205,14 @@ func (c *conn) text(payload []byte) {
 }
 
 func (c *conn) enter(hello clientFrame) {
+	c.server.entry.RLock()
+	if c.server.draining {
+		c.server.entry.RUnlock()
+		c.fail(CloseRestarting, "restarting")
+		return
+	}
 	slug, seat, err := c.seatFor(hello)
+	c.server.entry.RUnlock()
 	if err != nil {
 		c.send(textFrame(encodeError(err)))
 		c.fail(CloseBadFrame, "entry refused")

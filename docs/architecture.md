@@ -86,7 +86,7 @@ The server is the only authority on who is present. It watches three signals: th
 
 A reload keeps the seat: the browser holds a per-room secret for the tab's lifetime and presents it to `resume`. The secret rotates on every resume and the old one is refused.
 
-On a planned restart, a stopping server can write its rooms to a directory shared with the next one (`HANDOVER_DIR`); the new process adopts them and holds each seat for 12 seconds while the browsers reconnect. A crash loses the rooms.
+On a planned restart, a stopping server can write its rooms to a directory shared with the next one (`HANDOVER_DIR`); the new process adopts them and holds each seat for 12 seconds while the browsers reconnect. From the moment it starts handing the rooms over, the stopping server seats nobody: a join or resume that reaches it is closed with `4012` and the browser tries again, so a seat cannot change on the old server after the new one took it. A crash loses the rooms.
 
 ## Media
 

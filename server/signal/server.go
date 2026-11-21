@@ -76,6 +76,8 @@ type Server struct {
 	passes   outbound.PassLedger
 	join     func(parent string, attrs ...attribute.KeyValue) trace.Span
 	frames   frames
+	entry    sync.RWMutex
+	draining bool
 }
 
 // NewServer builds the signalling endpoint over the presence port.
@@ -114,6 +116,13 @@ func (s *Server) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// Drain stops seating anyone: a join or resume already under way finishes first, and every later one is closed with the code that sends a browser to try again, so nothing changes the rooms once they are handed over.
+func (s *Server) Drain() {
+	s.entry.Lock()
+	s.draining = true
+	s.entry.Unlock()
 }
 
 // Handoff closes every connection with the code that tells a browser to come straight back, for when another server has taken the rooms over.

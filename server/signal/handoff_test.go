@@ -43,11 +43,21 @@ func TestRoomsOutliveAServer(t *testing.T) {
 	ana.send(`{"t":"owner","op":"mute-all"}`)
 	ana.until(func(f serverFrame) bool { return f.T == "roster" && len(f.People) == 2 && f.People[1].Flags&256 != 0 })
 
+	oldServer.Drain()
 	handed := oldHub.Export()
 	require.Len(t, handed, 1)
 	require.Equal(t, 1, newHub.Adopt(handed, 5*time.Second))
 	oldServer.Handoff()
 	assert.Equal(t, CloseRestarting, ana.closeCode(), "the old server sends everyone straight back")
+
+	t.Run("a browser that comes back to the old server is sent away before it can change a seat the new server took", func(t *testing.T) {
+		late := dial(t, oldURL)
+		late.send(`{"t":"resume","slug":"bk","pid":1,"secret":"` + ana.me.Secret + `"}`)
+		assert.Equal(t, CloseRestarting, late.closeCode())
+		fresh := dial(t, oldURL)
+		fresh.send(`{"t":"join","slug":"bk","name":"caio"}`)
+		assert.Equal(t, CloseRestarting, fresh.closeCode())
+	})
 
 	t.Run("whoever returns with their secret has the same place, role and room on the new server", func(t *testing.T) {
 		back := dial(t, newURL)
