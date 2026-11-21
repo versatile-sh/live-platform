@@ -1,0 +1,13 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: go format
+      root: server/
+      glob: "*.go"
+      run: gofmt -w {staged_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    - name: server check
+      run: make check
