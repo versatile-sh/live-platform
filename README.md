@@ -80,8 +80,13 @@ The design rules are in [`web/DESIGN.md`](web/DESIGN.md). Engineering documentat
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-flow-dark.svg">
-  <img src="docs/assets/diagram-flow-light.svg" alt="How a call flows. The browser opens the page and API over HTTPS, signalling over a WebSocket and media over UDP with DTLS-SRTP. One Go process runs the page and API, the signalling, a presence hub with one actor per room, and a Pion SFU that forwards each participant's media to the others." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-components-dark.svg">
+  <img src="docs/assets/diagram-components-light.svg" alt="What runs where. In the browser, the React pages and stores talk to the server over HTTPS and over the lv.1 WebSocket, and keep two peer connections: one that publishes and one that receives. The server is one Go process: net/http serves the page and the API, gnet carries signalling to the presence hub with one actor per room, and the hub drives the Pion SFU. Media goes from the publishing connection to the SFU and from the SFU to the receiving connections over UDP with DTLS-SRTP." width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-join-dark.svg">
+  <img src="docs/assets/diagram-join-light.svg" alt="How a person joins a room. The browser opens the lv.1 WebSocket and sends join. The signalling server hands it to the presence hub, where one actor per room claims a seat; the browser gets joined with its seat and resume secret, then the whole roster with a version number. The browser sends its SDP offer over the same socket, the hub negotiates the publish connection with the SFU, and the browser sends media straight to the SFU over UDP. The SFU forwards the packets, undecoded, to everyone else, and each change sends everyone a new whole roster." width="100%">
 </picture>
 
 1. The browser loads the page and calls the API over HTTP, then opens one WebSocket (subprotocol `lv.1`) for presence, chat, owner actions and the offer and answer of each peer connection.

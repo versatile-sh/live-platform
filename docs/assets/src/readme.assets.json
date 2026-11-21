@@ -1,57 +1,299 @@
 {
   "name": "live-platform",
-  "pitch": ["Share a screen, a voice and a camera, ", "from a link", "."],
+  "pitch": [
+    "Share a screen, a voice and a camera, ",
+    "from a link",
+    "."
+  ],
   "sub": "A browser call with its own Go media server. No account, nothing to install.",
   "badge": "GPL-3.0-or-later",
-  "tags": ["WebRTC SFU on Pion", "Go server", "React 19 client", "No account"],
+  "tags": [
+    "WebRTC SFU on Pion",
+    "Go server",
+    "React 19 client",
+    "No account"
+  ],
   "heroLabel": "live-platform: share a screen, a voice and a camera, from a link. A browser call with its own Go media server. No account, nothing to install.",
   "sections": [
-    ["how", "overview", "How it ", "works"],
-    ["install", "start here", "Install ", "and run"],
-    ["use", "start here", "Open ", "a room"],
-    ["what-it-is", "overview", "What it ", "is"],
-    ["documentation", "read", "", "Documentation"],
-    ["configuration", "configure", "", "Configuration"],
-    ["development-and-tests", "develop", "Development and ", "tests"],
-    ["security", "project", "", "Security"],
-    ["contributing", "project", "", "Contributing"],
-    ["license", "project", "", "License"]
+    [
+      "how",
+      "overview",
+      "How it ",
+      "works"
+    ],
+    [
+      "install",
+      "start here",
+      "Install ",
+      "and run"
+    ],
+    [
+      "use",
+      "start here",
+      "Open ",
+      "a room"
+    ],
+    [
+      "what-it-is",
+      "overview",
+      "What it ",
+      "is"
+    ],
+    [
+      "documentation",
+      "read",
+      "",
+      "Documentation"
+    ],
+    [
+      "configuration",
+      "configure",
+      "",
+      "Configuration"
+    ],
+    [
+      "development-and-tests",
+      "develop",
+      "Development and ",
+      "tests"
+    ],
+    [
+      "security",
+      "project",
+      "",
+      "Security"
+    ],
+    [
+      "contributing",
+      "project",
+      "",
+      "Contributing"
+    ],
+    [
+      "license",
+      "project",
+      "",
+      "License"
+    ]
   ],
   "diagrams": [
     {
-      "slug": "flow",
-      "label": "How a call flows. The browser opens the page and API over HTTPS, signalling over a WebSocket and media over UDP with DTLS-SRTP. One Go process runs the page and API, the signalling, a presence hub with one actor per room, and a Pion SFU that forwards each participant's media to the others.",
-      "gap": 104,
-      "cards": [
+      "slug": "components",
+      "kind": "map",
+      "why": "One Go process with three listeners talks to two peer connections in each browser, which a map of the parts and their links shows.",
+      "label": "What runs where. In the browser, the React pages and stores talk to the server over HTTPS and over the lv.1 WebSocket, and keep two peer connections: one that publishes and one that receives. The server is one Go process: net/http serves the page and the API, gnet carries signalling to the presence hub with one actor per room, and the hub drives the Pion SFU. Media goes from the publishing connection to the SFU and from the SFU to the receiving connections over UDP with DTLS-SRTP.",
+      "cols": 3,
+      "gap": [
+        130,
+        90
+      ],
+      "groups": [
         {
-          "title": "Browser",
-          "sub": "React 19 client",
-          "rows": ["pages and stores", "publish connection", "receive connection"]
-        },
-        {
-          "title": "live",
-          "sub": "one Go process",
-          "weight": 1.3,
-          "rows": [
-            "page and /api",
-            "signalling lv.1",
-            "presence hub",
-            ["Pion SFU", "accent"]
+          "title": "browser, React 19",
+          "nodes": [
+            "ui",
+            "pub",
+            "sub"
           ]
         },
         {
-          "title": "Browsers",
-          "sub": "the other people",
-          "rows": ["receive forwarded", "media, unprocessed"]
+          "title": "live, one Go process",
+          "nodes": [
+            "http",
+            "sig",
+            "hub",
+            "sfu"
+          ],
+          "accent": true
         }
       ],
-      "arrows": [
+      "nodes": [
         {
-          "label": "WSS, UDP"
+          "id": "ui",
+          "title": "pages, stores",
+          "sub": "one store per concern",
+          "at": [
+            0,
+            0
+          ]
         },
         {
-          "label": "RTP",
+          "id": "pub",
+          "title": "publish PC",
+          "sub": "camera, mic, screen",
+          "at": [
+            0,
+            1
+          ]
+        },
+        {
+          "id": "sub",
+          "title": "receive PC",
+          "sub": "everyone else",
+          "at": [
+            0,
+            2
+          ]
+        },
+        {
+          "id": "http",
+          "title": "net/http",
+          "sub": "page, /api, /up",
+          "at": [
+            1,
+            0
+          ]
+        },
+        {
+          "id": "sig",
+          "title": "signal",
+          "sub": "gnet, lv.1",
+          "at": [
+            1,
+            1
+          ]
+        },
+        {
+          "id": "hub",
+          "title": "presence hub",
+          "sub": "actor per room",
+          "at": [
+            2,
+            1
+          ]
+        },
+        {
+          "id": "sfu",
+          "title": "Pion SFU",
+          "sub": "forwards RTP",
+          "at": [
+            2,
+            2
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "ui",
+          "to": "http",
+          "label": "HTTPS"
+        },
+        {
+          "from": "ui",
+          "to": "sig",
+          "label": "WSS /ws"
+        },
+        {
+          "from": "sig",
+          "to": "hub",
+          "both": true
+        },
+        {
+          "from": "hub",
+          "to": "sfu",
+          "both": true
+        },
+        {
+          "from": "pub",
+          "to": "sfu",
+          "label": "UDP",
           "accent": true
+        },
+        {
+          "from": "sfu",
+          "to": "sub",
+          "label": "UDP",
+          "accent": true
+        }
+      ]
+    },
+    {
+      "slug": "join",
+      "kind": "sequence",
+      "why": "Joining a room crosses three transports in a fixed order (signalling, the room's actor, then media to the SFU), which only a sequence shows.",
+      "label": "How a person joins a room. The browser opens the lv.1 WebSocket and sends join. The signalling server hands it to the presence hub, where one actor per room claims a seat; the browser gets joined with its seat and resume secret, then the whole roster with a version number. The browser sends its SDP offer over the same socket, the hub negotiates the publish connection with the SFU, and the browser sends media straight to the SFU over UDP. The SFU forwards the packets, undecoded, to everyone else, and each change sends everyone a new whole roster.",
+      "actors": [
+        {
+          "id": "b",
+          "title": "browser",
+          "sub": "React client"
+        },
+        {
+          "id": "sig",
+          "title": "signal",
+          "sub": "lv.1 on gnet"
+        },
+        {
+          "id": "hub",
+          "title": "presence hub",
+          "sub": "actor per room",
+          "accent": true
+        },
+        {
+          "id": "sfu",
+          "title": "Pion SFU",
+          "sub": "UDP media"
+        },
+        {
+          "id": "o",
+          "title": "others",
+          "sub": "in the room"
+        }
+      ],
+      "messages": [
+        {
+          "from": "b",
+          "to": "sig",
+          "label": "join"
+        },
+        {
+          "from": "sig",
+          "to": "hub",
+          "label": "claim seat"
+        },
+        {
+          "from": "hub",
+          "to": "b",
+          "label": "joined: seat, secret",
+          "reply": true
+        },
+        {
+          "from": "hub",
+          "to": "b",
+          "label": "roster v1, whole",
+          "reply": true
+        },
+        {
+          "from": "b",
+          "to": "sig",
+          "label": "rtc: SDP offer"
+        },
+        {
+          "from": "sig",
+          "to": "hub",
+          "label": "route rtc"
+        },
+        {
+          "from": "hub",
+          "to": "sfu",
+          "label": "publish"
+        },
+        {
+          "from": "b",
+          "to": "sfu",
+          "label": "RTP over DTLS-SRTP",
+          "accent": true
+        },
+        {
+          "from": "sfu",
+          "to": "o",
+          "label": "forward RTP",
+          "accent": true
+        },
+        {
+          "from": "hub",
+          "to": "o",
+          "label": "roster v2, whole"
         }
       ]
     }
