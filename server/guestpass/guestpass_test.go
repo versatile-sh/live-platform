@@ -57,7 +57,7 @@ func TestTake(t *testing.T) {
 		for name, body := range map[string]string{
 			"no name":       `{"name":"","slug":"a-b"}`,
 			"long name":     `{"name":"` + strings.Repeat("a", 41) + `","slug":"a-b"}`,
-			"invisible":     `{"name":"a​b","slug":"a-b"}`,
+			"invisible":     `{"name":"a\u200bb","slug":"a-b"}`,
 			"face too big":  `{"name":"a","face":"` + strings.Repeat("A", 13_004) + `","slug":"a-b"}`,
 			"face not b64":  `{"name":"a","face":"<script>","slug":"a-b"}`,
 			"reserved slug": `{"name":"a","slug":"api"}`,
