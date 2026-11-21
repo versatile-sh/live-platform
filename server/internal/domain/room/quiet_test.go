@@ -24,7 +24,7 @@ func TestMuteAll(t *testing.T) {
 	r.SetMedia(bia.ID, FlagMicrophone|FlagCamera)
 
 	_, err := r.MuteAll(bia.ID)
-	assert.Error(t, err, "only the owner mutes the room")
+	require.Error(t, err, "only the owner mutes the room")
 	events, err := r.MuteAll(ana.ID)
 	require.NoError(t, err)
 	assert.Len(t, events, 1)
@@ -48,7 +48,7 @@ func TestMuteAll(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, FlagMuted, flagsOf(r, bia.ID))
 	_, err = r.Mute(ana.ID, ana.ID)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	_, err = r.UnmuteAll(ana.ID)
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestLockedBoard(t *testing.T) {
 	require.True(t, ok, "everyone draws until the owner says otherwise")
 
 	_, err := r.Quiet(DrawLock, bia.ID, 0)
-	assert.Error(t, err, "only the owner locks the board")
+	require.Error(t, err, "only the owner locks the board")
 	_, err = r.Quiet(DrawLock, ana.ID, 0)
 	require.NoError(t, err)
 	assert.True(t, r.Locked())

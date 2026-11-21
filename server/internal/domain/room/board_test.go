@@ -11,7 +11,7 @@ import (
 func TestBoard(t *testing.T) {
 	for _, bad := range []string{"", "[]", "{", `"x"`, `{"a":"` + strings.Repeat("x", boardMaxBytes) + `"}`} {
 		_, err := NewBoardData(bad)
-		assert.Error(t, err)
+		require.Error(t, err)
 	}
 	data, err := NewBoardData(`{"elements":[]}`)
 	require.NoError(t, err)

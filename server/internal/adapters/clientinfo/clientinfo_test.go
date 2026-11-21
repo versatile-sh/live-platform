@@ -41,7 +41,7 @@ func TestClientFallsBackToTheSocketAddress(t *testing.T) {
 	assert.Equal(t, "198.51.100.1", h.Client("198.51.100.1:5555").IP)
 	observe(&h, "cf-connecting-ip", "not an address")
 	assert.Equal(t, "198.51.100.1", h.Client("198.51.100.1:5555").IP)
-	assert.Equal(t, "", h.Client("").IP)
+	assert.Empty(t, h.Client("").IP)
 }
 
 func TestClientUsesTheConfiguredAddressHeaderWhenCloudflareSentNone(t *testing.T) {
