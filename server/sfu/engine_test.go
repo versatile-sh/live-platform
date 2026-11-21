@@ -63,7 +63,12 @@ type browser struct {
 
 func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 	t.Helper()
-	sub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	return enterWith(t, engine, pid, browserAPI)
+}
+
+func enterWith(t *testing.T, engine *Engine, pid room.PID, subAPI *webrtc.API) *browser {
+	t.Helper()
+	sub, err := subAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
@@ -87,7 +92,8 @@ func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 			return
 		}
 		b.mu.Lock()
-		b.heard[remote.ID()] = remote.StreamID()
+		source := remote.ID()
+		b.heard[source] = remote.StreamID()
 		b.mu.Unlock()
 	})
 	engine.Attach("bk", pid, 1, func(signal room.MediaSignal) {

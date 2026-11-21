@@ -51,15 +51,17 @@ func Loopback(settings *webrtc.SettingEngine) {
 type Engine struct {
 	api    *webrtc.API
 	report Reporter
+	shared *histories
 	mu     sync.Mutex
 	rooms  map[room.Slug]map[room.PID]*peer
 }
 
 type peer struct {
-	slug room.Slug
-	pid  room.PID
-	gen  uint32
-	send Sender
+	slug   room.Slug
+	pid    room.PID
+	gen    uint32
+	send   Sender
+	shared *histories
 
 	mu      sync.Mutex
 	sub     *webrtc.PeerConnection
@@ -80,9 +82,6 @@ type parked struct {
 	remote *webrtc.TrackRemote
 }
 
-// retransmitPackets is how many sent packets each forwarded video stream keeps for retransmission: Pion keeps 1024 full-size buffers by default, about 1.5 MB for every stream to every subscriber; 256 still covers more than half a second of a 4 Mbps screen, past libwebrtc's own one second window only at higher rates.
-const retransmitPackets = 256
-
 // keyframeGap is the least time between two keyframe requests for one feed, however many subscribers ask.
 const keyframeGap = 500 * time.Millisecond
 
@@ -93,6 +92,7 @@ type feed struct {
 	ssrc  uint32
 	video bool
 	on    bool
+	past  *history
 	asked atomic.Int64
 }
 
@@ -143,8 +143,9 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 	if err := media.RegisterDefaultCodecs(); err != nil {
 		return nil, err
 	}
-	registry := &interceptor.Registry{}
-	if err := webrtc.RegisterDefaultInterceptorsWithOptions(media, registry, webrtc.WithNackResponderOptions(nack.ResponderSize(retransmitPackets))); err != nil {
+	shared := newHistories()
+	registry, err := interceptors(media, shared)
+	if err != nil {
 		return nil, err
 	}
 	settings := webrtc.SettingEngine{}
@@ -162,13 +163,36 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 		Loopback(&settings)
 	}
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(media), webrtc.WithInterceptorRegistry(registry), webrtc.WithSettingEngine(settings))
-	return &Engine{api: api, report: report, rooms: map[room.Slug]map[room.PID]*peer{}}, nil
+	return &Engine{api: api, report: report, shared: shared, rooms: map[room.Slug]map[room.PID]*peer{}}, nil
+}
+
+// interceptors are Pion's defaults without its NACK responder, which keeps a copy of every packet for every subscriber, and without its statistics, which nothing reads; NACKs are answered from one history per stream.
+func interceptors(media *webrtc.MediaEngine, shared *histories) (*interceptor.Registry, error) {
+	registry := &interceptor.Registry{}
+	generator, err := nack.NewGeneratorInterceptor()
+	if err != nil {
+		return nil, err
+	}
+	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
+	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack", Parameter: "pli"}, webrtc.RTPCodecTypeVideo)
+	registry.Add(generator)
+	if err := webrtc.ConfigureRTCPReports(registry); err != nil {
+		return nil, err
+	}
+	if err := webrtc.ConfigureSimulcastExtensionHeaders(media); err != nil {
+		return nil, err
+	}
+	if err := webrtc.ConfigureTWCCSender(media, registry); err != nil {
+		return nil, err
+	}
+	registry.Add(retransmitFactory{shared: shared})
+	return registry, nil
 }
 
 // Attach gives a participant its media connections, replacing any it had, and starts sending it the room.
 func (e *Engine) Attach(slug room.Slug, pid room.PID, gen uint32, send Sender) {
 	e.Detach(slug, pid)
-	p := &peer{slug: slug, pid: pid, gen: gen, send: send, names: map[string]string{}, feeds: map[string]*feed{}, senders: map[*feed]*webrtc.RTPSender{}}
+	p := &peer{slug: slug, pid: pid, gen: gen, send: send, shared: e.shared, names: map[string]string{}, feeds: map[string]*feed{}, senders: map[*feed]*webrtc.RTPSender{}}
 	sub, err := e.api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		e.report.MediaDown(slug, pid, gen)
@@ -239,6 +263,12 @@ func (e *Engine) Detach(slug room.Slug, pid room.PID) {
 		}
 	}
 	clear(p.feeds)
+	for f, sender := range p.senders {
+		if f.past != nil {
+			p.shared.unroute(sentSSRC(sender))
+		}
+	}
+	clear(p.senders)
 	sub, pub := p.sub, p.pub
 	p.sub, p.pub = nil, nil
 	p.waiting = nil
@@ -379,6 +409,13 @@ func (p *peer) nameOf(remote *webrtc.TrackRemote) string {
 	return p.names[remote.ID()]
 }
 
+func sentSSRC(sender *webrtc.RTPSender) uint32 {
+	if encodings := sender.GetParameters().Encodings; len(encodings) > 0 {
+		return uint32(encodings[0].SSRC)
+	}
+	return 0
+}
+
 func closedState(state webrtc.PeerConnectionState) bool {
 	return state == webrtc.PeerConnectionStateClosed || state == webrtc.PeerConnectionStateFailed
 }
@@ -411,6 +448,9 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 		return
 	}
 	f := &feed{local: local, pc: pc, ssrc: uint32(remote.SSRC()), video: remote.Kind() == webrtc.RTPCodecTypeVideo, on: on}
+	if f.video {
+		f.past = &history{}
+	}
 	previous := p.feeds[source]
 	p.feeds[source] = f
 	p.mu.Unlock()
@@ -468,6 +508,9 @@ func (e *Engine) withdraw(from []*peer, f *feed) {
 		other.mu.Lock()
 		if sender := other.senders[f]; sender != nil && other.sub != nil {
 			_ = other.sub.RemoveTrack(sender)
+			if f.past != nil {
+				other.shared.unroute(sentSSRC(sender))
+			}
 			delete(other.senders, f)
 			other.offer()
 		}
@@ -484,6 +527,9 @@ func (p *peer) forward(f *feed) {
 		return
 	}
 	p.senders[f] = sender
+	if f.past != nil {
+		p.shared.route(sentSSRC(sender), f.past)
+	}
 	go func() {
 		feedback := make([]byte, 1500)
 		for {
