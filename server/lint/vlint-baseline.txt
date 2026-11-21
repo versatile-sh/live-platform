@@ -1,7 +1,5 @@
 # vlint baseline: module-relative file, analyzer, hash of the reported source line, message.
 # Regenerate with vlint -baseline <file> -write. Lines are sorted; a repeated line counts one finding each.
-internal/integration/call_test.go	noskipenv	21436a09	silent test skip: fail instead, or guard the skip with testing.Short, a *_SKIP_* opt-out variable or runtime.GOOS
-internal/integration/call_test.go	noskipenv	f2ecd37d	silent test skip: fail instead, or guard the skip with testing.Short, a *_SKIP_* opt-out variable or runtime.GOOS
 port/inbound/presence.go	layout	e7166c6b	port/inbound imports core/room: port/ may import only api/, port/, schema/
 port/outbound/audit.go	layout	e7166c6b	port/outbound imports core/room: port/ may import only api/, port/, schema/
 port/outbound/media.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/

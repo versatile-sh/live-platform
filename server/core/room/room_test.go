@@ -68,7 +68,7 @@ func TestJoin(t *testing.T) {
 	})
 	t.Run("rejects names that are empty, too long or carry control characters", func(t *testing.T) {
 		r := newRoom(t)
-		for _, name := range []string{"", "   ", "a‮b", "a\nb", string(make([]rune, 41))} {
+		for _, name := range []string{"", "   ", "a\u202eb", "a\nb", string(make([]rune, 41))} {
 			_, _, err := r.Join(t0, name, "", "", secret(1), false)
 			assert.Equal(t, port.CodeInvalidArgument, port.CodeOf(err), "%q", name)
 		}

@@ -109,11 +109,18 @@ linters:
         linters: [forbidigo]
       - path: '_test\.go'
         linters: [forbidigo, gosec, errcheck, noctx, bodyclose, godoclint]
-      # Temporary, each rule is removed by the fix pull request of its class.
-      - path: '^audit/query\.go$|^handoff/dir\.go$|^core/room/room\.go$'
+      # These open files the server itself names inside the directory the operator configures (AUDIT_DIR, HANDOVER_DIR).
+      - path: '^(audit/query|handoff/dir)\.go$'
         linters: [gosec]
-      - path: '^guestpass/guestpass_test\.go$|^sfu/engine\.go$|^core/room/room_test\.go$'
+        text: 'G304'
+      # A seat index is TrailingZeros64 of a 64-bit bitmap with a free bit, so it is 0 to 63 and fits a uint8.
+      - path: '^core/room/room\.go$'
+        linters: [gosec]
+        text: 'G115'
+      # Moving to SetICEAddressRewriteRules changes the published media candidates; it needs a call test on a public host first.
+      - path: '^sfu/engine\.go$'
         linters: [staticcheck]
+        text: 'SA1019'
 formatters:
   enable: [gofmt, goimports]
 issues:
