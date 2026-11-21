@@ -194,7 +194,7 @@ func (c *conn) text(payload []byte) {
 	case phaseEntering:
 		c.fail(CloseBadFrame, "wait for joined")
 	case phaseJoined:
-		if !c.limiter.take(time.Now()) {
+		if !c.limiter.take(c.server.cfg.Now()) {
 			c.fail(CloseFlood, "too many frames")
 			return
 		}

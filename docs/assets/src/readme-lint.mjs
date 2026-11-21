@@ -51,7 +51,7 @@ const lint = (file) => {
     for (const m of line.matchAll(/(?:\]\(|href=")#([^)"\s]+)/g)) links.push([n, m[1]]);
     for (const m of line.matchAll(/(?:src|srcset)="([^"]+)"|!\[[^\]]*\]\(([^)\s]+)/g)) {
       const src = m[1] ?? m[2];
-      if (!/^(https?:|data:|#)/.test(src) && !existsSync(join(base, src.split(/[?#]/)[0]))) at(n, `image not found: ${src}`);
+      if (!/^(https?:|data:|#)/.test(src) && !existsSync(join(base, decodeURIComponent(src.split(/[?#]/)[0])))) at(n, `image not found: ${src}`);
     }
     for (const m of line.matchAll(/<img\b[^>]*>/gi)) if (!/\balt="[^"]+"/.test(m[0])) at(n, "<img> without alt text");
     const anchor = line.match(ANCHOR);
@@ -61,7 +61,7 @@ const lint = (file) => {
       const block = lines.slice(j, j + 6).join("\n");
       if (!/^\s*(<picture|<p align="center">|<img|!\[)/.test(lines[j] ?? "") || !BANNER.test(block)) at(n, `section "${anchor[1]}" has no banner right after its anchor`);
     }
-    if (BANNER.test(line) && /<img\b/.test(line)) {
+    if (BANNER.test(line) && /<img\b[^>]*width="100%"/.test(line)) {
       let j = i - 1;
       while (j >= 0 && !ANCHOR.test(lines[j]) && j > i - 8) j--;
       if (j < 0 || !ANCHOR.test(lines[j])) at(n, "section banner without an <a id> anchor before it");

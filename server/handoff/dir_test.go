@@ -16,9 +16,9 @@ import (
 
 func TestDir(t *testing.T) {
 	path := t.TempDir()
-	old, err := Open(path)
+	old, err := Open(path, time.Now)
 	require.NoError(t, err)
-	next, err := Open(path)
+	next, err := Open(path, time.Now)
 	require.NoError(t, err)
 	rooms := []presence.HandedRoom{{Room: room.Handed{Slug: "bk", NextPID: 1, People: []room.Kept{{ID: 1, Name: "ana", Gen: 1}}}}}
 
@@ -55,7 +55,7 @@ func TestDir(t *testing.T) {
 	})
 
 	t.Run("with nobody to take it, the one leaving stops waiting", func(t *testing.T) {
-		lone, err := Open(t.TempDir())
+		lone, err := Open(t.TempDir(), time.Now)
 		require.NoError(t, err)
 		require.NoError(t, lone.Leave(rooms))
 		wait, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
@@ -65,9 +65,9 @@ func TestDir(t *testing.T) {
 
 	t.Run("an old note and a broken one are thrown away, not adopted", func(t *testing.T) {
 		dir := t.TempDir()
-		writer, err := Open(dir)
+		writer, err := Open(dir, time.Now)
 		require.NoError(t, err)
-		reader, err := Open(dir)
+		reader, err := Open(dir, time.Now)
 		require.NoError(t, err)
 		require.NoError(t, writer.Leave(rooms))
 		past := time.Now().Add(-5 * time.Minute)

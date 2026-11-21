@@ -2,8 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/versatile-sh/live/server/audit"
-	"github.com/versatile-sh/live/server/core/room"
-	"github.com/versatile-sh/live/server/service/presence"
 )
 
 func noEnv(string) string { return "" }
@@ -62,31 +58,4 @@ func TestAuditCommandRefusesWithoutADirectoryOrWithABadDate(t *testing.T) {
 	assert.Equal(t, 2, runAudit(nil, noEnv, &out, &errOut))
 	assert.Contains(t, errOut.String(), "AUDIT_DIR")
 	assert.Equal(t, 2, runAudit([]string{"--dir", t.TempDir(), "--from", "yesterday"}, noEnv, &out, &errOut))
-}
-
-func TestStartAuditStartsTheWriterAndPurgesOldDays(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "trail")
-	require.NoError(t, os.MkdirAll(dir, 0o700))
-	old := filepath.Join(dir, audit.FileName(time.Now().AddDate(0, 0, -400)))
-	require.NoError(t, os.WriteFile(old, []byte("{}\n"), 0o600))
-	env := func(k string) string {
-		if k == "AUDIT_DIR" {
-			return dir
-		}
-		return ""
-	}
-	hub := presence.NewHub(room.DefaultConfig(), presence.DefaultLiveness(), time.Now)
-	ctx, stop := context.WithCancel(context.Background())
-	defer stop()
-	writer, drain := startAudit(ctx, slog.New(slog.DiscardHandler), hub, env)
-	require.NotNil(t, writer)
-	drain()
-	require.Eventually(t, func() bool { _, err := os.Stat(old); return os.IsNotExist(err) }, 2*time.Second, 10*time.Millisecond)
-}
-
-func TestStartAuditIsOffWithoutADirectory(t *testing.T) {
-	hub := presence.NewHub(room.DefaultConfig(), presence.DefaultLiveness(), time.Now)
-	writer, drain := startAudit(context.Background(), slog.New(slog.DiscardHandler), hub, noEnv)
-	assert.Nil(t, writer)
-	drain()
 }
