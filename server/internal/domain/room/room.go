@@ -61,9 +61,9 @@ type Participant struct {
 	outsideSince time.Time
 }
 
-// Room owns every participant's state; nothing outside it decides presence.
 const maxBanned = 64
 
+// Room owns every participant's state; nothing outside it decides presence.
 type Room struct {
 	slug     Slug
 	cfg      Config

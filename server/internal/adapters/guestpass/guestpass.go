@@ -23,8 +23,7 @@ const (
 	maxName = 40
 
 	maxDiscordName = 64
-	// maxFace is the client's limit for a photo in base64 characters (PHOTO_MAX_BASE64 in web/src/browser-services.ts).
-	maxFace = 13_000
+	maxFace        = 13_000
 )
 
 var passID = regexp.MustCompile(`^[A-Za-z0-9_-]{16,64}$`)

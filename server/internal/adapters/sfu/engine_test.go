@@ -98,7 +98,6 @@ func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 	return b
 }
 
-// run handles the engine's signals one at a time and in order, as a browser's signalling does.
 func (b *browser) run() {
 	for {
 		select {
@@ -143,7 +142,6 @@ func (b *browser) receive(signal room.MediaSignal) {
 	}
 }
 
-// describe sets the remote description, then adds the candidates that came before it.
 func (b *browser) describe(pc *webrtc.PeerConnection, kind webrtc.SDPType, sdp string) bool {
 	if pc.SetRemoteDescription(webrtc.SessionDescription{Type: kind, SDP: sdp}) != nil {
 		return false

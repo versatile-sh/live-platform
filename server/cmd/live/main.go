@@ -27,7 +27,6 @@ import (
 	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
-// handoverHold is how long a room taken over waits for each person to come back; handoverWait is how long a stopping server waits for another to take its rooms.
 const (
 	handoverHold = 12 * time.Second
 	handoverWait = 4 * time.Second

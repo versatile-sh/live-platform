@@ -15,7 +15,6 @@ const (
 	metricsDefault = time.Minute
 )
 
-// startAudit opens the audit trail in the AUDIT_DIR directory and wires it to the hub; it returns the writer and a function that drains it, or a nil writer when the directory is not set.
 func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, getenv func(string) string) (*audit.Writer, func()) {
 	dir := getenv("AUDIT_DIR")
 	if dir == "" {
@@ -48,7 +47,6 @@ func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, getenv
 	}
 }
 
-// reportMetrics logs the platform's vital signs every interval until ctx ends; METRICS_INTERVAL sets it ("0" turns it off).
 func reportMetrics(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail *audit.Writer, getenv func(string) string) {
 	every := metricsDefault
 	if raw := getenv("METRICS_INTERVAL"); raw != "" {

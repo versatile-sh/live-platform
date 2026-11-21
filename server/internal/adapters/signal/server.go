@@ -230,7 +230,6 @@ func (c *conn) upgrader() ws.Upgrader {
 	}
 }
 
-// originOf turns a visitor's address into an opaque key that lasts as long as this process, so a ban never stores the address itself.
 func (s *Server) originOf(address string) string {
 	sum := sha256.Sum256(append(s.salt[:], address...))
 	return hex.EncodeToString(sum[:12])
