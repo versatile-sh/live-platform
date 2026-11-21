@@ -171,4 +171,10 @@ Issues and pull requests are welcome. Branch from `main`, one concern per pull r
 
 ## License
 
-GPL-3.0-or-later. For a commercial licence, contact Versatile at [versatile.sh/contact](https://versatile.sh/contact).
+Copyright (C) 2026 Versatile (versatile.sh)
+
+live-platform is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
+For a commercial licence without the GPL's obligations, contact Versatile through [versatile.sh/contact](https://versatile.sh/contact).
+
+Contributions are accepted under the CLA, see [CONTRIBUTING.md](CONTRIBUTING.md).
