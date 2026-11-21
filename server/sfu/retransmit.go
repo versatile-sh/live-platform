@@ -10,16 +10,27 @@ import (
 	"github.com/pion/rtp"
 )
 
-// retransmitPackets is how many sent packets each forwarded video stream keeps for retransmission, once for all its subscribers; 256 still covers more than half a second of a 4 Mbps screen.
-const retransmitPackets = 256
+// A forwarded video stream keeps its last packets once for all its subscribers, enough for historySpan at the rate it is sent: from historyFewest slots, doubling up to historyMost, so a camera keeps little and an 8 Mbps screen still covers half a second.
+const (
+	historyFewest = 128
+	historyMost   = 1024
+	historySpan   = 500 * time.Millisecond
+	rateEvery     = 64
+)
 
 // resendGap is the least time between two resends of one packet to one subscriber, so a NACK repeated before the first resend lands is not answered twice.
 const resendGap = 100 * time.Millisecond
 
+// dedupSlots is how many recent resends each subscriber's stream remembers; two packets this far apart cannot both be asked for within resendGap below 2560 packets a second.
+const dedupSlots = 256
+
 // history is the last packets of one forwarded stream, kept once however many subscribers it goes to.
 type history struct {
 	mu    sync.RWMutex
-	slots [retransmitPackets]slot
+	slots []slot
+	now   func() time.Time
+	since time.Time
+	count int
 }
 
 type slot struct {
@@ -28,17 +39,31 @@ type slot struct {
 	raw  []byte
 }
 
+func newHistory() *history {
+	return &history{slots: make([]slot, historyFewest), now: time.Now}
+}
+
+func (h *history) at(seq uint16) *slot {
+	return &h.slots[int(seq)&(len(h.slots)-1)]
+}
+
 // put keeps a packet unless it is already kept: every subscriber writes the same packets, and the first one to write stores it.
 func (h *history) put(header *rtp.Header, payload []byte) {
-	s := &h.slots[header.SequenceNumber%retransmitPackets]
+	seq := header.SequenceNumber
 	h.mu.RLock()
-	kept := s.full && s.seq == header.SequenceNumber
+	s := h.at(seq)
+	kept := s.full && s.seq == seq
 	h.mu.RUnlock()
 	if kept {
 		return
 	}
 	size := header.MarshalSize() + len(payload)
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.count++; h.count%rateEvery == 0 {
+		h.resize(h.now())
+	}
+	s = h.at(seq)
 	if cap(s.raw) < size {
 		s.raw = make([]byte, size, max(size, 1200))
 	}
@@ -47,15 +72,42 @@ func (h *history) put(header *rtp.Header, payload []byte) {
 	if err == nil {
 		copy(s.raw[n:], payload)
 	}
-	s.seq, s.full = header.SequenceNumber, err == nil
-	h.mu.Unlock()
+	s.seq, s.full = seq, err == nil
+}
+
+// resize measures the rate packets came at over the last second and grows the history to cover historySpan of it; it holds mu.
+func (h *history) resize(now time.Time) {
+	if h.since.IsZero() {
+		h.since, h.count = now, 0
+		return
+	}
+	elapsed := now.Sub(h.since)
+	if elapsed < time.Second {
+		return
+	}
+	need := int(int64(h.count) * int64(historySpan) / int64(elapsed))
+	h.since, h.count = now, 0
+	size := len(h.slots)
+	for size < need && size < historyMost {
+		size *= 2
+	}
+	if size == len(h.slots) {
+		return
+	}
+	grown := make([]slot, size)
+	for _, old := range h.slots {
+		if old.full {
+			grown[int(old.seq)&(size-1)] = old
+		}
+	}
+	h.slots = grown
 }
 
 // copyOut writes the packet kept under a sequence number into scratch, reporting whether it is still kept.
 func (h *history) copyOut(seq uint16, scratch []byte) ([]byte, bool) {
-	s := &h.slots[seq%retransmitPackets]
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	s := h.at(seq)
 	if !s.full || s.seq != seq {
 		return scratch, false
 	}
@@ -121,7 +173,7 @@ type outgoing struct {
 	wrapped     []byte
 	header      rtp.Header
 	rtxSeq      uint16
-	sent        [retransmitPackets]int64
+	sent        [dedupSlots]int64
 }
 
 // send writes a kept packet again: on the retransmission stream when one was negotiated (RFC 4588, the original sequence number first), otherwise on the stream itself.
@@ -204,7 +256,7 @@ func (r *retransmitter) resend(nack *rtcp.TransportLayerNack) {
 	defer out.mu.Unlock()
 	for _, pair := range nack.Nacks {
 		pair.Range(func(seq uint16) bool {
-			at := &out.sent[seq%retransmitPackets]
+			at := &out.sent[seq%dedupSlots]
 			if now-*at < int64(resendGap) {
 				return true
 			}

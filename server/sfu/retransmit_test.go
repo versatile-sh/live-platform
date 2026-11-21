@@ -2,6 +2,7 @@ package sfu
 
 import (
 	"testing"
+	"time"
 
 	"github.com/pion/interceptor"
 	"github.com/pion/rtcp"
@@ -51,7 +52,7 @@ func nackFor(ssrc uint32, seqs ...uint16) []byte {
 
 func TestRetransmitter(t *testing.T) {
 	shared := newHistories()
-	past := &history{}
+	past := newHistory()
 	shared.route(111, past)
 	shared.route(222, past)
 	ana, anaRTCP, anaSent := subscriber(t, shared, video(111, 96))
@@ -83,12 +84,12 @@ func TestRetransmitter(t *testing.T) {
 			}
 		}
 		assert.Equal(t, 10, kept)
-		for seq := uint16(20); seq < 20+retransmitPackets; seq++ {
+		for seq := uint16(20); seq < 20+historyFewest; seq++ {
 			_, _ = ana.Write(&rtp.Header{Version: 2, SequenceNumber: seq, SSRC: 111, PayloadType: 96}, []byte{1}, nil)
 		}
 		*anaSent = nil
-		anaRTCP(nackFor(111, 19, 20+retransmitPackets-1))
-		assert.Equal(t, []sentPacket{{111, 96, 20 + retransmitPackets - 1, "\x01"}}, *anaSent)
+		anaRTCP(nackFor(111, 19, 20+historyFewest-1))
+		assert.Equal(t, []sentPacket{{111, 96, 20 + historyFewest - 1, "\x01"}}, *anaSent)
 	})
 
 	t.Run("RTCP without a NACK passes unparsed, and keeping and resending allocate nothing once warm", func(t *testing.T) {
@@ -120,7 +121,7 @@ func TestRetransmitter(t *testing.T) {
 	t.Run("an SSRC two connections drew is given no history", func(t *testing.T) {
 		clash := newHistories()
 		clash.route(5, past)
-		clash.route(5, &history{})
+		clash.route(5, newHistory())
 		assert.Nil(t, clash.find(5))
 		clash.unroute(5)
 		clash.unroute(5)
@@ -134,5 +135,52 @@ func TestRetransmitter(t *testing.T) {
 		info := &interceptor.StreamInfo{ID: "microphone", SSRC: 9}
 		assert.NotNil(t, made.BindLocalStream(info, plain))
 		assert.Empty(t, made.(*retransmitter).bySSRC)
+	})
+}
+
+func TestHistoryGrowsWithTheRate(t *testing.T) {
+	put := func(h *history, seq uint16) {
+		h.put(&rtp.Header{Version: 2, SequenceNumber: seq, SSRC: 1, PayloadType: 96}, []byte{byte(seq)})
+	}
+	start := time.Unix(100, 0)
+
+	t.Run("a stream sent slowly keeps the fewest slots", func(t *testing.T) {
+		h := newHistory()
+		h.resize(start)
+		h.count = 150
+		h.resize(start.Add(time.Second))
+		assert.Len(t, h.slots, historyFewest)
+	})
+
+	t.Run("a fast stream grows to cover half a second, keeping what it had, and never past the most", func(t *testing.T) {
+		h := newHistory()
+		for seq := uint16(1); seq <= 100; seq++ {
+			put(h, seq)
+		}
+		h.since, h.count = start, 900
+		h.resize(start.Add(time.Second))
+		assert.Len(t, h.slots, 512)
+		for _, seq := range []uint16{1, 50, 100} {
+			raw, ok := h.copyOut(seq, nil)
+			require.True(t, ok, seq)
+			assert.Equal(t, byte(seq), raw[len(raw)-1])
+		}
+		h.since, h.count = start, 100_000
+		h.resize(start.Add(time.Second))
+		assert.Len(t, h.slots, historyMost)
+	})
+
+	t.Run("keeping a packet allocates nothing once its slot has a buffer", func(t *testing.T) {
+		h := newHistory()
+		header := &rtp.Header{Version: 2, SSRC: 1, PayloadType: 96}
+		payload := make([]byte, 1000)
+		for seq := range uint16(historyFewest) {
+			header.SequenceNumber = seq
+			h.put(header, payload)
+		}
+		assert.Zero(t, testing.AllocsPerRun(500, func() {
+			header.SequenceNumber++
+			h.put(header, payload)
+		}))
 	})
 }

@@ -462,7 +462,7 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 	}
 	f := &feed{local: local, pc: pc, ssrc: uint32(remote.SSRC()), video: remote.Kind() == webrtc.RTPCodecTypeVideo, on: on}
 	if f.video {
-		f.past = &history{}
+		f.past = newHistory()
 	}
 	previous := p.feeds[source]
 	p.feeds[source] = f
