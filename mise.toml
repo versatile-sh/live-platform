@@ -1,20 +1,19 @@
 [tools]
 go = "1.27.4"
 golangci-lint = "2.15.0"
-"go:github.com/versatile-sh/go-lint/cmd/vlint" = "0.3.0"
+"go:github.com/versatile-sh/go-lint/cmd/vlint" = "0.3.1"
 "go:github.com/mgechev/revive" = "1.17.1"
 
 [tasks.lint-fast]
-description = "Fast tier (pre-commit): gofmt and revive on the staged Go files of the server"
-run = "fast() { gofmt -w \"$@\" && revive -config server/.revive.toml -formatter unix $(printf '%s\\n' \"$@\" | xargs -n1 dirname | sort -u | sed 's|^|./|'); }; fast"
+description = "Fast tier (pre-commit): goimports and revive on the staged files"
+run = "vlint fast -fix"
 
 [tasks.lint]
 description = "Changed tier (pre-push): config drift, then vlint (baseline) and golangci-lint on the server packages changed since origin/main"
 run = [
   "git rev-parse -q --verify origin/main >/dev/null || git fetch -q origin main:refs/remotes/origin/main",
   "cd server && vlint golangci -check",
-  "vlint changed -skip-golangci -baseline server/lint/vlint-baseline.txt",
-  "cd server && golangci-lint run -c .golangci-fast.yml --new-from-merge-base origin/main ./...",
+  "vlint changed -baseline server/lint/vlint-baseline.txt",
 ]
 
 [tasks.lint-full]
