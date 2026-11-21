@@ -81,3 +81,18 @@ func TestFrames(t *testing.T) {
 		assert.Equal(t, textFrame(encodePhoto(2, jpeg)), f.photoFrame(2, jpeg))
 	})
 }
+
+func TestRosterText(t *testing.T) {
+	hard := []string{"", "Ana", "a\"b\\c", "\b\f\n\r\t\x01\x1f\x7f", "<script>&amp;", "line para ", "bad\xff\xfeutf8", "é😀中文", strings.Repeat("x", 300)}
+	for _, name := range hard {
+		for _, snapshot := range []room.Snapshot{
+			{Version: 0},
+			{Version: 18446744073709551615, Participants: []room.Participant{{ID: 4294967295, Slot: 255, Name: name, Flags: 65535, Look: room.Look(name), Face: name}}, Quiet: true, Locked: true},
+			{Version: 7, Participants: []room.Participant{{ID: 1, Name: name}, {ID: 2, Name: "Bia", State: room.StateActive}}, Gone: []room.Departure{{PID: 3, Reason: room.Reason(name)}, {PID: 9, Reason: room.ReasonLeft}}},
+		} {
+			assert.Equal(t, string(textFrame(encodeRoster(snapshot))), string(rosterText(snapshot)), "%q", name)
+		}
+	}
+	snapshot := room.Snapshot{Version: 3, Participants: []room.Participant{{ID: 1, Name: "Ana <&>"}, {ID: 2, Name: "Bia"}}}
+	assert.InDelta(t, 1.0, testing.AllocsPerRun(100, func() { rosterText(snapshot) }), 0)
+}

@@ -138,6 +138,7 @@ func fingerprint(sdp string) string {
 }
 
 // New builds an engine; with a UDP port every participant's media shares that one socket.
+// mDNS stays off: a server has no .local names to give or resolve, and each connection would otherwise hold multicast sockets and six goroutines for it.
 func New(cfg Config, report Reporter) (*Engine, error) {
 	media := &webrtc.MediaEngine{}
 	if err := media.RegisterDefaultCodecs(); err != nil {
@@ -149,6 +150,7 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 		return nil, err
 	}
 	settings := webrtc.SettingEngine{}
+	settings.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
 	if cfg.UDPPort != 0 {
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: cfg.UDPPort})
 		if err != nil {

@@ -76,7 +76,7 @@ func first[T any](s []T) *T {
 
 func (f *frames) rosterFrame(s room.Snapshot) []byte {
 	key := rosterKey{version: s.Version, people: first(s.Participants), count: len(s.Participants), gone: first(s.Gone), left: len(s.Gone), quiet: s.Quiet, locked: s.Locked}
-	return f.roster.get(key, s, func() []byte { return textFrame(encodeRoster(s)) })
+	return f.roster.get(key, s, func() []byte { return rosterText(s) })
 }
 
 func (f *frames) chatFrame(m room.ChatMessage) []byte {
