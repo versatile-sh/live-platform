@@ -109,6 +109,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let generation = 0;
   let leaving = false;
   let resuming = false;
+  let entering: { hello: Hello; tries: number } | undefined;
   const boardListeners = new Set<(from: number, data: unknown) => void>();
   const rtcListeners = new Set<(event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void>();
   let mediaFlags = 0;
@@ -188,6 +189,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   function open(hello: Hello, timeoutMs: number) {
     closeLink();
     resuming = hello.t === "resume";
+    if (entering?.hello !== hello) entering = { hello, tries: 0 };
     const mine = generation;
     link = openLink({
       url,
@@ -258,6 +260,19 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
         return;
       case "flood":
         end({ kind: "flood" });
+        return;
+      case "restarting":
+        if (phase === "joining" && entering && entering.tries < BACKOFF_MS.length) {
+          const again = entering;
+          clearTimeout(watchdog);
+          retry = setTimeout(() => {
+            if (snapshot.connection.phase === "joining") open(again.hello, DEAD_AFTER_MS);
+          }, BACKOFF_MS[again.tries++]);
+          return;
+        }
+        if (phase === "joined") recover("network");
+        else if (phase === "reconnecting") attemptFailed();
+        else dispatch({ type: "dropped", cause: "network", at: Date.now() });
         return;
       case "left":
         if (phase === "reconnecting") attemptFailed();

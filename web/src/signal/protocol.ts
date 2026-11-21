@@ -139,6 +139,7 @@ export type CloseMeaning =
   | { kind: "no-hello" }
   | { kind: "silent" }
   | { kind: "slow" }
+  | { kind: "restarting" }
   | { kind: "abnormal" };
 
 /** Names a WebSocket close code the way lv.1 uses it. */
@@ -152,6 +153,8 @@ export function closeMeaning(code: number): CloseMeaning {
       return { kind: "refused" };
     case 4401:
       return { kind: "no-hello" };
+    case 4012:
+      return { kind: "restarting" };
     case 4403:
       return { kind: "removed" };
     case 4404:

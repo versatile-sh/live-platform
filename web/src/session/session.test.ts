@@ -191,6 +191,53 @@ describe("Session when the socket closes", () => {
     expect(sockets).toHaveLength(1);
   });
 
+  test("a server that is restarting sends an entry back to try again, with the same hello, until another server seats it", () => {
+    const { session, sockets } = setup();
+    session.start();
+    sockets[0]!.serverOpen();
+    sockets[0]!.serverClose(4012);
+    expect(session.getSnapshot().connection.phase).toBe("joining");
+    vi.advanceTimersByTime(300);
+    expect(sockets).toHaveLength(2);
+    sockets[1]!.serverOpen();
+    expect(sentFrames(sockets[1]!)[0]).toEqual(sentFrames(sockets[0]!)[0]);
+    sockets[1]!.serverClose(4012);
+    vi.advanceTimersByTime(600);
+    enter(sockets[2]!);
+    expect(session.getSnapshot().connection.phase).toBe("joined");
+  });
+
+  test("a page reopened while the server restarts resumes its seat once the new server is up", () => {
+    const { session, sockets, storage } = setup(null);
+    writeSeat(storage, "demo", { pid: 7, secret: "old", private: false });
+    session.start();
+    sockets[0]!.serverOpen();
+    sockets[0]!.serverClose(4012);
+    vi.advanceTimersByTime(300);
+    sockets[1]!.serverOpen();
+    expect(sentFrames(sockets[1]!)[0]).toMatchObject({ t: "resume", pid: 7, secret: "old" });
+  });
+
+  test("an entry that keeps meeting a restarting server stops trying", () => {
+    const { session, sockets } = setup();
+    session.start();
+    for (let i = 0; i < 10; i++) {
+      sockets.at(-1)!.serverOpen();
+      sockets.at(-1)!.serverClose(4012);
+      vi.advanceTimersByTime(2000);
+    }
+    expect(session.getSnapshot().connection).toEqual({ phase: "ended", reason: { kind: "unreachable" } });
+    expect(sockets.length).toBeLessThanOrEqual(6);
+  });
+
+  test("a restarting server ends nothing once joined: it reconnects", () => {
+    const { session, sockets } = setup();
+    session.start();
+    enter(sockets[0]!);
+    sockets[0]!.serverClose(4012);
+    expect(session.getSnapshot().connection).toMatchObject({ phase: "reconnecting" });
+  });
+
   test("a refused entry ends with the error code and never retries", () => {
     const { session, sockets } = setup({ name: "Ana", verifier: "wrong" });
     session.start();
