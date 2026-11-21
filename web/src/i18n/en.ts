@@ -378,7 +378,6 @@ export const en = {
   "chat.picture": "Picture from {name}",
   "chat.privateFrom": "{name} wrote only to you ({count})",
   "chat.open": "Open",
-  "chat.hide": "Close the new messages",
   "theme.toLight": "Switch to the light look",
   "theme.toDark": "Switch to the dark look",
   "room.you": "you",

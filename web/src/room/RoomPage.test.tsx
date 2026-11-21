@@ -497,24 +497,59 @@ describe("RoomPage", () => {
       expect(panels().getByRole("button", { name: "Chat" })).not.toHaveTextContent("1");
     });
 
-    test("shows the last two new messages in a balloon while the chat is hidden, until it is closed or the chat opens", async () => {
+    test("shows the last two new messages in a balloon while the chat is hidden, with no close button, until the chat opens", async () => {
       const { socket } = await inCall();
       await userEvent.click(screen.getByRole("button", { name: "People" }));
       await send(socket, { t: "chat", pid: 2, name: "Bia", text: "one", at: 1_700_000_001_000 });
       await send(socket, { t: "chat", pid: 2, name: "Bia", text: "two", at: 1_700_000_002_000 });
       await send(socket, { t: "chat", pid: 2, name: "Bia", text: "three", at: 1_700_000_003_000 });
-      await waitFor(() => expect(screen.queryByText("one")).not.toBeInTheDocument());
-      expect(screen.getByText("two")).toBeInTheDocument();
+      expect(screen.getByText("one").closest(".chat-row")).toHaveAttribute("aria-hidden", "true");
+      expect(screen.getByText("two").closest(".chat-row")).not.toHaveAttribute("aria-hidden");
       expect(screen.getByText("three")).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "Close the new messages" }));
-      await waitFor(() => expect(screen.queryByText("three")).not.toBeInTheDocument());
-      expect(panels().getByRole("button", { name: "Chat" })).toHaveTextContent("3");
-      await send(socket, { t: "chat", pid: 2, name: "Bia", text: "four", at: 1_700_000_004_000 });
-      expect(screen.getByText("four")).toBeInTheDocument();
-      expect(screen.queryByText("three")).not.toBeInTheDocument();
-      await userEvent.click(screen.getByText("four"));
+      expect(screen.queryByRole("button", { name: "Close the new messages" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByText("three"));
       expect(screen.getByRole("complementary", { name: "Chat" })).toBeInTheDocument();
-      await waitFor(() => expect(screen.queryByRole("button", { name: "Close the new messages" })).not.toBeInTheDocument());
+      await waitFor(() => expect(document.querySelector(".chat-toast")).toBeNull());
+    });
+
+    test("messages beyond the last two pile up behind them, at most six layers, and spread out as readable rows while the balloon is hovered", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      const layers = () => document.querySelectorAll(".chat-row[aria-hidden]:not([data-gone])").length;
+      const readable = (text: string) => screen.queryByText(text)?.closest(".chat-row")?.getAttribute("aria-hidden") !== "true" && screen.queryByText(text) !== null;
+      for (let n = 1; n <= 3; n++) await send(socket, { t: "chat", pid: 2, name: "Bia", text: `m${n}`, at: 1_700_000_000_000 + n });
+      expect(layers()).toBe(1);
+      for (let n = 4; n <= 12; n++) await send(socket, { t: "chat", pid: 2, name: "Bia", text: `m${n}`, at: 1_700_000_000_000 + n });
+      expect(layers()).toBe(6);
+      expect(readable("m12") && readable("m11")).toBe(true);
+      expect(readable("m10")).toBe(false);
+      await userEvent.hover(screen.getByText("m12"));
+      for (let n = 5; n <= 12; n++) expect(readable(`m${n}`)).toBe(true);
+      expect(readable("m4")).toBe(false);
+      expect(layers()).toBe(0);
+      await userEvent.unhover(screen.getByText("m12"));
+      expect(readable("m10")).toBe(false);
+      expect(layers()).toBe(6);
+    });
+
+    test("messages leave the balloon one by one, each ten seconds after it came", async () => {
+      const { socket } = await inCall();
+      await userEvent.click(screen.getByRole("button", { name: "People" }));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        await send(socket, { t: "chat", pid: 2, name: "Bia", text: "first", at: 1_700_000_001_000 });
+        await act(() => vi.advanceTimersByTimeAsync(5_000));
+        await send(socket, { t: "chat", pid: 2, name: "Bia", text: "second", at: 1_700_000_006_000 });
+        await act(() => vi.advanceTimersByTimeAsync(5_500));
+        await act(() => vi.advanceTimersByTimeAsync(400));
+        expect(screen.queryByText("first")).not.toBeInTheDocument();
+        expect(screen.getByText("second")).toBeInTheDocument();
+        await act(() => vi.advanceTimersByTimeAsync(5_000));
+        await act(() => vi.advanceTimersByTimeAsync(400));
+        expect(screen.queryByText("second")).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     test("the balloon leaves by itself ten seconds after the newest message, leaving the count on the chat button", async () => {
