@@ -1,6 +1,6 @@
 # Configuration
 
-Everything is read from the environment at start.
+Everything is read from the environment once, at start. A value that cannot be read (a port that is not a number, a duration that is not one) stops the server with the name of the setting.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -23,6 +23,7 @@ Everything is read from the environment at start.
 | `METRICS_INTERVAL` | `1m` | How often the `metrics` log line is written (Go duration); `0` turns it off. |
 | `PASS_SOURCE`, `PASS_KEY` | empty | `http(s)` base URL of a trusted guest-pass issuer and the key it expects (at least 32 characters). Without both, `GET /api/pass/{id}` does not exist. |
 | `GITHUB_REPO` | empty | `owner/name` of a repository whose star count the front page shows. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | empty | OTLP/HTTP collector for traces. Empty turns tracing off. When set, the server exports spans for a guest pass taken (`live.pass.take`), a join (`live.join`), a stay (`live.stay`) and a room's life (`live.room`), continuing the W3C `traceparent` a guest pass carries; join and leave audit events and log lines get `trace_id` and `span_id`. Span attributes carry the room name and flags only, never an address, a name or chat text. The standard `OTEL_SERVICE_NAME` (default `live`), `OTEL_RESOURCE_ATTRIBUTES`, `OTEL_TRACES_SAMPLER` and `OTEL_TRACES_SAMPLER_ARG` apply. |
 
 The audit trail is read where the server runs, never over HTTP:
 

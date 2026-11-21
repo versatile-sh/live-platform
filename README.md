@@ -21,7 +21,12 @@
 
 **live** is a browser call for sharing a screen, a voice and a camera from a link. No account, nothing to install: pick a name, send the link, talk. One Go binary runs the page, the signalling and its own WebRTC SFU on [Pion](https://github.com/pion/webrtc); the client is React 19 with Vite and Tailwind 4.
 
-## What it is
+<a id="what-it-is"></a>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-what-it-is-dark.svg">
+  <img src="docs/assets/section-what-it-is-light.svg" alt="What it is" width="100%">
+</picture>
 
 live is for people who need to show something to someone right now: a pair-programming session, a game night, a quick look at a screen, a call with a friend who has no account anywhere. The room is the address, `https://live.versatile.sh/{room}`, and whoever opens a free name owns that room.
 
@@ -50,7 +55,12 @@ It is not a recording or transcription product, and it has no end-to-end encrypt
 | **People who call** | a room from a link, in the browser | [live.versatile.sh](https://live.versatile.sh) |
 | **Operators** | one container, no database | [Install and run](#install-and-run), [Self-hosting](docs/self-hosting.md) |
 
-## Documentation
+<a id="documentation"></a>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-documentation-dark.svg">
+  <img src="docs/assets/section-documentation-light.svg" alt="Documentation" width="100%">
+</picture>
 
 | Read | To |
 |---|---|
@@ -60,7 +70,7 @@ It is not a recording or transcription product, and it has no end-to-end encrypt
 | [Self-hosting](docs/self-hosting.md) | running it behind your own proxy |
 | [Screen sound](docs/screen-audio.md) | sharing the computer's sound with a screen |
 
-The product vocabulary is in [`CONTEXT.md`](CONTEXT.md) and the design rules in [`web/DESIGN.md`](web/DESIGN.md). Engineering documentation is kept by Versatile outside this repository.
+The design rules are in [`web/DESIGN.md`](web/DESIGN.md). Engineering documentation, the product vocabulary included, is kept by Versatile outside this repository.
 
 <a id="how-it-works"></a>
 
@@ -70,8 +80,13 @@ The product vocabulary is in [`CONTEXT.md`](CONTEXT.md) and the design rules in 
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-flow-dark.svg">
-  <img src="docs/assets/diagram-flow-light.svg" alt="How a call flows. The browser opens the page and API over HTTPS, signalling over a WebSocket and media over UDP with DTLS-SRTP. One Go process runs the page and API, the signalling, a presence hub with one actor per room, and a Pion SFU that forwards each participant's media to the others." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-components-dark.svg">
+  <img src="docs/assets/diagram-components-light.svg" alt="What runs where. In the browser, the React pages and stores talk to the server over HTTPS and over the lv.1 WebSocket, and keep two peer connections: one that publishes and one that receives. The server is one Go process: net/http serves the page and the API, gnet carries signalling to the presence hub with one actor per room, and the hub drives the Pion SFU. Media goes from the publishing connection to the SFU and from the SFU to the receiving connections over UDP with DTLS-SRTP." width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/diagram-join-dark.svg">
+  <img src="docs/assets/diagram-join-light.svg" alt="How a person joins a room. The browser opens the lv.1 WebSocket and sends join. The signalling server hands it to the presence hub, where one actor per room claims a seat; the browser gets joined with its seat and resume secret, then the whole roster with a version number. The browser sends its SDP offer over the same socket, the hub negotiates the publish connection with the SFU, and the browser sends media straight to the SFU over UDP. The SFU forwards the packets, undecoded, to everyone else, and each change sends everyone a new whole roster." width="100%">
 </picture>
 
 1. The browser loads the page and calls the API over HTTP, then opens one WebSocket (subprotocol `lv.1`) for presence, chat, owner actions and the offer and answer of each peer connection.
@@ -135,7 +150,12 @@ Sharing the computer's sound with a screen: [Screen sound](docs/screen-audio.md)
 
 **From Discord.** [Add the bot to your server](https://live.versatile.sh/bot/install) and it sends people to a room with an invitation link. An invitation can carry a guest pass (`?pass=<id>`) that fills in the person's name and photo and chooses the room's access. The bot is a separate product; this repository holds only the page and the server side that read its passes.
 
-## Configuration
+<a id="configuration"></a>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-configuration-dark.svg">
+  <img src="docs/assets/section-configuration-light.svg" alt="Configuration" width="100%">
+</picture>
 
 Everything is read from the environment at start. The main variables:
 
@@ -150,10 +170,20 @@ Everything is read from the environment at start. The main variables:
 
 All variables: [Configuration](docs/configuration.md).
 
-## Development and tests
+<a id="development-and-tests"></a>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-development-and-tests-dark.svg">
+  <img src="docs/assets/section-development-and-tests-light.svg" alt="Development and tests" width="100%">
+</picture>
 
 ```sh
-cd server && go vet ./... && go test -race ./...
+mise install                           # the pinned Go, golangci-lint, vlint and revive
+lefthook install                       # once: fast lint on commit, changed-package lint on push
+mise run check                         # gofmt, go vet, go-lint, golangci-lint, then the race tests
+mise run lint                          # the pre-push tier: lint of the packages changed since origin/main
+mise run lint-full                     # the full lint tier on everything, as check runs it
+mise run test                          # go test -race -count=1 ./...
 cd web && npx vitest run
 cd web && npm run test:live            # the client against a real server
 cd web && npm run typecheck && npm run build
@@ -161,15 +191,30 @@ cd web && npm run typecheck && npm run build
 
 Tests assert what a person or a peer can observe: what is on the page, what goes over the socket, who is in the room after a failure. CI also runs `govulncheck` and builds the image.
 
-## Security
+<a id="security"></a>
 
-Never expose room codes, audit files or the guest-pass key. Found a vulnerability? Do not open a public issue; write to [hello@versatile.sh](mailto:hello@versatile.sh). Details and what is not built yet: [Security and privacy](docs/security.md).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-security-dark.svg">
+  <img src="docs/assets/section-security-light.svg" alt="Security" width="100%">
+</picture>
 
-## Contributing
+Never expose room codes, audit files or the guest-pass key. Found a vulnerability? Do not open a public issue; report it as [`SECURITY.md`](SECURITY.md) says. Details and what is not built yet: [Security and privacy](docs/security.md).
 
-Issues and pull requests are welcome. Branch from `main`, one concern per pull request, keep the checks green, and follow the domain words in [`CONTEXT.md`](CONTEXT.md).
+<a id="contributing"></a>
 
-## License
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-contributing-dark.svg">
+  <img src="docs/assets/section-contributing-light.svg" alt="Contributing" width="100%">
+</picture>
+
+Issues and pull requests are welcome. Branch from `main`, one concern per pull request, and keep `mise run check` green.
+
+<a id="license"></a>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/section-license-dark.svg">
+  <img src="docs/assets/section-license-light.svg" alt="License" width="100%">
+</picture>
 
 Copyright (C) 2026 Versatile (versatile.sh)
 

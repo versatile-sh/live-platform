@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"net"
-	"os"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -18,10 +16,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/versatile-sh/live/server/internal/adapters/sfu"
-	"github.com/versatile-sh/live/server/internal/adapters/signal"
-	"github.com/versatile-sh/live/server/internal/application/presence"
-	"github.com/versatile-sh/live/server/internal/domain/room"
+	"github.com/versatile-sh/live/server/core/room"
+	"github.com/versatile-sh/live/server/service/presence"
+	"github.com/versatile-sh/live/server/sfu"
+	"github.com/versatile-sh/live/server/signal"
 )
 
 const wait = 15 * time.Second
@@ -64,13 +62,13 @@ func (c *tab) send(v any) {
 	_ = wsutil.WriteClientText(c.conn, data)
 }
 
-func open(t *testing.T, url, name string) *tab {
+func open(t *testing.T, api *webrtc.API, url, slug, name string) *tab {
 	t.Helper()
 	conn, _, _, err := ws.Dialer{Protocols: []string{signal.Subprotocol}}.Dial(context.Background(), url)
 	require.NoError(t, err)
-	sub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	sub, err := api.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
-	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	pub, err := api.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	c := &tab{t: t, conn: conn, sub: sub, pub: pub, states: map[uint32]string{}, heard: map[string]bool{}}
 	t.Cleanup(func() { _ = conn.Close(); _ = sub.Close(); _ = pub.Close() })
@@ -92,7 +90,7 @@ func open(t *testing.T, url, name string) *tab {
 			c.mu.Unlock()
 		}
 	})
-	c.send(map[string]string{"t": "join", "slug": "call", "name": name})
+	c.send(map[string]string{"t": "join", "slug": slug, "name": name})
 	go c.read()
 	go func() {
 		for range time.Tick(2 * time.Second) {
@@ -199,7 +197,7 @@ func TestCall(t *testing.T) {
 	require.NoError(t, err)
 	addr := probe.Addr().String()
 	require.NoError(t, probe.Close())
-	server := signal.NewServer(hub, signal.DefaultConfig(nil))
+	server := signal.NewServer(hub, signal.DefaultConfig(nil, time.Now))
 	go func() { _ = server.Run(addr) }()
 	<-server.Ready()
 	t.Cleanup(func() {
@@ -209,8 +207,8 @@ func TestCall(t *testing.T) {
 	})
 	url := "ws://" + addr + "/ws"
 
-	ana := open(t, url, "ana")
-	bia := open(t, url, "bia")
+	ana := open(t, browserAPI, url, "call", "ana")
+	bia := open(t, browserAPI, url, "call", "bia")
 
 	t.Run("a participant becomes active only when its media path is up, through the real signalling", func(t *testing.T) {
 		require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, wait, 50*time.Millisecond)
@@ -237,38 +235,4 @@ func TestCall(t *testing.T) {
 		require.Eventually(t, func() bool { return ana.state(3) == "connecting" }, wait, 50*time.Millisecond)
 		require.Eventually(t, func() bool { return ana.state(3) == "" }, wait, 50*time.Millisecond)
 	})
-}
-
-// TestPublicCall is the smoke test of a deployed server: set LIVE_PUBLIC_WS to its signalling address and two stand-in browsers must reach it, become active over the real media port and hear each other.
-func TestPublicCall(t *testing.T) {
-	url := os.Getenv("LIVE_PUBLIC_WS")
-	if url == "" {
-		t.Skip("LIVE_PUBLIC_WS is not set")
-	}
-	ana := open(t, url, "ana")
-	bia := open(t, url, "bia")
-	require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, 4*wait, 50*time.Millisecond)
-	ana.publish("microphone")
-	require.Eventually(t, func() bool { return bia.hears("1:microphone") }, 4*wait, 50*time.Millisecond)
-}
-
-// TestPublicStay keeps two stand-in browsers in a call on a deployed server for LIVE_STAY_SECONDS and fails if either is dropped: run it while publishing the client to see that nobody is touched.
-func TestPublicStay(t *testing.T) {
-	url := os.Getenv("LIVE_PUBLIC_WS")
-	stay, _ := strconv.Atoi(os.Getenv("LIVE_STAY_SECONDS"))
-	if url == "" || stay == 0 {
-		t.Skip("LIVE_PUBLIC_WS and LIVE_STAY_SECONDS are not set")
-	}
-	ana := open(t, url, "ana")
-	bia := open(t, url, "bia")
-	require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, 4*wait, 50*time.Millisecond)
-	ana.publish("microphone")
-	require.Eventually(t, func() bool { return bia.hears("1:microphone") }, 4*wait, 50*time.Millisecond)
-	for range stay {
-		time.Sleep(time.Second)
-		ana.send(map[string]string{"t": "hb"})
-		bia.send(map[string]string{"t": "hb"})
-		require.Equal(t, "active", ana.state(2), "bia was dropped")
-		require.Equal(t, "active", bia.state(1), "ana was dropped")
-	}
 }

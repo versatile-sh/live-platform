@@ -1,0 +1,51 @@
+[tools]
+go = "1.27.4"
+golangci-lint = "2.15.0"
+"go:github.com/versatile-sh/go-lint/cmd/vlint" = "0.3.1"
+"go:github.com/mgechev/revive" = "1.17.1"
+
+[tasks.lint-fast]
+description = "Fast tier (pre-commit): goimports and revive on the staged files"
+run = "vlint fast -fix"
+
+[tasks.lint]
+description = "Changed tier (pre-push): config drift, then vlint (baseline) and golangci-lint on the server packages changed since origin/main"
+run = [
+  "git rev-parse -q --verify origin/main >/dev/null || git fetch -q origin main:refs/remotes/origin/main",
+  "cd server && vlint golangci -check",
+  "vlint changed -baseline server/lint/vlint-baseline.txt",
+]
+
+[tasks.lint-full]
+description = "Full tier: gofmt, go vet, config drift, vlint (baseline) and golangci-lint on the server"
+dir = "server"
+run = [
+  "test -z \"$(gofmt -l .)\"",
+  "go vet ./...",
+  "vlint golangci -check",
+  "vlint -baseline lint/vlint-baseline.txt ./...",
+  "golangci-lint run ./...",
+]
+
+[tasks.fmt]
+description = "Format the server Go files"
+dir = "server"
+run = "gofmt -w ."
+
+[tasks.test]
+description = "Race tests of the server"
+dir = "server"
+run = "go test -race -count=1 ./..."
+
+[tasks.check]
+description = "Everything: full lint, race tests, Semgrep"
+run = [{ task = "lint-full" }, { task = "test" }, { task = "semgrep" }]
+
+[tasks.semgrep]
+description = "Semgrep on the new findings since the merge base"
+run = """
+semgrep scan --metrics=off --disable-version-check --error --severity WARNING --severity ERROR \
+  --config p/default --config p/secrets --config p/golang --config p/typescript --config p/react --config p/dockerfile \
+  --config https://raw.githubusercontent.com/versatile-sh/semgrep-rules/v0.1.2/rules/versatile.yml \
+  --baseline-commit "$(git merge-base HEAD origin/main)"
+"""

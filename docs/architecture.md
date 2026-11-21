@@ -44,23 +44,22 @@ The server follows ports and adapters; dependencies point inward.
 
 ```
 server/
-  cmd/live/                 composition root: reads the environment, wires everything; `live audit` reads the audit trail
-  internal/
-    domain/room/            the Room aggregate: seats, flags, roster, owner rules. Pure: no clock, no I/O
-    domain/shared/          small shared value types
-    application/presence/   the hub and one goroutine (actor) per room; liveness, handover, lobby summaries
-    ports/inbound|outbound/ what the application offers and what it needs
-    adapters/
-      signal/               lv.1 over WebSocket on gnet: frames, close codes, rate limits
-      httpapi/              JSON routes
-      page/                 serves the built client with its security headers
-      sfu/                  the Pion media engine
-      handoff/              hands rooms to the next process on a planned restart
-      guestpass/            takes guest passes from a configured issuer
-      audit/                optional append-only audit trail
-      clientinfo/           parses User-Agent and request headers for the audit trail
-      github/               the repository star count on the front page
-    integration/            end-to-end calls against a real server
+  cmd/live/                 the binary: starts the server through app/; `live audit` reads the audit trail
+  app/                      composition root: reads and checks the environment once, wires everything
+  core/room/                the Room aggregate: seats, flags, roster, owner rules. Pure: no clock, no I/O
+  port/                     the coded error and its codes
+  port/inbound|outbound/    what the application offers and what it needs
+  service/presence/         the hub and one goroutine (actor) per room; liveness, handover, lobby summaries
+  signal/                   lv.1 over WebSocket on gnet: frames, close codes, rate limits
+  httpapi/                  JSON routes
+  page/                     serves the built client with its security headers
+  sfu/                      the Pion media engine
+  handoff/                  hands rooms to the next process on a planned restart
+  guestpass/                takes guest passes from a configured issuer
+  audit/                    optional append-only audit trail
+  clientinfo/               parses User-Agent and request headers for the audit trail
+  github/                   the repository star count on the front page
+  internal/integration/     end-to-end calls against a real server
 ```
 
 - **One goroutine per room.** Every change to a room goes through its actor, in order; there are no locks around room state. The room is a value that is told the time and answers with what changed, so every presence rule is a plain unit test.
@@ -68,7 +67,7 @@ server/
 - **Whole rosters, versioned.** Each change sends the entire roster with a version number, never a diff. A browser that missed a message is right again at the next one.
 - **The lobby never waits.** Each room publishes an atomic summary; listing open rooms never blocks on a room's goroutine.
 
-The client lives in `web/src`, one folder per concern (`room/`, `media/`, `signal/`, `session/`, `lobby/`, `board/`, `domain/`, `ui/`, `i18n/`). The design system, its tokens and shapes are in [`web/DESIGN.md`](../web/DESIGN.md); the product's vocabulary is in [`CONTEXT.md`](../CONTEXT.md).
+The client lives in `web/src`, one folder per concern (`room/`, `media/`, `signal/`, `session/`, `lobby/`, `board/`, `domain/`, `ui/`, `i18n/`). The design system, its tokens and shapes are in [`web/DESIGN.md`](../web/DESIGN.md).
 
 ## Protocol at a glance (`lv.1`)
 

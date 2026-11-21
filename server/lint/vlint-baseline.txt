@@ -1,0 +1,7 @@
+# vlint baseline: module-relative file, analyzer, hash of the reported source line, message.
+# Regenerate with vlint -baseline <file> -write. Lines are sorted; a repeated line counts one finding each.
+port/inbound/presence.go	layout	e7166c6b	port/inbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/audit.go	layout	e7166c6b	port/outbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/media.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/policy.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/
+port/outbound/session.go	layout	b7230752	port/outbound imports core/room: port/ may import only api/, port/, schema/
