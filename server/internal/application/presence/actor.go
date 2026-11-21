@@ -11,7 +11,6 @@ import (
 	"github.com/versatile-sh/live/server/internal/ports/outbound"
 )
 
-// pictureEvery is the least time between two pictures one participant may send to the chat.
 const pictureEvery = 2 * time.Second
 
 type seat struct {

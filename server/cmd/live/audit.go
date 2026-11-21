@@ -13,7 +13,6 @@ import (
 
 const auditUsage = "usage: live audit [--dir DIR] [--room SLUG] [--ip ADDRESS] [--discord-user ID] [--guild ID] [--kind KIND] [--from DATE] [--to DATE] [--json]"
 
-// runAudit prints the audit trail as a timeline, or as JSON lines, filtered by the flags; it answers the process exit code.
 func runAudit(args []string, getenv func(string) string, out, errOut io.Writer) int {
 	flags := flag.NewFlagSet("audit", flag.ContinueOnError)
 	flags.SetOutput(errOut)

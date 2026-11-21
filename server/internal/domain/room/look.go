@@ -76,7 +76,6 @@ func CheckPhoto(photo []byte) error {
 	return errPhoto
 }
 
-// wellFormedGIF walks the blocks of a GIF without decoding a pixel: a screen of at most 512 by 512, at most 120 frames each inside the screen, and nothing after the trailer.
 func wellFormedGIF(b []byte) bool {
 	if len(b) < 13 {
 		return false

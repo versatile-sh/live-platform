@@ -14,8 +14,7 @@ const (
 )
 
 // MediaSignal is one step of setting up a participant's media: a session description or a network candidate.
-// Sources names what each published stream is, by the stream id in its msid; Firefox puts a random track id there.
-// A key that is a track id is still read, for clients older than this rule.
+// Sources names each published stream by the stream id in its msid; a track id key is still read for older clients.
 type MediaSignal struct {
 	Role      string
 	Kind      string

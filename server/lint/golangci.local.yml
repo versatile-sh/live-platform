@@ -1,12 +1,6 @@
 exclusions:
   rules:
     # Temporary, each rule is removed by the fix pull request of its class.
-    - path: '_test\.go$'
-      linters: [testifylint]
-    - path: '^cmd/live/observe\.go$|^internal/adapters/audit/purge\.go$'
-      linters: [sloglint]
-    - path: '^cmd/live/observe\.go$'
-      linters: [contextcheck]
     - path: '^internal/adapters/audit/query\.go$|^internal/adapters/handoff/dir\.go$|^internal/domain/room/room\.go$'
       linters: [gosec]
     - path: '^internal/adapters/guestpass/guestpass_test\.go$|^internal/adapters/sfu/engine\.go$|^internal/domain/room/room_test\.go$'

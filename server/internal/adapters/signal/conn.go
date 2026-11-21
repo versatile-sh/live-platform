@@ -49,7 +49,6 @@ type conn struct {
 	seat  room.Seat
 }
 
-// Roster queues a snapshot and reports false when the connection has fallen too far behind.
 func (c *conn) Roster(snapshot room.Snapshot) bool {
 	frame := textFrame(encodeRoster(snapshot))
 	c.mu.Lock()
@@ -67,7 +66,6 @@ func (c *conn) Roster(snapshot room.Snapshot) bool {
 	return true
 }
 
-// Photo queues a participant's photo, or its removal; one that cannot be queued is dropped, since the roster still draws a face.
 func (c *conn) Photo(pid room.PID, jpeg []byte) {
 	frame := textFrame(encodePhoto(pid, jpeg))
 	c.mu.Lock()
@@ -81,7 +79,6 @@ func (c *conn) Photo(pid room.PID, jpeg []byte) {
 	}
 }
 
-// Media queues a media signal; one that cannot be queued is dropped and the participant's media path will time out.
 func (c *conn) Media(signal room.MediaSignal) {
 	frame := textFrame(encodeMedia(signal))
 	c.mu.Lock()
@@ -95,7 +92,6 @@ func (c *conn) Media(signal room.MediaSignal) {
 	}
 }
 
-// Board queues a piece of the whiteboard and reports false when the connection has fallen too far behind.
 func (c *conn) Board(update room.BoardUpdate) bool {
 	frame := textFrame(encodeBoard(update))
 	c.mu.Lock()
@@ -110,7 +106,6 @@ func (c *conn) Board(update room.BoardUpdate) bool {
 	return true
 }
 
-// Chat queues a message and reports false when the connection has fallen too far behind.
 func (c *conn) Chat(message room.ChatMessage) bool {
 	frame := textFrame(encodeChat(message))
 	c.mu.Lock()
@@ -125,7 +120,6 @@ func (c *conn) Chat(message room.ChatMessage) bool {
 	return true
 }
 
-// Close ends the connection from the room's side with the code of the reason.
 func (c *conn) Close(reason room.CloseReason) {
 	c.fail(closeCode(reason), string(reason))
 }

@@ -273,7 +273,7 @@ func TestPrivateRoom(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("admits only the holder of the password", func(t *testing.T) {
-		assert.NoError(t, r.Authorize(t0, &right))
+		require.NoError(t, r.Authorize(t0, &right))
 		assert.Equal(t, shared.ErrCodePermissionDenied, shared.CodeOf(r.Authorize(t0, nil)))
 		assert.Equal(t, shared.ErrCodePermissionDenied, shared.CodeOf(r.Authorize(t0, &wrong)))
 	})
@@ -365,12 +365,12 @@ func TestFaceAndPhoto(t *testing.T) {
 	}
 	for _, raw := range []string{"thirteen chars", "a\nb", "a\u202eb", "tab\there"} {
 		_, err := NewFace(raw)
-		assert.Error(t, err, "%q", raw)
+		require.Error(t, err, "%q", raw)
 	}
 	assert.NoError(t, CheckPhoto(nil))
 	assert.NoError(t, CheckPhoto([]byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 0xFF, 0xD9}))
-	assert.Error(t, CheckPhoto([]byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2}), "a JPEG that does not end as one")
-	assert.Error(t, CheckPhoto([]byte("<svg onload=alert(1)>")))
+	require.Error(t, CheckPhoto([]byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2}), "a JPEG that does not end as one")
+	require.Error(t, CheckPhoto([]byte("<svg onload=alert(1)>")))
 	assert.Error(t, CheckPhoto(append([]byte{0xFF, 0xD8, 0xFF}, make([]byte, 10<<10)...)))
 }
 
@@ -381,14 +381,14 @@ func TestBan(t *testing.T) {
 	caio := joinActive(t, r, "caio", false)
 	r.From(bia.ID, "office")
 	_, err := r.Ban(t0, bia.ID, caio.ID)
-	assert.Error(t, err, "only the owner bans")
+	require.Error(t, err, "only the owner bans")
 	_, err = r.Ban(t0, ana.ID, ana.ID)
-	assert.Error(t, err, "the owner cannot ban themselves")
+	require.Error(t, err, "the owner cannot ban themselves")
 	events, err := r.Ban(t0, ana.ID, bia.ID)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	assert.Equal(t, ReasonBanned, events[0].Reason)
-	assert.Error(t, r.Admit("office"))
+	require.Error(t, r.Admit("office"))
 	assert.NoError(t, r.Admit("home"))
 	assert.NoError(t, r.Admit(""), "an unknown origin is never refused")
 	_, err = r.Ban(t0, ana.ID, caio.ID)
@@ -408,6 +408,6 @@ func TestBoardFlag(t *testing.T) {
 	require.Len(t, r.SetMedia(ana.ID, FlagBoard|FlagOwner|FlagUnstable), 1)
 	got := r.Roster()[0].Flags
 	assert.True(t, got.Has(FlagBoard), "a participant says they opened the whiteboard")
-	assert.Equal(t, Flags(128), FlagBoard)
+	assert.Equal(t, FlagBoard, Flags(128))
 	assert.False(t, got.Has(FlagUnstable), "and still cannot set what only the server sets")
 }
