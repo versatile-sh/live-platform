@@ -9,6 +9,10 @@ const SOURCES: readonly Source[] = ["microphone", "camera", "screen", "screenAud
 /** What each participant is sending me, by participant id and source. */
 export type Remote = Readonly<Record<number, Partial<Record<Source, MediaStream>>>>;
 
+/** How long an offer may first go unanswered before the publish connection is taken as lost and built again; each loss in a row doubles it, up to the most. */
+const ANSWER_WAIT_MS = 10_000;
+const ANSWER_WAIT_MOST_MS = 60_000;
+
 /** Builds a peer connection, so tests can do without one. */
 export type RtcPort = (() => RTCPeerConnection) | undefined;
 
@@ -38,12 +42,13 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
   let negotiating = false;
   let again = false;
   let early: { role: "pub" | "sub"; init: RTCIceCandidateInit }[] = [];
-  const senders = new Map<Source, RTCRtpSender>();
-  const streams = new Map<Source, string>();
+  const lanes = new Map<Source, { transceiver: RTCRtpTransceiver; stream: string; on: boolean }>();
+  let unanswered: ReturnType<typeof setTimeout> | undefined;
+  let patience = ANSWER_WAIT_MS;
   let ceilings: Partial<Record<Source, number>> = {};
 
   function cap(source: Source) {
-    const sender = senders.get(source);
+    const sender = lanes.get(source)?.transceiver.sender;
     const max = ceilings[source];
     if (!sender || typeof sender.getParameters !== "function") return;
     const parameters = sender.getParameters();
@@ -88,9 +93,9 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       if (!Number.isInteger(pid) || !SOURCES.includes(source as Source)) return;
       const stream = new MediaStream([event.track]);
       setRemote(pid, source as Source, stream);
-      event.track.addEventListener("ended", () => {
+      event.track.onended = () => {
         if (remote[pid]?.[source as Source] === stream) setRemote(pid, source as Source, undefined);
-      });
+      };
     };
     sub = pc;
     return pc;
@@ -138,17 +143,25 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
     }
     negotiating = true;
     try {
-      const offer = await pub.createOffer();
-      await pub.setLocalDescription(offer);
+      const pc = pub;
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
       const sources: Record<string, string> = {};
-      for (const [source, sender] of senders) if (sender.track && streams.has(source)) sources[streams.get(source)!] = source;
+      for (const [source, lane] of lanes) if (lane.on) sources[lane.stream] = source;
       send({ role: "pub", kind: "offer", sdp: offer.sdp ?? "", sources });
+      unanswered = setTimeout(() => {
+        if (pub !== pc) return;
+        patience = Math.min(patience * 2, ANSWER_WAIT_MOST_MS);
+        rebuild();
+      }, patience);
     } catch {
       settled();
     }
   }
 
   function settled() {
+    clearTimeout(unanswered);
+    unanswered = undefined;
     negotiating = false;
     if (again) {
       again = false;
@@ -161,39 +174,54 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
     const any = SOURCES.some((source) => wanted[source]);
     if (!pub && !any) return;
     if (!pub) {
-      pub = rtc();
-      wire(pub, "pub");
+      const pc = rtc();
+      wire(pc, "pub");
+      pc.onconnectionstatechange = () => {
+        if (pub === pc && (pc.connectionState === "failed" || pc.connectionState === "closed")) rebuild();
+      };
+      pub = pc;
     }
     let changed = false;
     for (const source of SOURCES) {
       const track = wanted[source];
-      const sender = senders.get(source);
-      if (track && !sender) {
+      const lane = lanes.get(source);
+      if (!lane) {
+        if (!track) continue;
         const stream = new MediaStream([track]);
-        streams.set(source, stream.id);
-        senders.set(source, pub.addTrack(track, stream));
+        lanes.set(source, { transceiver: pub.addTransceiver(track, { direction: "sendonly", streams: [stream] }), stream: stream.id, on: true });
         cap(source);
         changed = true;
-      } else if (!track && sender) {
-        pub.getTransceivers().find((transceiver) => transceiver.sender === sender)?.stop();
-        senders.delete(source);
-        streams.delete(source);
-        changed = true;
-      } else if (track && sender && sender.track !== track) {
-        void sender.replaceTrack(track);
+        continue;
+      }
+      const { sender } = lane.transceiver;
+      if (sender.track !== (track ?? null)) void sender.replaceTrack(track ?? null).catch(() => undefined);
+      if (lane.on !== (track !== undefined)) {
+        lane.on = track !== undefined;
         changed = true;
       }
     }
     if (changed) void negotiate();
   }
 
-  function close() {
-    sub?.close();
+  function dropPub() {
+    clearTimeout(unanswered);
+    unanswered = undefined;
     pub?.close();
-    sub = pub = undefined;
-    senders.clear();
-    streams.clear();
+    pub = undefined;
+    lanes.clear();
     negotiating = again = false;
+    early = early.filter((entry) => entry.role !== "pub");
+  }
+
+  function rebuild() {
+    dropPub();
+    sync();
+  }
+
+  function close() {
+    dropPub();
+    sub?.close();
+    sub = undefined;
     early = [];
   }
 
@@ -225,7 +253,10 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
         const pc = pub;
         void pc
           .setRemoteDescription({ type: "answer", sdp: signal.sdp ?? "" })
-          .then(() => flush("pub", pc))
+          .then(() => {
+            patience = ANSWER_WAIT_MS;
+            return flush("pub", pc);
+          })
           .catch(() => undefined)
           .finally(settled);
       }

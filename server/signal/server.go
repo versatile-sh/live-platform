@@ -75,6 +75,7 @@ type Server struct {
 	open     sync.Map
 	passes   outbound.PassLedger
 	join     func(parent string, attrs ...attribute.KeyValue) trace.Span
+	frames   frames
 }
 
 // NewServer builds the signalling endpoint over the presence port.

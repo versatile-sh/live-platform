@@ -64,7 +64,7 @@ server/
 
 - **One goroutine per room.** Every change to a room goes through its actor, in order; there are no locks around room state. The room is a value that is told the time and answers with what changed, so every presence rule is a plain unit test.
 - **State as bits.** Seats are a `uint64` bitmap; what a participant has on (microphone, camera, screen, screen audio, hand, owner, unstable) is a `uint16` of flags.
-- **Whole rosters, versioned.** Each change sends the entire roster with a version number, never a diff. A browser that missed a message is right again at the next one.
+- **Whole rosters, versioned.** Each change sends the entire roster with a version number, never a diff. A browser that missed a message is right again at the next one. A roster, chat message, photo or piece of the whiteboard sent to the whole room is encoded into one WebSocket frame once, and every connection queues those same bytes.
 - **The lobby never waits.** Each room publishes an atomic summary; listing open rooms never blocks on a room's goroutine.
 
 The client lives in `web/src`, one folder per concern (`room/`, `media/`, `signal/`, `session/`, `lobby/`, `board/`, `domain/`, `ui/`, `i18n/`). The design system, its tokens and shapes are in [`web/DESIGN.md`](../web/DESIGN.md).
@@ -91,7 +91,8 @@ On a planned restart, a stopping server can write its rooms to a directory share
 ## Media
 
 - **Two peer connections per participant**: one to publish, one to receive everyone else. The server forwards RTP without decoding it and names each forwarded track by who sent it and what it is, from the sources the publisher declared (microphone, camera, screen, screen sound).
-- **Codecs** are Pion's defaults; the server asks publishers for a keyframe every 2 seconds so late joiners get a picture quickly.
+- **Publishing**: each source has one transceiver of its own for the life of the connection. Turning a source off empties its track and leaves it out of the declared sources; turning it on fills the same transceiver again. No m-line is ever rejected, so the BUNDLE transport never changes (Chrome tears it down when the first m-line is rejected) and no source can stream under another's name. An offer left unanswered for 10 seconds, or a publish connection that fails, makes the browser build a new one; the server replaces its side when the DTLS fingerprint changes.
+- **Codecs** are Pion's defaults. Keyframes are asked for on demand: a subscriber's picture loss or full intra request reaches the publisher, at most once per 500 ms per stream, and a stream sent to someone new asks for one too. Each forwarded video stream keeps its last 256 packets for retransmission instead of Pion's 1024, the largest share of the server's heap.
 - **No simulcast and no forwarding on demand** yet: every stream goes to everyone at the quality it was sent.
 - **Audio processing is in the browser only**: RNNoise for the strong voice filter, plus gain, a noise gate and echo cancellation. Background blur runs MediaPipe in the browser. The server never processes audio or video.
 - **Media path**: one UDP port for everyone when `MEDIA_UDP_PORT` is set, announced at `MEDIA_PUBLIC_IP`. There is no TURN relay, so a network that blocks UDP cannot carry media.

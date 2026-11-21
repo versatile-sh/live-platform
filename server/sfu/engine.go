@@ -2,18 +2,21 @@
 package sfu
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pion/ice/v4"
 	"github.com/pion/interceptor"
-	"github.com/pion/interceptor/pkg/intervalpli"
+	"github.com/pion/interceptor/pkg/nack"
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 
 	"github.com/versatile-sh/live/server/core/room"
@@ -61,11 +64,77 @@ type peer struct {
 	mu      sync.Mutex
 	sub     *webrtc.PeerConnection
 	pub     *webrtc.PeerConnection
+	dtls    string
 	dirty   bool
 	silent  atomic.Bool
 	sources map[string]string
-	tracks  map[string]*webrtc.TrackLocalStaticRTP
-	senders map[*webrtc.TrackLocalStaticRTP]*webrtc.RTPSender
+	names   map[string]string
+	waiting []parked
+	feeds   map[string]*feed
+	senders map[*feed]*webrtc.RTPSender
+}
+
+// parked is a track that arrived before the publisher named it; it is read once it is named.
+type parked struct {
+	pc     *webrtc.PeerConnection
+	remote *webrtc.TrackRemote
+}
+
+// retransmitPackets is how many sent packets each forwarded video stream keeps for retransmission: Pion keeps 1024 full-size buffers by default, about 1.5 MB for every stream to every subscriber; 256 still covers more than half a second of a 4 Mbps screen, past libwebrtc's own one second window only at higher rates.
+const retransmitPackets = 256
+
+// keyframeGap is the least time between two keyframe requests for one feed, however many subscribers ask.
+const keyframeGap = 500 * time.Millisecond
+
+// feed is one source a participant sends, as it reaches the server, and whether the others are being sent it.
+type feed struct {
+	local *webrtc.TrackLocalStaticRTP
+	pc    *webrtc.PeerConnection
+	ssrc  uint32
+	video bool
+	on    bool
+	asked atomic.Int64
+}
+
+// keyframe asks the publisher for a full picture, at most once per keyframeGap.
+func (f *feed) keyframe() {
+	if !f.video {
+		return
+	}
+	now := time.Now().UnixNano()
+	last := f.asked.Load()
+	if now-last < int64(keyframeGap) || !f.asked.CompareAndSwap(last, now) {
+		return
+	}
+	_ = f.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: f.ssrc}})
+}
+
+// wantsKeyframe reports whether a compound RTCP packet holds a picture loss indication or a full intra request, without allocating.
+func wantsKeyframe(b []byte) bool {
+	for len(b) >= 4 {
+		if format := b[0] & 0x1f; b[1] == 206 && (format == 1 || format == 4) {
+			return true
+		}
+		size := (int(binary.BigEndian.Uint16(b[2:4])) + 1) * 4
+		if size > len(b) {
+			return false
+		}
+		b = b[size:]
+	}
+	return false
+}
+
+// fingerprint is the DTLS fingerprint a description announces; a new one means the browser opened a new connection.
+func fingerprint(sdp string) string {
+	at := strings.Index(sdp, "a=fingerprint:")
+	if at < 0 {
+		return ""
+	}
+	line := sdp[at:]
+	if end := strings.IndexAny(line, "\r\n"); end >= 0 {
+		line = line[:end]
+	}
+	return line
 }
 
 // New builds an engine; with a UDP port every participant's media shares that one socket.
@@ -75,15 +144,9 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 		return nil, err
 	}
 	registry := &interceptor.Registry{}
-	if err := webrtc.RegisterDefaultInterceptors(media, registry); err != nil {
+	if err := webrtc.RegisterDefaultInterceptorsWithOptions(media, registry, webrtc.WithNackResponderOptions(nack.ResponderSize(retransmitPackets))); err != nil {
 		return nil, err
 	}
-	keyframes, err := intervalpli.NewReceiverInterceptor(intervalpli.GeneratorInterval(2 * time.Second))
-	if err != nil {
-		return nil, err
-	}
-	registry.Add(keyframes)
-
 	settings := webrtc.SettingEngine{}
 	if cfg.UDPPort != 0 {
 		conn, err := net.ListenUDP("udp", &net.UDPAddr{Port: cfg.UDPPort})
@@ -105,7 +168,7 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 // Attach gives a participant its media connections, replacing any it had, and starts sending it the room.
 func (e *Engine) Attach(slug room.Slug, pid room.PID, gen uint32, send Sender) {
 	e.Detach(slug, pid)
-	p := &peer{slug: slug, pid: pid, gen: gen, send: send, tracks: map[string]*webrtc.TrackLocalStaticRTP{}, senders: map[*webrtc.TrackLocalStaticRTP]*webrtc.RTPSender{}}
+	p := &peer{slug: slug, pid: pid, gen: gen, send: send, names: map[string]string{}, feeds: map[string]*feed{}, senders: map[*feed]*webrtc.RTPSender{}}
 	sub, err := e.api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		e.report.MediaDown(slug, pid, gen)
@@ -133,11 +196,13 @@ func (e *Engine) Attach(slug room.Slug, pid room.PID, gen uint32, send Sender) {
 		members = map[room.PID]*peer{}
 		e.rooms[slug] = members
 	}
-	var existing []*webrtc.TrackLocalStaticRTP
+	var existing []*feed
 	for _, other := range members {
 		other.mu.Lock()
-		for _, track := range other.tracks {
-			existing = append(existing, track)
+		for _, f := range other.feeds {
+			if f.on {
+				existing = append(existing, f)
+			}
 		}
 		other.mu.Unlock()
 	}
@@ -145,8 +210,8 @@ func (e *Engine) Attach(slug room.Slug, pid room.PID, gen uint32, send Sender) {
 	e.mu.Unlock()
 
 	p.mu.Lock()
-	for _, track := range existing {
-		p.forward(track)
+	for _, f := range existing {
+		p.forward(f)
 	}
 	p.offer()
 	p.mu.Unlock()
@@ -167,12 +232,16 @@ func (e *Engine) Detach(slug room.Slug, pid room.PID) {
 		return
 	}
 	p.mu.Lock()
-	gone := make([]*webrtc.TrackLocalStaticRTP, 0, len(p.tracks))
-	for _, track := range p.tracks {
-		gone = append(gone, track)
+	gone := make([]*feed, 0, len(p.feeds))
+	for _, f := range p.feeds {
+		if f.on {
+			gone = append(gone, f)
+		}
 	}
+	clear(p.feeds)
 	sub, pub := p.sub, p.pub
 	p.sub, p.pub = nil, nil
+	p.waiting = nil
 	p.mu.Unlock()
 	if sub != nil {
 		_ = sub.Close()
@@ -180,8 +249,8 @@ func (e *Engine) Detach(slug room.Slug, pid room.PID) {
 	if pub != nil {
 		_ = pub.Close()
 	}
-	for _, track := range gone {
-		e.withdraw(others, track)
+	for _, f := range gone {
+		e.withdraw(others, f)
 	}
 }
 
@@ -229,6 +298,13 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 		p.mu.Unlock()
 		return
 	}
+	dtls := fingerprint(signal.SDP)
+	var stale *webrtc.PeerConnection
+	if p.pub != nil && (p.dtls != dtls || closedState(p.pub.ConnectionState())) {
+		stale, p.pub = p.pub, nil
+		clear(p.names)
+		p.waiting = nil
+	}
 	if p.pub == nil {
 		pub, err := e.api.NewPeerConnection(webrtc.Configuration{})
 		if err != nil {
@@ -236,19 +312,42 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 			return
 		}
 		pub.OnICECandidate(func(c *webrtc.ICECandidate) { p.candidate(room.MediaRolePublish, c) })
-		pub.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) { e.incoming(p, remote) })
-		p.pub = pub
+		pub.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) { e.incoming(p, pub, remote) })
+		p.pub, p.dtls = pub, dtls
 	}
 	pub := p.pub
 	p.sources = signal.Sources
-	var stopped []*webrtc.TrackLocalStaticRTP
-	for source, track := range p.tracks {
-		if !declared(signal.Sources, source) {
-			stopped = append(stopped, track)
-			delete(p.tracks, source)
+	for key, source := range signal.Sources {
+		p.names[key] = source
+	}
+	var named []parked
+	kept := p.waiting[:0]
+	for _, w := range p.waiting {
+		if p.nameOf(w.remote) != "" {
+			named = append(named, w)
+		} else {
+			kept = append(kept, w)
 		}
 	}
+	clear(p.waiting[len(kept):])
+	p.waiting = kept
+	var stopped, resumed []*feed
+	for source, f := range p.feeds {
+		on := declared(signal.Sources, source)
+		if f.on && !on {
+			stopped = append(stopped, f)
+		} else if !f.on && on {
+			resumed = append(resumed, f)
+		}
+		f.on = on
+	}
 	p.mu.Unlock()
+	if stale != nil {
+		_ = stale.Close()
+	}
+	for _, w := range named {
+		go e.incoming(p, w.pc, w.remote)
+	}
 
 	if err := pub.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: signal.SDP}); err != nil {
 		return
@@ -259,14 +358,29 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 	}
 	p.send(room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindAnswer, SDP: answer.SDP})
 
-	if len(stopped) > 0 {
-		e.mu.Lock()
-		others := e.others(p.slug, p.pid)
-		e.mu.Unlock()
-		for _, track := range stopped {
-			e.withdraw(others, track)
-		}
+	if len(stopped) == 0 && len(resumed) == 0 {
+		return
 	}
+	e.mu.Lock()
+	others := e.others(p.slug, p.pid)
+	e.mu.Unlock()
+	for _, f := range stopped {
+		e.withdraw(others, f)
+	}
+	for _, f := range resumed {
+		e.spread(others, f)
+	}
+}
+
+func (p *peer) nameOf(remote *webrtc.TrackRemote) string {
+	if source := p.names[remote.StreamID()]; source != "" {
+		return source
+	}
+	return p.names[remote.ID()]
+}
+
+func closedState(state webrtc.PeerConnectionState) bool {
+	return state == webrtc.PeerConnectionStateClosed || state == webrtc.PeerConnectionStateFailed
 }
 
 func declared(sources map[string]string, source string) bool {
@@ -278,36 +392,37 @@ func declared(sources map[string]string, source string) bool {
 	return false
 }
 
-func (e *Engine) incoming(p *peer, remote *webrtc.TrackRemote) {
+func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.TrackRemote) {
 	p.mu.Lock()
-	source := p.sources[remote.StreamID()]
-	if source == "" {
-		source = p.sources[remote.ID()]
-	}
-	if source == "" || p.sub == nil {
+	if p.sub == nil || p.pub != pc {
 		p.mu.Unlock()
 		return
 	}
+	source := p.nameOf(remote)
+	if source == "" {
+		p.waiting = append(p.waiting, parked{pc: pc, remote: remote})
+		p.mu.Unlock()
+		return
+	}
+	on := declared(p.sources, source)
 	local, err := webrtc.NewTrackLocalStaticRTP(remote.Codec().RTPCodecCapability, source, strconv.FormatUint(uint64(p.pid), 10)+":"+source)
 	if err != nil {
 		p.mu.Unlock()
 		return
 	}
-	previous := p.tracks[source]
-	p.tracks[source] = local
+	f := &feed{local: local, pc: pc, ssrc: uint32(remote.SSRC()), video: remote.Kind() == webrtc.RTPCodecTypeVideo, on: on}
+	previous := p.feeds[source]
+	p.feeds[source] = f
 	p.mu.Unlock()
 
 	e.mu.Lock()
 	others := e.others(p.slug, p.pid)
 	e.mu.Unlock()
-	if previous != nil {
+	if previous != nil && previous.on {
 		e.withdraw(others, previous)
 	}
-	for _, other := range others {
-		other.mu.Lock()
-		other.forward(local)
-		other.offer()
-		other.mu.Unlock()
+	if on {
+		e.spread(others, f)
 	}
 
 	packet := make([]byte, 1500)
@@ -324,45 +439,60 @@ func (e *Engine) incoming(p *peer, remote *webrtc.TrackRemote) {
 		}
 	}
 	p.mu.Lock()
-	current := p.tracks[source] == local
+	current := p.feeds[source] == f
+	shown := current && f.on
 	if current {
-		delete(p.tracks, source)
+		delete(p.feeds, source)
 	}
 	p.mu.Unlock()
-	if current {
+	if shown {
 		e.mu.Lock()
 		others = e.others(p.slug, p.pid)
 		e.mu.Unlock()
-		e.withdraw(others, local)
+		e.withdraw(others, f)
 	}
 }
 
-func (e *Engine) withdraw(from []*peer, track *webrtc.TrackLocalStaticRTP) {
+func (e *Engine) spread(to []*peer, f *feed) {
+	for _, other := range to {
+		other.mu.Lock()
+		other.forward(f)
+		other.offer()
+		other.mu.Unlock()
+	}
+	f.keyframe()
+}
+
+func (e *Engine) withdraw(from []*peer, f *feed) {
 	for _, other := range from {
 		other.mu.Lock()
-		if sender := other.senders[track]; sender != nil && other.sub != nil {
+		if sender := other.senders[f]; sender != nil && other.sub != nil {
 			_ = other.sub.RemoveTrack(sender)
-			delete(other.senders, track)
+			delete(other.senders, f)
 			other.offer()
 		}
 		other.mu.Unlock()
 	}
 }
 
-func (p *peer) forward(track *webrtc.TrackLocalStaticRTP) {
-	if p.sub == nil || p.senders[track] != nil {
+func (p *peer) forward(f *feed) {
+	if p.sub == nil || p.senders[f] != nil {
 		return
 	}
-	sender, err := p.sub.AddTrack(track)
+	sender, err := p.sub.AddTrack(f.local)
 	if err != nil {
 		return
 	}
-	p.senders[track] = sender
+	p.senders[f] = sender
 	go func() {
 		feedback := make([]byte, 1500)
 		for {
-			if _, _, err := sender.Read(feedback); err != nil {
+			n, _, err := sender.Read(feedback)
+			if err != nil {
 				return
+			}
+			if wantsKeyframe(feedback[:n]) {
+				f.keyframe()
 			}
 		}
 	}()

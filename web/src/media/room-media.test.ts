@@ -16,29 +16,32 @@ class FakeStream {
 }
 vi.stubGlobal("MediaStream", FakeStream);
 
+type FakeTrack = { id: string } | null;
+type FakeSender = { track: FakeTrack; replaceTrack(track: FakeTrack): Promise<void> };
+
 function fakeConnection() {
   const pc = {
-    senders: [] as { track: { id: string } | null }[],
+    senders: [] as FakeSender[],
     remoteDescription: null as unknown,
     closed: false,
+    connectionState: "new",
+    onconnectionstatechange: null as (() => void) | null,
     onicecandidate: null as ((event: { candidate: { toJSON(): object } | null }) => void) | null,
-    ontrack: null as ((event: { streams: { id: string }[]; track: { addEventListener(type: string, listener: () => void): void } }) => void) | null,
+    ontrack: null as ((event: { streams: { id: string }[]; track: { onended: (() => void) | null } }) => void) | null,
     added: [] as object[],
-    addTrack(track: { id: string }) {
-      const sender = { track, replaceTrack: async () => undefined };
+    addTransceiver(track: { id: string }, init: { direction: string }) {
+      const sender: FakeSender = {
+        track,
+        async replaceTrack(next) {
+          sender.track = next;
+        },
+      };
       pc.senders.push(sender);
-      return sender;
+      return { sender, direction: init.direction, stop: () => pc.stopped.push(sender) };
     },
     stopped: [] as unknown[],
-    getTransceivers: () =>
-      pc.senders.map((sender) => ({
-        sender,
-        stop() {
-          pc.stopped.push(sender);
-          pc.senders = pc.senders.filter((kept) => kept !== sender);
-        },
-      })),
-    createOffer: async () => ({ type: "offer", sdp: `offer:${pc.senders.map((s) => s.track?.id).join(",")}` }),
+    getTransceivers: () => [],
+    createOffer: async () => ({ type: "offer", sdp: `offer:${pc.senders.map((s) => s.track?.id ?? "-").join(",")}` }),
     createAnswer: async () => ({ type: "answer", sdp: "answer" }),
     setLocalDescription: async () => undefined,
     setRemoteDescription: async (description: unknown) => {
@@ -85,12 +88,12 @@ describe("room media", () => {
       const { media, made } = setup();
       media.signal({ role: "sub", kind: "offer", sdp: "the offer" });
       await settle();
-      let end = () => undefined as void;
-      made[0]!.ontrack!({ streams: [{ id: "7:camera" }], track: { addEventListener: (_type, listener) => void (end = listener) } });
+      const camera = { onended: null as (() => void) | null };
+      made[0]!.ontrack!({ streams: [{ id: "7:camera" }], track: camera });
       expect(Object.keys(media.getSnapshot()[7] ?? {})).toEqual(["camera"]);
-      made[0]!.ontrack!({ streams: [{ id: "nonsense" }], track: { addEventListener: () => undefined } });
+      made[0]!.ontrack!({ streams: [{ id: "nonsense" }], track: { onended: null } });
       expect(Object.keys(media.getSnapshot())).toEqual(["7"]);
-      end();
+      camera.onended!();
       expect(media.getSnapshot()).toEqual({});
     });
   });
@@ -113,24 +116,63 @@ describe("room media", () => {
       expect(sent).toHaveLength(1);
       media.signal({ role: "pub", kind: "answer", sdp: "ok" });
       await settle();
-      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:s1", sources: { s1: "screen" } });
+      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:-,s1", sources: { s1: "screen" } });
       expect(sent).toHaveLength(2);
     });
 
-    test("stops the transceiver of a source I turn off, so a source turned on later never takes its place", async () => {
+    test("keeps one transceiver per source for good: turning a source off empties it and leaves it out of the offer, so no m-line is ever rejected and no other source takes its place", async () => {
       const { media, made, sent } = setup();
+      const answer = async () => {
+        await settle();
+        media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+        await settle();
+      };
+      media.publish({ camera: track("c1"), screen: track("s1") });
+      await answer();
       media.publish({ screen: track("s1") });
-      await settle();
-      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
-      await settle();
-      media.publish({});
-      await settle();
-      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
-      await settle();
+      await answer();
+      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:-,s1", sources: { s1: "screen" } });
+      media.publish({ screen: track("s1"), camera: track("c2") });
+      await answer();
+      expect(made).toHaveLength(1);
+      expect(made[0]!.senders).toHaveLength(2);
+      expect(made[0]!.stopped).toEqual([]);
+      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:c2,s1", sources: { c1: "camera", s1: "screen" } });
+    });
+
+    test("changing the track of a source that stays on does not negotiate again", async () => {
+      const { media, made, sent } = setup();
       media.publish({ camera: track("c1") });
       await settle();
-      expect(made[0]!.stopped).toEqual([{ track: track("s1"), replaceTrack: expect.any(Function) }]);
-      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:c1", sources: { c1: "camera" } });
+      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+      await settle();
+      media.publish({ camera: track("c2") });
+      await settle();
+      expect(sent).toHaveLength(1);
+      expect(made[0]!.senders[0]!.track).toEqual(track("c2"));
+    });
+
+    test("builds the publish connection again when its offer goes unanswered, and when it fails", async () => {
+      vi.useFakeTimers();
+      try {
+        const { media, made, sent } = setup();
+        media.publish({ camera: track("c1") });
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(made[0]!.closed).toBe(true);
+        expect(made).toHaveLength(2);
+        expect(sent.at(-1)).toMatchObject({ role: "pub", kind: "offer", sources: { c1: "camera" } });
+        media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+        await vi.advanceTimersByTimeAsync(0);
+        made[1]!.connectionState = "failed";
+        made[1]!.onconnectionstatechange!();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(made[1]!.closed).toBe(true);
+        expect(made).toHaveLength(3);
+        expect(sent.filter((signal) => signal.kind === "offer")).toHaveLength(3);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     test("opens no connection while there is nothing to send", () => {

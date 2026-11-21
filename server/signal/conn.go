@@ -55,7 +55,7 @@ type conn struct {
 }
 
 func (c *conn) Roster(snapshot room.Snapshot) bool {
-	frame := textFrame(encodeRoster(snapshot))
+	frame := c.server.frames.rosterFrame(snapshot)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -72,7 +72,7 @@ func (c *conn) Roster(snapshot room.Snapshot) bool {
 }
 
 func (c *conn) Photo(pid room.PID, jpeg []byte) {
-	frame := textFrame(encodePhoto(pid, jpeg))
+	frame := c.server.frames.photoFrame(pid, jpeg)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -98,7 +98,7 @@ func (c *conn) Media(signal room.MediaSignal) {
 }
 
 func (c *conn) Board(update room.BoardUpdate) bool {
-	frame := textFrame(encodeBoard(update))
+	frame := c.server.frames.boardFrame(update)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -112,7 +112,7 @@ func (c *conn) Board(update room.BoardUpdate) bool {
 }
 
 func (c *conn) Chat(message room.ChatMessage) bool {
-	frame := textFrame(encodeChat(message))
+	frame := c.server.frames.chatFrame(message)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
