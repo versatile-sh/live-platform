@@ -62,7 +62,7 @@ func (c *tab) send(v any) {
 	_ = wsutil.WriteClientText(c.conn, data)
 }
 
-func open(t *testing.T, api *webrtc.API, url, name string) *tab {
+func open(t *testing.T, api *webrtc.API, url, slug, name string) *tab {
 	t.Helper()
 	conn, _, _, err := ws.Dialer{Protocols: []string{signal.Subprotocol}}.Dial(context.Background(), url)
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func open(t *testing.T, api *webrtc.API, url, name string) *tab {
 			c.mu.Unlock()
 		}
 	})
-	c.send(map[string]string{"t": "join", "slug": "call", "name": name})
+	c.send(map[string]string{"t": "join", "slug": slug, "name": name})
 	go c.read()
 	go func() {
 		for range time.Tick(2 * time.Second) {
@@ -207,8 +207,8 @@ func TestCall(t *testing.T) {
 	})
 	url := "ws://" + addr + "/ws"
 
-	ana := open(t, browserAPI, url, "ana")
-	bia := open(t, browserAPI, url, "bia")
+	ana := open(t, browserAPI, url, "call", "ana")
+	bia := open(t, browserAPI, url, "call", "bia")
 
 	t.Run("a participant becomes active only when its media path is up, through the real signalling", func(t *testing.T) {
 		require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, wait, 50*time.Millisecond)
