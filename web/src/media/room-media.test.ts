@@ -133,6 +133,39 @@ describe("room media", () => {
       expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:c1", sources: { c1: "camera" } });
     });
 
+    test("tells the server I stopped everything, then closes the publish connection and publishes later on a new one", async () => {
+      const { media, made, sent } = setup();
+      media.publish({ screen: track("s1") });
+      await settle();
+      media.publish({});
+      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+      await settle();
+      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:", sources: {} });
+      expect(made[0]!.closed).toBe(false);
+      media.signal({ role: "pub", kind: "answer", sdp: "ok" });
+      await settle();
+      expect(made[0]!.closed).toBe(true);
+      media.publish({ screen: track("s2") });
+      await settle();
+      expect(made).toHaveLength(2);
+      expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:s2", sources: { s2: "screen" } });
+    });
+
+    test("starts the publish connection over when an offer is never answered", async () => {
+      vi.useFakeTimers();
+      try {
+        const { media, made, sent } = setup();
+        media.publish({ screen: track("s1") });
+        await vi.advanceTimersByTimeAsync(0);
+        await vi.advanceTimersByTimeAsync(10_000);
+        expect(made[0]!.closed).toBe(true);
+        expect(made).toHaveLength(2);
+        expect(sent.filter((signal) => signal.kind === "offer")).toHaveLength(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     test("opens no connection while there is nothing to send", () => {
       const { media, made } = setup();
       media.publish({});
