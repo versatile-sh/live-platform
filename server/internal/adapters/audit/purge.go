@@ -40,9 +40,9 @@ func RunPurge(ctx context.Context, dir string, keepDays int, interval time.Durat
 	for {
 		switch removed, err := Purge(dir, keepDays, time.Now()); {
 		case err != nil:
-			log.Error("audit purge failed", "error", err.Error())
+			log.ErrorContext(ctx, "audit purge failed", "error", err.Error())
 		case removed > 0:
-			log.Info("audit purged", "files", removed, "keep_days", keepDays)
+			log.InfoContext(ctx, "audit purged", "files", removed, "keep_days", keepDays)
 		}
 		select {
 		case <-ctx.Done():
