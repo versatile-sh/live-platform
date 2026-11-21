@@ -411,3 +411,13 @@ func TestBoardFlag(t *testing.T) {
 	assert.Equal(t, FlagBoard, Flags(128))
 	assert.False(t, got.Has(FlagUnstable), "and still cannot set what only the server sets")
 }
+
+func TestBrowserTrouble(t *testing.T) {
+	trouble, ok := BrowserTrouble("answer.late")
+	assert.True(t, ok)
+	assert.Equal(t, TroubleAnswerLate, trouble)
+	for _, refused := range []string{"", "offer.rejected", "publish.replaced", "anything else", "answer.late\n"} {
+		_, ok := BrowserTrouble(refused)
+		assert.False(t, ok, refused)
+	}
+}

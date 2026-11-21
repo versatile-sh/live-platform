@@ -60,6 +60,7 @@ function fakeConnection() {
 function setup() {
   const made: ReturnType<typeof fakeConnection>[] = [];
   const sent: RtcSignal[] = [];
+  const troubles: string[] = [];
   const media = createRoomMedia(
     () => {
       const pc = fakeConnection();
@@ -67,8 +68,9 @@ function setup() {
       return pc as unknown as RTCPeerConnection;
     },
     (signal) => sent.push(signal),
+    (trouble) => troubles.push(trouble),
   );
-  return { media, made, sent };
+  return { media, made, sent, troubles };
 }
 
 const track = (id: string) => ({ id, readyState: "live" }) as unknown as MediaStreamTrack;
@@ -152,10 +154,10 @@ describe("room media", () => {
       expect(made[0]!.senders[0]!.track).toEqual(track("c2"));
     });
 
-    test("builds the publish connection again when its offer goes unanswered, and when it fails", async () => {
+    test("builds the publish connection again when its offer goes unanswered, and when it fails, telling the server each time", async () => {
       vi.useFakeTimers();
       try {
-        const { media, made, sent } = setup();
+        const { media, made, sent, troubles } = setup();
         media.publish({ camera: track("c1") });
         await vi.advanceTimersByTimeAsync(0);
         await vi.advanceTimersByTimeAsync(10_000);
@@ -170,6 +172,7 @@ describe("room media", () => {
         expect(made[1]!.closed).toBe(true);
         expect(made).toHaveLength(3);
         expect(sent.filter((signal) => signal.kind === "offer")).toHaveLength(3);
+        expect(troubles).toEqual(["answer.late", "publish.failed"]);
       } finally {
         vi.useRealTimers();
       }

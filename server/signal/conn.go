@@ -42,6 +42,7 @@ type conn struct {
 	remote   string
 	headers  clientinfo.Headers
 	limiter  bucket
+	troubles bucket
 	late     *time.Timer
 	pending  atomic.Int64
 
@@ -303,6 +304,11 @@ func (c *conn) dispatch(f clientFrame) {
 			return
 		}
 		p.MediaSignal(c.slug, c.seat.PID, c.seat.Gen, room.MediaSignal{Role: f.Role, Kind: f.Kind, SDP: f.SDP, Candidate: f.Candidate, Sources: f.Sources})
+	case "trouble":
+		trouble, ok := room.BrowserTrouble(f.Code)
+		if ok && c.troubles.take(c.server.cfg.Now()) {
+			p.MediaTrouble(c.slug, c.seat.PID, c.seat.Gen, trouble)
+		}
 	case "look":
 		face, err := room.NewFace(f.Face)
 		if err != nil {

@@ -26,6 +26,7 @@ import (
 type Reporter interface {
 	MediaUp(slug room.Slug, pid room.PID, gen uint32)
 	MediaDown(slug room.Slug, pid room.PID, gen uint32)
+	ServerTrouble(slug room.Slug, pid room.PID, gen uint32, trouble room.MediaTrouble, detail string)
 }
 
 // Sender delivers a media signal to one participant without blocking.
@@ -210,6 +211,7 @@ func (e *Engine) Attach(slug room.Slug, pid room.PID, gen uint32, send Sender) {
 		case webrtc.PeerConnectionStateConnected:
 			e.report.MediaUp(slug, pid, gen)
 		case webrtc.PeerConnectionStateFailed:
+			e.report.ServerTrouble(slug, pid, gen, room.TroubleSubscribeLost, "")
 			e.report.MediaDown(slug, pid, gen)
 		}
 	})
@@ -330,7 +332,12 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 	}
 	dtls := fingerprint(signal.SDP)
 	var stale *webrtc.PeerConnection
+	var why string
 	if p.pub != nil && (p.dtls != dtls || closedState(p.pub.ConnectionState())) {
+		why = "new connection"
+		if closedState(p.pub.ConnectionState()) {
+			why = p.pub.ConnectionState().String()
+		}
 		stale, p.pub = p.pub, nil
 		clear(p.names)
 		p.waiting = nil
@@ -343,6 +350,11 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 		}
 		pub.OnICECandidate(func(c *webrtc.ICECandidate) { p.candidate(room.MediaRolePublish, c) })
 		pub.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) { e.incoming(p, pub, remote) })
+		pub.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+			if state == webrtc.PeerConnectionStateFailed {
+				e.report.ServerTrouble(p.slug, p.pid, p.gen, room.TroublePublishLost, "")
+			}
+		})
 		p.pub, p.dtls = pub, dtls
 	}
 	pub := p.pub
@@ -374,16 +386,22 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 	p.mu.Unlock()
 	if stale != nil {
 		_ = stale.Close()
+		e.report.ServerTrouble(p.slug, p.pid, p.gen, room.TroublePublishReplaced, why)
 	}
 	for _, w := range named {
 		go e.incoming(p, w.pc, w.remote)
 	}
 
 	if err := pub.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: signal.SDP}); err != nil {
+		e.report.ServerTrouble(p.slug, p.pid, p.gen, room.TroubleOfferRejected, err.Error())
 		return
 	}
 	answer, err := pub.CreateAnswer(nil)
-	if err != nil || pub.SetLocalDescription(answer) != nil {
+	if err == nil {
+		err = pub.SetLocalDescription(answer)
+	}
+	if err != nil {
+		e.report.ServerTrouble(p.slug, p.pid, p.gen, room.TroubleOfferRejected, err.Error())
 		return
 	}
 	p.send(room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindAnswer, SDP: answer.SDP})

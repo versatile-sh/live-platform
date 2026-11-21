@@ -75,7 +75,7 @@ JSON text frames over one WebSocket, each with a type in `t`.
 
 | Direction | Frames |
 | --- | --- |
-| Browser to server | `join`, `resume`, `hb` (heartbeat), `leave`, `media`, `rtc` (SDP/ICE), `look`, `photo`, `chat`, `board`, owner actions (`owner`, `remove`, `ban`, `transfer`, `listed`, `password`) |
+| Browser to server | `join`, `resume`, `hb` (heartbeat), `leave`, `media`, `rtc` (SDP/ICE), `trouble` (a media trouble code from a fixed list, at most a few then one per 10 s), `look`, `photo`, `chat`, `board`, owner actions (`owner`, `remove`, `ban`, `transfer`, `listed`, `password`) |
 | Server to browser | `joined` (seat, generation, resume secret), `roster` (versioned, whole), `rtc`, `chat`, `photo`, `board`, `error` |
 
 Application close codes tell the browser why a socket ended: `4001` superseded by another tab, `4012` server restarting, `4400` bad frame, `4401` no hello, `4403` removed, `4404` banned, `4408` silent, `4409` too slow to read, `4429` flooding.

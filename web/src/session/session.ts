@@ -1,5 +1,5 @@
 import { openLink, type Link, type LinkEvent, type SocketFactory } from "../signal/link";
-import type { Hello, OwnerOp, ServerFrame, RtcSignal } from "../signal/protocol";
+import type { Hello, OwnerOp, ServerFrame, RtcSignal, MediaTrouble } from "../signal/protocol";
 import { photoAddress } from "../domain/photo";
 import { IDLE, reduceConnection, type Connection, type ConnectionEvent, type DropCause, type EndReason } from "./connection";
 import { clearSeat, readSeat, writeSeat, type SeatStorage } from "./seat";
@@ -56,6 +56,8 @@ export type Session = {
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
   /** Sends a media signal to the server; false when it could not be sent. */
   sendRtc(signal: RtcSignal): boolean;
+  /** Tells the server something went wrong on my media path, so it can be found in its logs. */
+  sendTrouble(code: MediaTrouble): boolean;
   /** Sends a piece of the whiteboard to the others in the room, or to one of them. */
   sendBoard(data: object, to?: number): boolean;
   /** Hears pieces of the whiteboard from the others. */
@@ -373,6 +375,9 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     },
     sendRtc(signal) {
       return link?.send({ t: "rtc", ...signal }) ?? false;
+    },
+    sendTrouble(code) {
+      return link?.send({ t: "trouble", code }) ?? false;
     },
     onRtc(listener) {
       rtcListeners.add(listener);

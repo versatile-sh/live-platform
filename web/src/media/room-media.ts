@@ -1,4 +1,4 @@
-import type { RtcSignal } from "../signal/protocol";
+import type { MediaTrouble, RtcSignal } from "../signal/protocol";
 import type { StatEntry } from "./stats";
 
 /** What a participant can send: its microphone, its camera, its screen, and the sound of its screen. */
@@ -33,7 +33,7 @@ export type RoomMedia = {
 };
 
 /** My media in a room: one connection the server sends the others on, and one I publish on, both negotiated through the signalling link. */
-export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void): RoomMedia {
+export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void, report: (trouble: MediaTrouble) => void = () => undefined): RoomMedia {
   const listeners = new Set<() => void>();
   let remote: Remote = {};
   let sub: RTCPeerConnection | undefined;
@@ -87,6 +87,9 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
     if (sub || !rtc) return sub;
     const pc = rtc();
     wire(pc, "sub");
+    pc.onconnectionstatechange = () => {
+      if (sub === pc && pc.connectionState === "failed") report("subscribe.failed");
+    };
     pc.ontrack = (event) => {
       const [pidText, source] = (event.streams[0]?.id ?? "").split(":");
       const pid = Number(pidText);
@@ -131,6 +134,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
         }
       }
     } catch {
+      report("answer.failed");
       return;
     }
   }
@@ -151,10 +155,12 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       send({ role: "pub", kind: "offer", sdp: offer.sdp ?? "", sources });
       unanswered = setTimeout(() => {
         if (pub !== pc) return;
+        report("answer.late");
         patience = Math.min(patience * 2, ANSWER_WAIT_MOST_MS);
         rebuild();
       }, patience);
     } catch {
+      report("offer.failed");
       settled();
     }
   }
@@ -177,7 +183,9 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       const pc = rtc();
       wire(pc, "pub");
       pc.onconnectionstatechange = () => {
-        if (pub === pc && (pc.connectionState === "failed" || pc.connectionState === "closed")) rebuild();
+        if (pub !== pc || (pc.connectionState !== "failed" && pc.connectionState !== "closed")) return;
+        report("publish.failed");
+        rebuild();
       };
       pub = pc;
     }

@@ -25,8 +25,9 @@ var browserAPI = func() *webrtc.API {
 }()
 
 type reports struct {
-	mu sync.Mutex
-	up map[room.PID]bool
+	mu       sync.Mutex
+	up       map[room.PID]bool
+	troubles []string
 }
 
 func (r *reports) MediaUp(_ room.Slug, pid room.PID, _ uint32) {
@@ -39,6 +40,23 @@ func (r *reports) MediaDown(_ room.Slug, pid room.PID, _ uint32) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.up[pid] = false
+}
+
+func (r *reports) ServerTrouble(_ room.Slug, _ room.PID, _ uint32, trouble room.MediaTrouble, _ string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.troubles = append(r.troubles, string(trouble))
+}
+
+func (r *reports) seen(trouble room.MediaTrouble) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, t := range r.troubles {
+		if t == string(trouble) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *reports) isUp(pid room.PID) bool {
@@ -364,6 +382,13 @@ func TestEngine(t *testing.T) {
 		after := engine.publisher("bk", 2)
 		assert.NotSame(t, before, after)
 		assert.Equal(t, webrtc.PeerConnectionStateClosed, before.ConnectionState())
+		assert.True(t, seen.seen(room.TroublePublishReplaced), "the replaced connection is told as a trouble")
+	})
+
+	t.Run("an offer the server cannot apply is told as a trouble instead of going unanswered in silence", func(t *testing.T) {
+		enter(t, engine, 6)
+		engine.Signal("bk", 6, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: "v=0 not a description"})
+		assert.True(t, seen.seen(room.TroubleOfferRejected))
 	})
 
 	t.Run("signals from a connection the participant no longer holds are ignored", func(t *testing.T) {

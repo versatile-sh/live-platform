@@ -7,6 +7,9 @@ import (
 	"os"
 	"time"
 
+	"go.opentelemetry.io/otel"
+
+	"github.com/versatile-sh/live/server/audit"
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/github"
 	"github.com/versatile-sh/live/server/guestpass"
@@ -66,6 +69,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 	signalCfg := signal.DefaultConfig(cfg.Origins, time.Now)
 	signalCfg.CountryHeader = cfg.CountryHeader
 	signalCfg.AddressHeader = cfg.AddressHeader
+	hub.UseTroubles(audit.NewTroubles(context.WithoutCancel(ctx), log, otel.Tracer("live/media")))
 	var rooms inbound.Presence = presence.WithoutMedia{Hub: hub}
 	if cfg.Media {
 		engine, err := sfu.New(sfu.Config{UDPPort: cfg.MediaUDPPort, PublicIP: cfg.MediaPublicIP}, hub)

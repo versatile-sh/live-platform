@@ -136,7 +136,7 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 	if s.conns.Add(1) > s.cfg.MaxConns {
 		return nil, gnet.Close
 	}
-	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, s.cfg.Now())}
+	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, s.cfg.Now()), troubles: newBucket(troublesPerSec, troubleBurst, s.cfg.Now())}
 	if raw.RemoteAddr() != nil {
 		if host, _, err := net.SplitHostPort(raw.RemoteAddr().String()); err == nil {
 			c.remote = host

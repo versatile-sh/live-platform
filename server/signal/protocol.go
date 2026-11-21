@@ -51,7 +51,14 @@ type clientFrame struct {
 	SDP       string            `json:"sdp"`
 	Candidate string            `json:"candidate"`
 	Sources   map[string]string `json:"sources"`
+	Code      string            `json:"code"`
 }
+
+// A browser may report a few troubles at once, then one every ten seconds: enough to see a lost picture, too few to fill the logs.
+const (
+	troublesPerSec = 0.1
+	troubleBurst   = 5
+)
 
 type mediaFrame struct {
 	T         string `json:"t"`

@@ -255,7 +255,7 @@ export function RoomView({
   );
   const local = useSyncExternalStore(media.subscribe, media.getSnapshot);
   const [roomMedia] = useState(() =>
-    createRoomMedia(rtc, (signal) => void session.sendRtc(signal)),
+    createRoomMedia(rtc, (signal) => void session.sendRtc(signal), (trouble) => void session.sendTrouble(trouble)),
   );
   const remote = useSyncExternalStore(
     roomMedia.subscribe,
