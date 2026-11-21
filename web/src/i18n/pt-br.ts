@@ -380,7 +380,6 @@ export const ptBR: Record<MessageKey, string> = {
   "chat.picture": "Imagem de {name}",
   "chat.privateFrom": "{name} escreveu só para você ({count})",
   "chat.open": "Abrir",
-  "chat.hide": "Fechar as mensagens novas",
   "theme.toLight": "Trocar para o visual claro",
   "theme.toDark": "Trocar para o visual escuro",
   "room.you": "você",

@@ -1,13 +1,13 @@
 import {
   Suspense,
   useRef,
-  useLayoutEffect,
   lazy,
   useEffect,
   useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import type { ChatLine } from "../session/session";
 import { createPortal } from "react-dom";
 
 import { shareLink } from "../domain/share-link";
@@ -59,7 +59,7 @@ import { OwnerPanel } from "./OwnerPanel";
 import { MoreMenu, type MoreItem } from "./MoreMenu";
 import { PeoplePanel } from "./PeoplePanel";
 import { Tile } from "./Tile";
-import { CHIP, DOCK, ICON_BUTTON, ICON_BUTTON_SMALL, button } from "../ui/styles";
+import { CHIP, DOCK, ICON_BUTTON, button } from "../ui/styles";
 import { useCopy } from "../ui/useCopy";
 
 const Whiteboard = lazy(() => import("../board/Whiteboard"));
@@ -72,6 +72,22 @@ type RoomViewProps = {
   onEnterAgain: () => void;
 };
 type Side = "chat" | "people" | "settings";
+
+/** How long a message stays in the balloon and how far apart two messages leave, in milliseconds. */
+const MESSAGE_LIFE = 10_000;
+const MESSAGE_GAP = 400;
+
+/** One line of the balloon, in pixels; each message behind shows the golden ratio less of itself than the one in front. */
+const LINE = 28;
+const PHI = 1.618;
+/** How much of the message `back` places behind the newest stays in view, and how high it sits, in pixels. */
+const SHOWN = Array.from({ length: 9 }, (_, back) => (back === 0 ? LINE : LINE / PHI ** back));
+const LIFT = SHOWN.map((_, back) => SHOWN.slice(1, back + 1).reduce((sum, shown) => sum + shown, 0));
+
+/** Marks the balloon settled a frame after it appears, so its lines animate only when they arrive later, not with the balloon itself. */
+function settle(balloon: HTMLDivElement | null) {
+  if (balloon && balloon.dataset.settled === undefined) requestAnimationFrame(() => (balloon.dataset.settled = ""));
+}
 
 function Caret() {
   return (
@@ -420,35 +436,36 @@ export function RoomView({
   if (side === "settings" && !iAmOwner) setSide("people");
   if (shown === "settings" && !iAmOwner) setShown("people");
   const unread = side === "chat" ? 0 : chat.filter((line) => line.id > seen).length;
-  const fresh = side === "chat" ? [] : chat.filter((line) => line.to === undefined && line.pid !== myPid && line.id > Math.max(seen, closed)).slice(-3);
-  const [kept, setKept] = useState(fresh);
-  if (fresh.length > 0 && kept.at(-1)?.id !== fresh.at(-1)?.id) setKept(fresh);
-  useEffect(() => {
-    if (kept.length < 3) return;
-    const timer = setTimeout(() => setKept(kept.slice(-2)), 300);
-    return () => clearTimeout(timer);
-  }, [kept]);
-  const toast = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const balloon = toast.current;
-    if (!balloon) return;
-    const pinned = balloon.style.width !== "";
-    const from = balloon.getBoundingClientRect().width;
-    balloon.style.width = "";
-    const to = balloon.getBoundingClientRect().width;
-    balloon.style.width = `${pinned ? from : to}px`;
-    if (!pinned || from === to) return;
-    void balloon.offsetWidth;
-    balloon.style.width = `${to}px`;
-  }, [kept]);
-  const leaving = fresh.length === 0 && kept.length > 0;
+  const waiting = side === "chat" ? [] : chat.filter((line) => line.to === undefined && line.pid !== myPid && line.id > Math.max(seen, closed));
+  const [kept, setKept] = useState(waiting.slice(-9));
+  if (waiting.length > 0 && (kept.at(-1)?.id !== waiting.at(-1)?.id || kept.length !== Math.min(waiting.length, 9))) setKept(waiting.slice(-9));
+  const leaving = waiting.length === 0 && kept.length > 0;
   const [holding, setHolding] = useState(false);
-  const showing = fresh.length > 0;
+  const count = Math.min(kept.length, 8);
+  const spread = holding && waiting.length > 2;
+  const tall = spread ? count * LINE + (count - 1) * 6 : LIFT[Math.max(0, count - 1)]! + LINE;
+  const [departing, setDeparting] = useState<readonly ChatLine[]>([]);
+  const arrived = useRef(new Map<number, number>());
+  const lastLeft = useRef(0);
   useEffect(() => {
-    if (!showing || holding) return;
-    const timer = setTimeout(() => setClosed(newestId), 10_000);
+    const now = Date.now();
+    for (const line of waiting) if (!arrived.current.has(line.id)) arrived.current.set(line.id, now);
+  });
+  const oldest = waiting.slice(-8)[0];
+  useEffect(() => {
+    if (!oldest) return;
+    const now = Date.now();
+    const at = Math.max((arrived.current.get(oldest.id) ?? now) + MESSAGE_LIFE, lastLeft.current + MESSAGE_GAP);
+    const timer = setTimeout(() => {
+      lastLeft.current = Date.now();
+      setDeparting((lines) => [...lines, oldest]);
+      setClosed(oldest.id);
+      setTimeout(() => setDeparting((lines) => lines.filter((line) => line.id !== oldest.id)), 300);
+    }, Math.max(0, at - now));
     return () => clearTimeout(timer);
-  }, [showing, holding, newestId]);
+  }, [oldest]);
+  const leavingRows = departing.filter((line) => !kept.some((row) => row.id === line.id));
+  const rows = [...leavingRows, ...kept];
   useEffect(() => {
     if (!leaving) return;
     const timer = setTimeout(() => setKept([]), 200);
@@ -882,20 +899,27 @@ export function RoomView({
                 ),
           )}
           {kept.length > 0 ? (
-            <div role="status" className="pointer-events-none absolute right-2 bottom-2 z-10 flex max-w-[min(24rem,calc(100%-1rem))]">
-              <div ref={toast} data-leaving={leaving || undefined} onPointerEnter={() => setHolding(true)} onPointerLeave={() => setHolding(false)} onFocus={() => setHolding(true)} onBlur={() => setHolding(false)} className="chat-toast bubble pointer-events-auto flex min-w-0 items-start gap-1 border border-line-strong bg-card p-2">
-                <button type="button" title={t("chat.open")} className={`chat-toast-lines flex min-w-0 flex-1 cursor-pointer flex-col justify-end overflow-hidden text-left ${kept.length > 1 ? "h-[3.875rem]" : "h-7"}`} onClick={() => (setPrivately(false), setSide("chat"))}>
-                  <span key={kept.at(-1)?.id} className={`flex w-full min-w-0 shrink-0 flex-col gap-1.5 ${kept.length > 1 ? "chat-roll" : ""}`}>
-                    {kept.map((line, index) => (
-                      <span key={line.id} aria-hidden={index < kept.length - 2 || undefined} className="flex h-7 min-w-0 shrink-0 items-center gap-1.5 text-sm">
-                        <span className="max-w-28 shrink-0 truncate bubble-word bg-canvas px-3 py-1 font-semibold" translate="no">{line.name}</span>
-                        <span className="min-w-0 truncate bubble-word bg-bubble px-3 py-1 text-on-bubble">{line.text || t("chat.picture", { name: line.name })}</span>
+            <div role="status" className="pointer-events-none absolute right-2 bottom-2 z-10 flex w-[min(22rem,calc(100%-1rem))]">
+              <div ref={settle} data-leaving={leaving || undefined} onPointerEnter={() => setHolding(true)} onPointerLeave={() => setHolding(false)} onFocus={() => setHolding(true)} onBlur={() => setHolding(false)} className="chat-toast pointer-events-auto flex w-full min-w-0 p-2">
+                <button type="button" title={t("chat.open")} className="chat-toast-lines relative min-w-0 flex-1 cursor-pointer overflow-hidden text-left" style={{ height: `${tall}px` }} onClick={() => (setPrivately(false), setSide("chat"))}>
+                  {rows.map((line, index) => {
+                    const back = rows.length - 1 - index;
+                    const gone = back >= 8 || index < leavingRows.length;
+                    const place = Math.min(back, 8);
+                    const lift = spread ? Math.min(back, 7) * (LINE + 6) : LIFT[place]!;
+                    return (
+                      <span
+                        key={line.id}
+                        aria-hidden={gone || (!spread && back >= 2) || undefined}
+                        data-gone={gone || undefined}
+                        className="chat-row absolute bottom-0 left-0 flex h-7 w-full min-w-0 items-center gap-1.5 text-sm"
+                        style={{ translate: `0 ${-lift}px`, scale: `${spread ? 1 : 1 - place * 0.035}`, zIndex: 20 - back, "--fade": `${spread ? (back > 0 && back === count - 1 ? 0.45 : 1) : 1 / PHI ** place}` } as React.CSSProperties}
+                      >
+                        <span className="max-w-28 shrink-0 truncate bubble-word bg-canvas px-3 py-1 font-semibold opacity-(--fade)" translate="no">{line.name}</span>
+                        <span className="min-w-0 flex-1 truncate bubble-word bg-bubble px-3 py-1 text-on-bubble opacity-(--fade)">{line.text || t("chat.picture", { name: line.name })}</span>
                       </span>
-                    ))}
-                  </span>
-                </button>
-                <button type="button" aria-label={t("chat.hide")} title={t("chat.hide")} className={ICON_BUTTON_SMALL} onClick={() => setClosed(newestId)}>
-                  <Icon name="close" className="size-4" />
+                    );
+                  })}
                 </button>
               </div>
             </div>
