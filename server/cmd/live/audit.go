@@ -7,8 +7,8 @@ import (
 	"io"
 	"time"
 
-	"github.com/versatile-sh/live/server/internal/adapters/audit"
-	"github.com/versatile-sh/live/server/internal/ports/outbound"
+	"github.com/versatile-sh/live/server/audit"
+	"github.com/versatile-sh/live/server/port/outbound"
 )
 
 const auditUsage = "usage: live audit [--dir DIR] [--room SLUG] [--ip ADDRESS] [--discord-user ID] [--guild ID] [--kind KIND] [--from DATE] [--to DATE] [--json]"
