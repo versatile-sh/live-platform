@@ -394,8 +394,7 @@ html[data-motion="iris"]::view-transition-new(root) {
   transition:
     opacity 0.3s var(--ease-settle),
     translate 0.3s var(--ease-settle),
-    scale 0.3s var(--ease-settle),
-    width 0.3s var(--ease-settle);
+    scale 0.3s var(--ease-settle);
 }
 
 @starting-style {
@@ -414,26 +413,31 @@ html[data-motion="iris"]::view-transition-new(root) {
   transition-duration: 0.18s;
 }
 
+@property --fade {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+
 .chat-toast-lines {
   transition: height 0.3s var(--ease-settle);
 }
 
-.chat-roll {
-  animation: chat-roll 0.3s var(--ease-settle) backwards;
+.chat-row {
+  transform-origin: top center;
+  transition:
+    translate 0.3s var(--ease-settle),
+    scale 0.3s var(--ease-settle),
+    opacity 0.3s var(--ease-settle),
+    --fade 0.3s var(--ease-settle);
 }
 
-.chat-roll > :last-child {
-  animation: chat-line-in 0.3s var(--ease-settle) backwards;
+.chat-row[data-gone] {
+  opacity: 0;
 }
 
-@keyframes chat-roll {
-  from {
-    translate: 0 2.125rem;
-  }
-}
-
-@keyframes chat-line-in {
-  from {
+@starting-style {
+  .chat-toast[data-settled] .chat-row {
     opacity: 0;
   }
 }
