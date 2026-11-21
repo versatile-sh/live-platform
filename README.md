@@ -70,7 +70,7 @@ It is not a recording or transcription product, and it has no end-to-end encrypt
 | [Self-hosting](docs/self-hosting.md) | running it behind your own proxy |
 | [Screen sound](docs/screen-audio.md) | sharing the computer's sound with a screen |
 
-The product vocabulary is in [`CONTEXT.md`](CONTEXT.md) and the design rules in [`web/DESIGN.md`](web/DESIGN.md). Engineering documentation is kept by Versatile outside this repository.
+The design rules are in [`web/DESIGN.md`](web/DESIGN.md). Engineering documentation, the product vocabulary included, is kept by Versatile outside this repository.
 
 <a id="how-it-works"></a>
 
@@ -191,7 +191,7 @@ Tests assert what a person or a peer can observe: what is on the page, what goes
   <img src="docs/assets/section-security-light.svg" alt="Security" width="100%">
 </picture>
 
-Never expose room codes, audit files or the guest-pass key. Found a vulnerability? Do not open a public issue; write to [hello@versatile.sh](mailto:hello@versatile.sh). Details and what is not built yet: [Security and privacy](docs/security.md).
+Never expose room codes, audit files or the guest-pass key. Found a vulnerability? Do not open a public issue; report it as [`SECURITY.md`](SECURITY.md) says. Details and what is not built yet: [Security and privacy](docs/security.md).
 
 <a id="contributing"></a>
 
@@ -200,7 +200,7 @@ Never expose room codes, audit files or the guest-pass key. Found a vulnerabilit
   <img src="docs/assets/section-contributing-light.svg" alt="Contributing" width="100%">
 </picture>
 
-Issues and pull requests are welcome. Branch from `main`, one concern per pull request, keep the checks green, and follow the domain words in [`CONTEXT.md`](CONTEXT.md).
+Issues and pull requests are welcome. Branch from `main`, one concern per pull request, and keep `make check` green.
 
 <a id="license"></a>
 

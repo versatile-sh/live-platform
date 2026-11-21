@@ -67,7 +67,7 @@ server/
 - **Whole rosters, versioned.** Each change sends the entire roster with a version number, never a diff. A browser that missed a message is right again at the next one.
 - **The lobby never waits.** Each room publishes an atomic summary; listing open rooms never blocks on a room's goroutine.
 
-The client lives in `web/src`, one folder per concern (`room/`, `media/`, `signal/`, `session/`, `lobby/`, `board/`, `domain/`, `ui/`, `i18n/`). The design system, its tokens and shapes are in [`web/DESIGN.md`](../web/DESIGN.md); the product's vocabulary is in [`CONTEXT.md`](../CONTEXT.md).
+The client lives in `web/src`, one folder per concern (`room/`, `media/`, `signal/`, `session/`, `lobby/`, `board/`, `domain/`, `ui/`, `i18n/`). The design system, its tokens and shapes are in [`web/DESIGN.md`](../web/DESIGN.md).
 
 ## Protocol at a glance (`lv.1`)
 
