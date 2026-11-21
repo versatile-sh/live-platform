@@ -345,8 +345,10 @@ Found a vulnerability? Please do not open a public issue; write to [hello@versat
 
 ## License
 
-To be defined. A license file will be added before the first public release; until then, no license is granted.
+Copyright (C) 2026 Versatile (versatile.sh)
 
-<p align="center">
-  <sub>Made by <a href="https://versatile.sh">versatile.sh</a>. Software that takes the shape of the stack you already have.</sub>
-</p>
+live-platform is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
+For a commercial licence without the GPL's obligations, contact Versatile through [versatile.sh/contact](https://versatile.sh/contact).
+
+Contributions are accepted under the CLA, see [CONTRIBUTING.md](CONTRIBUTING.md).
