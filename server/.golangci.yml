@@ -110,8 +110,6 @@ linters:
       - path: '_test\.go'
         linters: [forbidigo, gosec, errcheck, noctx, bodyclose, godoclint]
       # Temporary, each rule is removed by the fix pull request of its class.
-      - path: '^cmd/live/main\.go$|^internal/adapters/signal/server_test\.go$'
-        linters: [goimports]
       - path: '_test\.go$'
         linters: [testifylint]
       - path: '^cmd/live/observe\.go$|^internal/adapters/audit/purge\.go$'
