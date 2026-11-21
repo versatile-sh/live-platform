@@ -27,11 +27,11 @@ func NewChatText(raw string) (string, error) {
 	text := strings.TrimSpace(raw)
 	n := utf8.RuneCountInString(text)
 	if n < 1 || n > chatMaxRunes || !utf8.ValidString(text) {
-		return "", port.NewDomainError(port.ErrCodeInvalidArgument, "a message has 1 to 500 characters", nil)
+		return "", port.NewError(port.CodeInvalidArgument, "a message has 1 to 500 characters")
 	}
 	for _, c := range text {
 		if c != '\n' && (unicode.IsControl(c) || unicode.Is(unicode.Cf, c)) {
-			return "", port.NewDomainError(port.ErrCodeInvalidArgument, "a message must not contain control or invisible characters", nil)
+			return "", port.NewError(port.CodeInvalidArgument, "a message must not contain control or invisible characters")
 		}
 	}
 	return text, nil

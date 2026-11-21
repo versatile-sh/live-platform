@@ -37,7 +37,7 @@ func (r *Room) Quiet(op QuietOp, by, target PID) ([]Event, error) {
 	case DrawDeny, DrawAllow:
 		return r.letDraw(by, target, op == DrawAllow)
 	}
-	return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "unknown microphone decision", nil)
+	return nil, port.NewError(port.CodeInvalidArgument, "unknown microphone decision")
 }
 
 // MuteAll lets the owner silence everyone else: their microphones go off and stay off until the owner lets each one speak, and whoever arrives later arrives muted.
@@ -69,7 +69,7 @@ func (r *Room) Mute(by, target PID) ([]Event, error) {
 		return nil, err
 	}
 	if owner == p {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "the owner is not muted by the room", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "the owner is not muted by the room")
 	}
 	return r.reflag(p, p.Flags&^FlagMicrophone|FlagMuted), nil
 }
@@ -120,7 +120,7 @@ func (r *Room) letDraw(by, target PID, allowed bool) ([]Event, error) {
 		return nil, err
 	}
 	if owner == p {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "the owner always draws", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "the owner always draws")
 	}
 	if allowed {
 		return r.reflag(p, p.Flags&^FlagNoDraw), nil

@@ -18,7 +18,7 @@ type BoardUpdate struct {
 // NewBoardData accepts a JSON object of at most 48 KiB as a piece of the whiteboard.
 func NewBoardData(raw string) (string, error) {
 	if len(raw) < 2 || len(raw) > boardMaxBytes || raw[0] != '{' || !json.Valid([]byte(raw)) {
-		return "", port.NewDomainError(port.ErrCodeInvalidArgument, "a whiteboard update is a JSON object of at most 48 KiB", nil)
+		return "", port.NewError(port.CodeInvalidArgument, "a whiteboard update is a JSON object of at most 48 KiB")
 	}
 	return raw, nil
 }

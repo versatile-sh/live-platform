@@ -4,7 +4,6 @@ package signal
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 
 	"github.com/gobwas/ws"
 
@@ -151,13 +150,8 @@ func encodeJoined(seat room.Seat) []byte {
 }
 
 func encodeError(err error) []byte {
-	code := port.CodeOf(err)
-	if code == "" {
-		return mustJSON(errorFrame{T: "error", Code: "INTERNAL", Message: "internal error"})
-	}
-	var de *port.DomainError
-	errors.As(err, &de)
-	return mustJSON(errorFrame{T: "error", Code: code, Message: de.Message})
+	coded := port.Classify(err)
+	return mustJSON(errorFrame{T: "error", Code: coded.Code, Message: coded.Detail})
 }
 
 func decodeSecret(raw string) ([32]byte, bool) {

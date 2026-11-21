@@ -226,7 +226,7 @@ func TestHub(t *testing.T) {
 		h.MediaUp("bk", resumed.PID, resumed.Gen)
 		keepAlive(t, h, &resumed)
 		_, err = h.Resume("bk", bia.PID, bia.Secret, &fakeSession{})
-		assert.Equal(t, port.ErrCodeNotFound, port.CodeOf(err))
+		assert.Equal(t, port.CodeNotFound, port.CodeOf(err))
 		time.Sleep(300 * time.Millisecond)
 		p, ok := anaSession.sees(bia.PID)
 		assert.True(t, ok)
@@ -256,7 +256,7 @@ func TestHub(t *testing.T) {
 		h.Leave("bk", ana.PID, ana.Gen)
 		require.Eventually(t, func() bool { return h.Rooms() == 0 }, wait, tick)
 		_, err := h.Resume("bk", ana.PID, ana.Secret, &fakeSession{})
-		assert.Equal(t, port.ErrCodeNotFound, port.CodeOf(err))
+		assert.Equal(t, port.CodeNotFound, port.CodeOf(err))
 		caio, caioSession := enter(t, h, "caio")
 		keepAlive(t, h, caio)
 		require.Eventually(t, func() bool {
@@ -275,8 +275,8 @@ func TestHub(t *testing.T) {
 			p, ok := biaSession.sees(bia.PID)
 			return ok && p.State == room.StateActive
 		}, wait, tick)
-		assert.Equal(t, port.ErrCodeInvariantViolation, port.CodeOf(h.Remove("bk", bia.PID, bia.Gen, ana.PID)))
-		assert.Equal(t, port.ErrCodeNotFound, port.CodeOf(h.Remove("bk", ana.PID, ana.Gen+1, bia.PID)))
+		assert.Equal(t, port.CodeInvariantViolation, port.CodeOf(h.Remove("bk", bia.PID, bia.Gen, ana.PID)))
+		assert.Equal(t, port.CodeNotFound, port.CodeOf(h.Remove("bk", ana.PID, ana.Gen+1, bia.PID)))
 		require.NoError(t, h.Remove("bk", ana.PID, ana.Gen, bia.PID))
 		assert.Equal(t, room.CloseRemoved, biaSession.closedWith())
 	})
@@ -307,9 +307,9 @@ func TestHub(t *testing.T) {
 		_, err := h.Join("bk", room.Entry{Name: "ana", Proof: &password, Listed: true, Country: "BR"}, &fakeSession{})
 		require.NoError(t, err)
 		_, err = h.Join("bk", room.Entry{Name: "bia"}, &fakeSession{})
-		assert.Equal(t, port.ErrCodePermissionDenied, port.CodeOf(err))
+		assert.Equal(t, port.CodePermissionDenied, port.CodeOf(err))
 		_, err = h.Join("bk", room.Entry{Name: "bia", Proof: &wrong}, &fakeSession{})
-		assert.Equal(t, port.ErrCodePermissionDenied, port.CodeOf(err))
+		assert.Equal(t, port.CodePermissionDenied, port.CodeOf(err))
 		_, err = h.Join("bk", room.Entry{Name: "bia", Proof: &password}, &fakeSession{})
 		require.NoError(t, err)
 		require.Eventually(t, func() bool {
@@ -341,7 +341,7 @@ func TestHub(t *testing.T) {
 		}, wait, tick)
 		require.NoError(t, h.SetListed("small", owner.PID, owner.Gen, false))
 		require.Eventually(t, func() bool { return len(h.Lobby()) == 1 }, wait, tick)
-		assert.Equal(t, port.ErrCodeNotFound, port.CodeOf(h.SetListed("small", owner.PID, owner.Gen+1, true)))
+		assert.Equal(t, port.CodeNotFound, port.CodeOf(h.SetListed("small", owner.PID, owner.Gen+1, true)))
 	})
 
 	t.Run("without a media plane a participant is active as soon as it is seated, and again after a resume", func(t *testing.T) {

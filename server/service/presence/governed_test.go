@@ -60,7 +60,7 @@ func TestGovernedJoin(t *testing.T) {
 			if rec.joined != c.joined {
 				t.Fatalf("joined %d, want %d", rec.joined, c.joined)
 			}
-			if c.joined == 0 && port.CodeOf(err) != port.ErrCodePermissionDenied {
+			if c.joined == 0 && port.CodeOf(err) != port.CodePermissionDenied {
 				t.Fatalf("error %v, want PERMISSION_DENIED", err)
 			}
 		})

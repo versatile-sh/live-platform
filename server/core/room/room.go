@@ -86,13 +86,13 @@ func New(slug Slug, cfg Config, settings Settings, now time.Time) (*Room, error)
 		return nil, err
 	}
 	if cfg.Capacity < 1 || cfg.Capacity > MaxCapacity {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "capacity must be between 1 and 64", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "capacity must be between 1 and 64")
 	}
 	if cfg.ConnectTimeout <= 0 || cfg.Grace <= 0 || cfg.UnhealthyCap < cfg.Grace || cfg.EmptyRelease <= 0 {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "timers must be positive and the cap no shorter than the grace", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "timers must be positive and the cap no shorter than the grace")
 	}
 	if cfg.PasswordTries < 1 || cfg.PasswordWindow <= 0 {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "password attempts need a positive limit and window", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "password attempts need a positive limit and window")
 	}
 	return &Room{slug: slug, cfg: cfg, settings: settings, emptyAt: now}, nil
 }
@@ -122,7 +122,7 @@ func (r *Room) Join(now time.Time, name string, look Look, face string, secretHa
 		return Participant{}, nil, err
 	}
 	if r.Count() >= r.cfg.Capacity {
-		return Participant{}, nil, port.NewDomainError(port.ErrCodeConflict, "room is full", nil)
+		return Participant{}, nil, port.NewError(port.CodeConflict, "room is full")
 	}
 	slot := uint8(bits.TrailingZeros64(^r.occupied))
 	r.nextPID++
@@ -177,7 +177,7 @@ func (r *Room) Suspect(now time.Time, pid PID, gen uint32) []Event {
 func (r *Room) Resume(now time.Time, pid PID, secretHash, nextSecretHash [32]byte) (Participant, []Event, error) {
 	p := r.find(pid)
 	if p == nil || subtle.ConstantTimeCompare(p.secretHash[:], secretHash[:]) != 1 {
-		return Participant{}, nil, port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return Participant{}, nil, port.NewError(port.CodeNotFound, "participant not found")
 	}
 	if p.outsideSince.IsZero() {
 		p.outsideSince = now
@@ -242,7 +242,7 @@ func (r *Room) Remove(now time.Time, by, target PID) ([]Event, error) {
 		return nil, err
 	}
 	if owner == p {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "the owner leaves instead of removing themselves", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "the owner leaves instead of removing themselves")
 	}
 	return r.remove(now, p, ReasonRemoved), nil
 }
@@ -254,7 +254,7 @@ func (r *Room) Ban(now time.Time, by, target PID) ([]Event, error) {
 		return nil, err
 	}
 	if owner == p {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "the owner leaves instead of banning themselves", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "the owner leaves instead of banning themselves")
 	}
 	if p.origin != "" && p.origin != owner.origin && len(r.banned) < maxBanned {
 		if r.banned == nil {
@@ -268,7 +268,7 @@ func (r *Room) Ban(now time.Time, by, target PID) ([]Event, error) {
 // Admit refuses an origin the owner banned; an unknown origin is never refused.
 func (r *Room) Admit(origin string) error {
 	if _, banned := r.banned[origin]; banned && origin != "" {
-		return port.NewDomainError(port.ErrCodeBanned, "the owner banned you from this room", nil)
+		return port.NewError(port.CodeBanned, "the owner banned you from this room")
 	}
 	return nil
 }
@@ -390,7 +390,7 @@ func (r *Room) ownerAnd(by, target PID) (*Participant, *Participant, error) {
 	owner := r.find(by)
 	p := r.find(target)
 	if p == nil {
-		return nil, nil, port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return nil, nil, port.NewError(port.CodeNotFound, "participant not found")
 	}
 	return owner, p, nil
 }
@@ -427,11 +427,11 @@ func cleanName(raw string) (string, error) {
 	name := strings.TrimSpace(raw)
 	n := utf8.RuneCountInString(name)
 	if n < 1 || n > nameMaxRunes || !utf8.ValidString(name) {
-		return "", port.NewDomainError(port.ErrCodeInvalidArgument, "name must have 1 to 40 characters", nil)
+		return "", port.NewError(port.CodeInvalidArgument, "name must have 1 to 40 characters")
 	}
 	for _, c := range name {
 		if unicode.IsControl(c) || unicode.Is(unicode.Cf, c) {
-			return "", port.NewDomainError(port.ErrCodeInvalidArgument, "name must not contain control or invisible characters", nil)
+			return "", port.NewError(port.CodeInvalidArgument, "name must not contain control or invisible characters")
 		}
 	}
 	return name, nil

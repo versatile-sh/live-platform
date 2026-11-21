@@ -108,7 +108,7 @@ func (h *Hub) SetPassword(slug room.Slug, by room.PID, gen uint32, verifier *roo
 func (h *Hub) owner(slug room.Slug, by room.PID, gen uint32, fn func(*actor) error) error {
 	_, err := ask(h, slug, nil, func(a *actor) (struct{}, error) {
 		if !a.holds(by, gen) {
-			return struct{}{}, port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+			return struct{}{}, port.NewError(port.CodeNotFound, "participant not found")
 		}
 		return struct{}{}, fn(a)
 	})
@@ -251,7 +251,7 @@ func ask[T any](h *Hub, slug room.Slug, create *room.Entry, fn func(*actor) (T, 
 	}
 	if !h.tell(slug, cmd) {
 		if create == nil {
-			return zero, port.NewDomainError(port.ErrCodeNotFound, "room not found or busy", nil)
+			return zero, port.NewError(port.CodeNotFound, "room not found or busy")
 		}
 		if err := h.open(slug, *create, cmd); err != nil {
 			return zero, err
@@ -282,7 +282,7 @@ func (h *Hub) open(slug room.Slug, entry room.Entry, first func(*actor)) error {
 	case a.inbox <- first:
 		return nil
 	default:
-		return port.NewDomainError(port.ErrCodeConflict, "room is busy", nil)
+		return port.NewError(port.CodeConflict, "room is busy")
 	}
 }
 
