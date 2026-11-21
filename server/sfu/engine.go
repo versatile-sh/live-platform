@@ -173,7 +173,7 @@ func interceptors(media *webrtc.MediaEngine, shared *histories) (*interceptor.Re
 	registry := &interceptor.Registry{}
 	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
 	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack", Parameter: "pli"}, webrtc.RTPCodecTypeVideo)
-	registry.Add(lossFactory{})
+	registry.Add(newLossFactory())
 	if err := webrtc.ConfigureRTCPReports(registry); err != nil {
 		return nil, err
 	}

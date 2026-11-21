@@ -45,7 +45,7 @@ func TestLossLog(t *testing.T) {
 }
 
 func TestLossTracker(t *testing.T) {
-	made, err := lossFactory{}.NewInterceptor("")
+	made, err := newLossFactory().NewInterceptor("")
 	require.NoError(t, err)
 	tracker := made.(*lossTracker)
 	t.Cleanup(func() { _ = tracker.Close() })
@@ -97,14 +97,14 @@ func TestLossTracker(t *testing.T) {
 	})
 
 	t.Run("a connection that receives nothing taking NACKs never starts asking", func(t *testing.T) {
-		quiet, _ := lossFactory{}.NewInterceptor("")
+		quiet, _ := newLossFactory().NewInterceptor("")
 		idle := quiet.(*lossTracker)
 		idle.BindRTCPWriter(interceptor.RTCPWriterFunc(func([]rtcp.Packet, interceptor.Attributes) (int, error) { return 0, nil }))
 		idle.BindRemoteStream(&interceptor.StreamInfo{SSRC: 3}, interceptor.RTPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) { return 0, a, nil }))
 		idle.mu.Lock()
-		running := idle.running
+		joined := idle.joined
 		idle.mu.Unlock()
-		assert.False(t, running)
+		assert.False(t, joined)
 		require.NoError(t, idle.Close())
 	})
 
@@ -118,4 +118,49 @@ func TestLossTracker(t *testing.T) {
 			_, _ = attr.GetRTPHeader(buf)
 		}))
 	})
+}
+
+func TestOneLossLoopForEveryConnection(t *testing.T) {
+	factory := newLossFactory()
+	var mu sync.Mutex
+	asked := map[uint32]int{}
+	buf := make([]byte, 1500)
+	var trackers []*lossTracker
+	for i := range 3 {
+		made, err := factory.NewInterceptor("")
+		require.NoError(t, err)
+		tracker := made.(*lossTracker)
+		trackers = append(trackers, tracker)
+		tracker.BindRTCPWriter(interceptor.RTCPWriterFunc(func(packets []rtcp.Packet, _ interceptor.Attributes) (int, error) {
+			mu.Lock()
+			defer mu.Unlock()
+			asked[packets[0].(*rtcp.TransportLayerNack).MediaSSRC]++
+			return 0, nil
+		}))
+		var next []byte
+		reader := tracker.BindRemoteStream(video(uint32(10+i), 96), interceptor.RTPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) {
+			return copy(b, next), a, nil
+		}))
+		for _, seq := range []uint16{1, 3} {
+			next = packet(seq)
+			_, _, _ = reader.Read(buf, nil)
+		}
+	}
+	require.Eventually(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return asked[10] > 0 && asked[11] > 0 && asked[12] > 0
+	}, time.Second, 10*time.Millisecond)
+	factory.loop.mu.Lock()
+	assert.Len(t, factory.loop.trackers, 3)
+	assert.True(t, factory.loop.running)
+	factory.loop.mu.Unlock()
+	for _, tracker := range trackers {
+		require.NoError(t, tracker.Close())
+	}
+	require.Eventually(t, func() bool {
+		factory.loop.mu.Lock()
+		defer factory.loop.mu.Unlock()
+		return !factory.loop.running
+	}, time.Second, 10*time.Millisecond, "the loop stops once no connection needs it")
 }

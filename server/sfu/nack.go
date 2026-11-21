@@ -98,34 +98,107 @@ func (l *lossLog) missing(out []uint16) []uint16 {
 // lossTracker asks publishers again for what did not arrive; it takes the place of Pion's NACK generator, which allocates an attributes map and a header for every packet received.
 type lossTracker struct {
 	interceptor.NoOp
+	loop    *lossLoop
+	ssrc    uint32
 	mu      sync.Mutex
 	streams map[uint32]*lossLog
 	writer  interceptor.RTCPWriter
-	running bool
-	done    chan struct{}
-	wg      sync.WaitGroup
+	joined  bool
+	closed  bool
 }
 
-// start runs the asking loop once the connection both can write RTCP and receives a stream that takes NACKs, so a connection that only sends never ticks; it holds mu.
-func (t *lossTracker) start() {
-	if t.running || t.writer == nil || len(t.streams) == 0 {
-		return
-	}
-	select {
-	case <-t.done:
-		return
-	default:
-	}
-	t.running = true
-	t.wg.Add(1)
-	go t.run(t.writer)
+// lossLoop is the one goroutine that, every nackEvery, asks for what every connection's streams are missing; it runs only while some connection receives a stream that takes NACKs.
+type lossLoop struct {
+	mu       sync.Mutex
+	trackers map[*lossTracker]struct{}
+	running  bool
 }
 
-type lossFactory struct{}
+func (l *lossLoop) add(t *lossTracker) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.trackers[t] = struct{}{}
+	if !l.running {
+		l.running = true
+		go l.run()
+	}
+}
 
-// NewInterceptor gives each peer connection its own tracker.
-func (lossFactory) NewInterceptor(string) (interceptor.Interceptor, error) {
-	return &lossTracker{streams: map[uint32]*lossLog{}, done: make(chan struct{})}, nil
+func (l *lossLoop) remove(t *lossTracker) {
+	l.mu.Lock()
+	delete(l.trackers, t)
+	l.mu.Unlock()
+}
+
+func (l *lossLoop) run() {
+	ticker := time.NewTicker(nackEvery)
+	defer ticker.Stop()
+	nack := &rtcp.TransportLayerNack{}
+	packets := []rtcp.Packet{nack}
+	missing := make([]uint16, 0, lossWindow)
+	var trackers []*lossTracker
+	for range ticker.C {
+		l.mu.Lock()
+		if len(l.trackers) == 0 {
+			l.running = false
+			l.mu.Unlock()
+			return
+		}
+		trackers = trackers[:0]
+		for t := range l.trackers {
+			trackers = append(trackers, t)
+		}
+		l.mu.Unlock()
+		for _, t := range trackers {
+			missing = t.ask(nack, packets, missing)
+		}
+		clear(trackers)
+	}
+}
+
+// ask sends one NACK per stream of this connection that is missing packets, reusing the loop's scratch.
+func (t *lossTracker) ask(nack *rtcp.TransportLayerNack, packets []rtcp.Packet, missing []uint16) []uint16 {
+	t.mu.Lock()
+	writer := t.writer
+	t.mu.Unlock()
+	if writer == nil {
+		return missing
+	}
+	nack.SenderSSRC = t.ssrc
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for ssrc, log := range t.streams {
+		missing = log.missing(missing[:0])
+		if len(missing) == 0 {
+			continue
+		}
+		nack.MediaSSRC = ssrc
+		nack.Nacks = pairs(nack.Nacks[:0], missing)
+		_, _ = writer.Write(packets, nil)
+	}
+	return missing
+}
+
+// join hands the tracker to the loop once it can write RTCP and receives a stream that takes NACKs, so a connection that only sends never costs a tick; it holds mu.
+func (t *lossTracker) join() {
+	if t.joined || t.closed || t.writer == nil || len(t.streams) == 0 {
+		return
+	}
+	t.joined = true
+	t.loop.add(t)
+}
+
+type lossFactory struct{ loop *lossLoop }
+
+func newLossFactory() lossFactory {
+	return lossFactory{loop: &lossLoop{trackers: map[*lossTracker]struct{}{}}}
+}
+
+// NewInterceptor gives each peer connection its own tracker, all asked for by the factory's one loop.
+func (f lossFactory) NewInterceptor(string) (interceptor.Interceptor, error) {
+	var ssrc [4]byte
+	_, _ = rand.Read(ssrc[:])
+	return &lossTracker{loop: f.loop, ssrc: binary.BigEndian.Uint32(ssrc[:]), streams: map[uint32]*lossLog{}}, nil
 }
 
 // BindRemoteStream notes each packet's sequence number and hands the interceptors after it one parsed header, kept per stream.
@@ -136,7 +209,7 @@ func (t *lossTracker) BindRemoteStream(info *interceptor.StreamInfo, reader inte
 	log := &lossLog{attrs: interceptor.Attributes{}}
 	t.mu.Lock()
 	t.streams[info.SSRC] = log
-	t.start()
+	t.join()
 	t.mu.Unlock()
 	return interceptor.RTPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) {
 		n, attr, err := reader.Read(b, a)
@@ -156,70 +229,38 @@ func (t *lossTracker) BindRemoteStream(info *interceptor.StreamInfo, reader inte
 	})
 }
 
-// UnbindRemoteStream forgets a stream no longer received.
+// UnbindRemoteStream forgets a stream no longer received, and leaves the loop with the last one.
 func (t *lossTracker) UnbindRemoteStream(info *interceptor.StreamInfo) {
 	t.mu.Lock()
 	delete(t.streams, info.SSRC)
+	leave := t.joined && len(t.streams) == 0
+	if leave {
+		t.joined = false
+	}
 	t.mu.Unlock()
+	if leave {
+		t.loop.remove(t)
+	}
 }
 
-// BindRTCPWriter keeps the writer the asking loop sends its NACKs on, every nackEvery.
+// BindRTCPWriter keeps the writer NACKs are sent on.
 func (t *lossTracker) BindRTCPWriter(writer interceptor.RTCPWriter) interceptor.RTCPWriter {
 	t.mu.Lock()
 	if t.writer == nil {
 		t.writer = writer
-		t.start()
+		t.join()
 	}
 	t.mu.Unlock()
 	return writer
 }
 
-// Close stops asking.
+// Close leaves the loop for good.
 func (t *lossTracker) Close() error {
 	t.mu.Lock()
-	select {
-	case <-t.done:
-	default:
-		close(t.done)
-	}
+	t.closed, t.joined = true, false
 	t.mu.Unlock()
-	t.wg.Wait()
+	t.loop.remove(t)
 	return nil
-}
-
-func (t *lossTracker) run(writer interceptor.RTCPWriter) {
-	defer t.wg.Done()
-	ticker := time.NewTicker(nackEvery)
-	defer ticker.Stop()
-	var ssrc [4]byte
-	_, _ = rand.Read(ssrc[:])
-	nack := &rtcp.TransportLayerNack{SenderSSRC: binary.BigEndian.Uint32(ssrc[:])}
-	packets := []rtcp.Packet{nack}
-	missing := make([]uint16, 0, lossWindow)
-	var logs []*lossLog
-	var ssrcs []uint32
-	for {
-		select {
-		case <-t.done:
-			return
-		case <-ticker.C:
-		}
-		logs, ssrcs = logs[:0], ssrcs[:0]
-		t.mu.Lock()
-		for ssrc, log := range t.streams {
-			logs, ssrcs = append(logs, log), append(ssrcs, ssrc)
-		}
-		t.mu.Unlock()
-		for i, log := range logs {
-			missing = log.missing(missing[:0])
-			if len(missing) == 0 {
-				continue
-			}
-			nack.MediaSSRC = ssrcs[i]
-			nack.Nacks = pairs(nack.Nacks[:0], missing)
-			_, _ = writer.Write(packets, nil)
-		}
-	}
 }
 
 // pairs packs ascending sequence numbers into NACK pairs: a first lost packet and a bitmask of the sixteen after it.
