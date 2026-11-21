@@ -100,9 +100,25 @@ type lossTracker struct {
 	interceptor.NoOp
 	mu      sync.Mutex
 	streams map[uint32]*lossLog
-	once    sync.Once
+	writer  interceptor.RTCPWriter
+	running bool
 	done    chan struct{}
 	wg      sync.WaitGroup
+}
+
+// start runs the asking loop once the connection both can write RTCP and receives a stream that takes NACKs, so a connection that only sends never ticks; it holds mu.
+func (t *lossTracker) start() {
+	if t.running || t.writer == nil || len(t.streams) == 0 {
+		return
+	}
+	select {
+	case <-t.done:
+		return
+	default:
+	}
+	t.running = true
+	t.wg.Add(1)
+	go t.run(t.writer)
 }
 
 type lossFactory struct{}
@@ -120,6 +136,7 @@ func (t *lossTracker) BindRemoteStream(info *interceptor.StreamInfo, reader inte
 	log := &lossLog{attrs: interceptor.Attributes{}}
 	t.mu.Lock()
 	t.streams[info.SSRC] = log
+	t.start()
 	t.mu.Unlock()
 	return interceptor.RTPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) {
 		n, attr, err := reader.Read(b, a)
@@ -146,12 +163,14 @@ func (t *lossTracker) UnbindRemoteStream(info *interceptor.StreamInfo) {
 	t.mu.Unlock()
 }
 
-// BindRTCPWriter starts asking, every nackEvery, for what each stream is missing.
+// BindRTCPWriter keeps the writer the asking loop sends its NACKs on, every nackEvery.
 func (t *lossTracker) BindRTCPWriter(writer interceptor.RTCPWriter) interceptor.RTCPWriter {
-	t.once.Do(func() {
-		t.wg.Add(1)
-		go t.run(writer)
-	})
+	t.mu.Lock()
+	if t.writer == nil {
+		t.writer = writer
+		t.start()
+	}
+	t.mu.Unlock()
 	return writer
 }
 

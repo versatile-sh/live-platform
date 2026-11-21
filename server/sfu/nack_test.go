@@ -96,6 +96,18 @@ func TestLossTracker(t *testing.T) {
 		assert.Equal(t, []rtcp.NackPair{{PacketID: 102, LostPackets: 1}}, asked[0].Nacks)
 	})
 
+	t.Run("a connection that receives nothing taking NACKs never starts asking", func(t *testing.T) {
+		quiet, _ := lossFactory{}.NewInterceptor("")
+		idle := quiet.(*lossTracker)
+		idle.BindRTCPWriter(interceptor.RTCPWriterFunc(func([]rtcp.Packet, interceptor.Attributes) (int, error) { return 0, nil }))
+		idle.BindRemoteStream(&interceptor.StreamInfo{SSRC: 3}, interceptor.RTPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) { return 0, a, nil }))
+		idle.mu.Lock()
+		running := idle.running
+		idle.mu.Unlock()
+		assert.False(t, running)
+		require.NoError(t, idle.Close())
+	})
+
 	t.Run("reading a packet allocates nothing", func(t *testing.T) {
 		seq := uint16(200)
 		next = packet(seq)
