@@ -62,13 +62,13 @@ func (c *tab) send(v any) {
 	_ = wsutil.WriteClientText(c.conn, data)
 }
 
-func open(t *testing.T, url, name string) *tab {
+func open(t *testing.T, api *webrtc.API, url, name string) *tab {
 	t.Helper()
 	conn, _, _, err := ws.Dialer{Protocols: []string{signal.Subprotocol}}.Dial(context.Background(), url)
 	require.NoError(t, err)
-	sub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	sub, err := api.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
-	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	pub, err := api.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	c := &tab{t: t, conn: conn, sub: sub, pub: pub, states: map[uint32]string{}, heard: map[string]bool{}}
 	t.Cleanup(func() { _ = conn.Close(); _ = sub.Close(); _ = pub.Close() })
@@ -207,8 +207,8 @@ func TestCall(t *testing.T) {
 	})
 	url := "ws://" + addr + "/ws"
 
-	ana := open(t, url, "ana")
-	bia := open(t, url, "bia")
+	ana := open(t, browserAPI, url, "ana")
+	bia := open(t, browserAPI, url, "bia")
 
 	t.Run("a participant becomes active only when its media path is up, through the real signalling", func(t *testing.T) {
 		require.Eventually(t, func() bool { return ana.state(1) == "active" && ana.state(2) == "active" && bia.state(1) == "active" }, wait, 50*time.Millisecond)
