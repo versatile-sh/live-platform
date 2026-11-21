@@ -178,10 +178,12 @@ All variables: [Configuration](docs/configuration.md).
 </picture>
 
 ```sh
-mise install                           # the pinned Go and golangci-lint
-lefthook install                       # once: format on commit, server check on push
-make check                             # gofmt, go vet, go-lint, golangci-lint, then the race tests
-make test                              # go test -race -count=1 ./...
+mise install                           # the pinned Go, golangci-lint, vlint and revive
+lefthook install                       # once: fast lint on commit, changed-package lint on push
+mise run check                         # gofmt, go vet, go-lint, golangci-lint, then the race tests
+mise run lint                          # the pre-push tier: lint of the packages changed since origin/main
+mise run lint-full                     # the full lint tier on everything, as check runs it
+mise run test                          # go test -race -count=1 ./...
 cd web && npx vitest run
 cd web && npm run test:live            # the client against a real server
 cd web && npm run typecheck && npm run build
@@ -205,7 +207,7 @@ Never expose room codes, audit files or the guest-pass key. Found a vulnerabilit
   <img src="docs/assets/section-contributing-light.svg" alt="Contributing" width="100%">
 </picture>
 
-Issues and pull requests are welcome. Branch from `main`, one concern per pull request, and keep `make check` green.
+Issues and pull requests are welcome. Branch from `main`, one concern per pull request, and keep `mise run check` green.
 
 <a id="license"></a>
 
