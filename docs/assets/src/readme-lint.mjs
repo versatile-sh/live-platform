@@ -1,9 +1,11 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { execFileSync } from "node:child_process";
 
-const files = process.argv.slice(2);
+const root = () => execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
+const files = process.argv.length > 2 ? process.argv.slice(2) : ["README.md", "profile/README.md"].map((f) => join(root(), f)).filter(existsSync);
 if (files.length === 0) {
-  console.error("usage: node readme-lint.mjs <README.md>...");
+  console.error("usage: node readme-lint.mjs [<README.md>...]  (default: the repository's README.md and profile/README.md)");
   process.exit(2);
 }
 
