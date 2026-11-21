@@ -229,7 +229,7 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 		p.mu.Unlock()
 		return
 	}
-	if p.pub == nil {
+	if p.pub == nil || p.pub.ConnectionState() == webrtc.PeerConnectionStateClosed {
 		pub, err := e.api.NewPeerConnection(webrtc.Configuration{})
 		if err != nil {
 			p.mu.Unlock()
@@ -250,14 +250,18 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 	}
 	p.mu.Unlock()
 
-	if err := pub.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: signal.SDP}); err != nil {
-		return
+	answer, err := answerOffer(pub, signal.SDP)
+	if err == nil {
+		p.send(room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindAnswer, SDP: answer.SDP})
 	}
-	answer, err := pub.CreateAnswer(nil)
-	if err != nil || pub.SetLocalDescription(answer) != nil {
-		return
+	if err != nil || len(signal.Sources) == 0 {
+		p.mu.Lock()
+		if p.pub == pub {
+			p.pub = nil
+		}
+		p.mu.Unlock()
+		_ = pub.Close()
 	}
-	p.send(room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindAnswer, SDP: answer.SDP})
 
 	if len(stopped) > 0 {
 		e.mu.Lock()
@@ -267,6 +271,17 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 			e.withdraw(others, track)
 		}
 	}
+}
+
+func answerOffer(pub *webrtc.PeerConnection, sdp string) (webrtc.SessionDescription, error) {
+	if err := pub.SetRemoteDescription(webrtc.SessionDescription{Type: webrtc.SDPTypeOffer, SDP: sdp}); err != nil {
+		return webrtc.SessionDescription{}, err
+	}
+	answer, err := pub.CreateAnswer(nil)
+	if err != nil {
+		return webrtc.SessionDescription{}, err
+	}
+	return answer, pub.SetLocalDescription(answer)
 }
 
 func declared(sources map[string]string, source string) bool {

@@ -6,6 +6,8 @@ export type Source = "microphone" | "camera" | "screen" | "screenAudio";
 
 const SOURCES: readonly Source[] = ["microphone", "camera", "screen", "screenAudio"];
 
+const ANSWER_TIMEOUT = 10_000;
+
 /** What each participant is sending me, by participant id and source. */
 export type Remote = Readonly<Record<number, Partial<Record<Source, MediaStream>>>>;
 
@@ -37,6 +39,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
   let wanted: Partial<Record<Source, MediaStreamTrack>> = {};
   let negotiating = false;
   let again = false;
+  let unanswered: ReturnType<typeof setTimeout> | undefined;
   let early: { role: "pub" | "sub"; init: RTCIceCandidateInit }[] = [];
   const senders = new Map<Source, RTCRtpSender>();
   const streams = new Map<Source, string>();
@@ -143,17 +146,32 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
       const sources: Record<string, string> = {};
       for (const [source, sender] of senders) if (sender.track && streams.has(source)) sources[streams.get(source)!] = source;
       send({ role: "pub", kind: "offer", sdp: offer.sdp ?? "", sources });
+      unanswered = setTimeout(() => {
+        dropPublisher();
+        sync();
+      }, ANSWER_TIMEOUT);
     } catch {
       settled();
     }
   }
 
+  function dropPublisher() {
+    clearTimeout(unanswered);
+    pub?.close();
+    pub = undefined;
+    senders.clear();
+    streams.clear();
+    negotiating = again = false;
+    early = early.filter((entry) => entry.role !== "pub");
+  }
+
   function settled() {
+    clearTimeout(unanswered);
     negotiating = false;
     if (again) {
       again = false;
       void negotiate();
-    }
+    } else if (senders.size === 0) dropPublisher();
   }
 
   function sync() {
@@ -188,12 +206,9 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void)
   }
 
   function close() {
+    dropPublisher();
     sub?.close();
-    pub?.close();
-    sub = pub = undefined;
-    senders.clear();
-    streams.clear();
-    negotiating = again = false;
+    sub = undefined;
     early = [];
   }
 
