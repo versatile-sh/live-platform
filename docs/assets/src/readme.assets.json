@@ -1,0 +1,26 @@
+{
+  "name": "live-platform",
+  "pitch": ["Share a screen, a voice and a camera, ", "from a link", "."],
+  "sub": "A browser call with its own Go media server. No account, nothing to install.",
+  "badge": "GPL-3.0-or-later",
+  "tags": ["WebRTC SFU on Pion", "Go server", "React 19 client", "No account"],
+  "heroLabel": "live-platform: share a screen, a voice and a camera, from a link. A browser call with its own Go media server. No account, nothing to install.",
+  "sections": [
+    ["how", "overview", "How it ", "works"],
+    ["install", "start here", "Install ", "and run"],
+    ["use", "start here", "Open ", "a room"]
+  ],
+  "diagrams": [
+    {
+      "slug": "flow",
+      "label": "How a call flows. The browser opens the page and API over HTTPS, signalling over a WebSocket and media over UDP with DTLS-SRTP. One Go process runs the page and API, the signalling, a presence hub with one actor per room, and a Pion SFU that forwards each participant's media to the others.",
+      "gap": 104,
+      "cards": [
+        { "title": "Browser", "sub": "React 19 client", "rows": ["pages and stores", "publish connection", "receive connection"] },
+        { "title": "live", "sub": "one Go process", "weight": 1.3, "rows": ["page and /api", "signalling lv.1", "presence hub", ["Pion SFU", "accent"]] },
+        { "title": "Browsers", "sub": "the other people", "rows": ["receive forwarded", "media, unprocessed"] }
+      ],
+      "arrows": [{ "label": "WSS, UDP" }, { "label": "RTP", "accent": true }]
+    }
+  ]
+}
