@@ -59,7 +59,7 @@ func Restore(s Handed, cfg Config, now time.Time, hold time.Duration) (*Room, er
 		return nil, err
 	}
 	if len(s.People) == 0 || len(s.People) > cfg.Capacity || hold <= 0 {
-		return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "a room handed over has people in it, no more than fit", nil)
+		return nil, port.NewError(port.CodeInvalidArgument, "a room handed over has people in it, no more than fit")
 	}
 	r.nextPID, r.version, r.quiet, r.locked, r.emptyAt = s.NextPID, s.Version+1, s.Quiet, s.Locked, time.Time{}
 	for _, origin := range s.Banned {
@@ -73,7 +73,7 @@ func Restore(s Handed, cfg Config, now time.Time, hold time.Duration) (*Room, er
 	for _, k := range s.People {
 		name, err := cleanName(k.Name)
 		if err != nil || k.ID == 0 || k.ID > s.NextPID || int(k.Slot) >= cfg.Capacity || r.slots[k.Slot] != nil || r.find(k.ID) != nil {
-			return nil, port.NewDomainError(port.ErrCodeInvalidArgument, "a room handed over must be one this server could have built", nil)
+			return nil, port.NewError(port.CodeInvalidArgument, "a room handed over must be one this server could have built")
 		}
 		face, _ := NewFace(k.Face)
 		r.slots[k.Slot] = &Participant{

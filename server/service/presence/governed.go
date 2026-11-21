@@ -20,11 +20,11 @@ type Governed struct {
 func (g Governed) Join(slug room.Slug, entry room.Entry, session outbound.Session) (room.Seat, error) {
 	if _, live := g.Rooms.Status(slug); !live {
 		if v := g.Policy.Decide(outbound.Ask{Act: outbound.ActCreateRoom, Slug: slug}); !v.Allowed {
-			return room.Seat{}, port.NewDomainError(port.ErrCodePermissionDenied, v.Reason, nil)
+			return room.Seat{}, port.NewError(port.CodePermissionDenied, v.Reason)
 		}
 	}
 	if v := g.Policy.Decide(outbound.Ask{Act: outbound.ActAdmit, Slug: slug}); !v.Allowed {
-		return room.Seat{}, port.NewDomainError(port.ErrCodePermissionDenied, v.Reason, nil)
+		return room.Seat{}, port.NewError(port.CodePermissionDenied, v.Reason)
 	}
 	return g.Presence.Join(slug, entry, session)
 }

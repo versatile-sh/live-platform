@@ -31,7 +31,7 @@ func NewSettings(verifier *Verifier, listed bool, country string) (Settings, err
 
 func (s Settings) validate() error {
 	if len(s.Country) != 0 && (len(s.Country) != 2 || s.Country[0] < 'A' || s.Country[0] > 'Z' || s.Country[1] < 'A' || s.Country[1] > 'Z') {
-		return port.NewDomainError(port.ErrCodeInvalidArgument, "country is two capital letters or empty", nil)
+		return port.NewError(port.CodeInvalidArgument, "country is two capital letters or empty")
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (r *Room) Authorize(now time.Time, proof *Verifier) error {
 		r.tries, r.triesEnd = 0, now.Add(r.cfg.PasswordWindow)
 	}
 	if r.tries >= r.cfg.PasswordTries {
-		return port.NewDomainError(port.ErrCodeRateLimited, "too many wrong passwords, try again later", nil)
+		return port.NewError(port.CodeRateLimited, "too many wrong passwords, try again later")
 	}
 	if proof != nil {
 		hash := sha256.Sum256(proof[:])
@@ -86,7 +86,7 @@ func (r *Room) Authorize(now time.Time, proof *Verifier) error {
 		}
 		r.tries++
 	}
-	return port.NewDomainError(port.ErrCodePermissionDenied, "this room needs its password", nil)
+	return port.NewError(port.CodePermissionDenied, "this room needs its password")
 }
 
 // SetListed lets the owner show or hide the room in the lobby.
@@ -118,7 +118,7 @@ func (r *Room) SetPassword(by PID, verifier *Verifier) error {
 
 func (r *Room) ownerOnly(by PID) error {
 	if p := r.find(by); p == nil || !p.Flags.Has(FlagOwner) || p.State != StateActive {
-		return port.NewDomainError(port.ErrCodeInvariantViolation, "only the active owner may do this", nil)
+		return port.NewError(port.CodeInvariantViolation, "only the active owner may do this")
 	}
 	return nil
 }

@@ -195,7 +195,7 @@ func (a *actor) suspect(pid room.PID, gen uint32, closing room.CloseReason) {
 
 func (a *actor) remove(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
-		return port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return port.NewError(port.CodeNotFound, "participant not found")
 	}
 	named := a.target(target)
 	events, err := a.room.Remove(a.now(), by, target)
@@ -206,7 +206,7 @@ func (a *actor) remove(by room.PID, gen uint32, target room.PID) error {
 
 func (a *actor) ban(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
-		return port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return port.NewError(port.CodeNotFound, "participant not found")
 	}
 	named := a.target(target)
 	events, err := a.room.Ban(a.now(), by, target)
@@ -217,7 +217,7 @@ func (a *actor) ban(by room.PID, gen uint32, target room.PID) error {
 
 func (a *actor) quiet(by room.PID, gen uint32, op room.QuietOp, target room.PID) error {
 	if !a.holds(by, gen) {
-		return port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return port.NewError(port.CodeNotFound, "participant not found")
 	}
 	named := a.target(target)
 	events, err := a.room.Quiet(op, by, target)
@@ -250,7 +250,7 @@ func (a *actor) hush() {
 
 func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
 	if !a.holds(by, gen) {
-		return port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return port.NewError(port.CodeNotFound, "participant not found")
 	}
 	named := a.target(target)
 	events, err := a.room.Transfer(by, target)
@@ -413,7 +413,7 @@ func (a *actor) broadcast() {
 func newSecret() ([32]byte, error) {
 	var s [32]byte
 	if _, err := rand.Read(s[:]); err != nil {
-		return s, port.NewDomainError(port.ErrCodeInvariantViolation, "no entropy for a secret", err)
+		return s, port.WrapError(port.CodeInvariantViolation, "no entropy for a secret", err)
 	}
 	return s, nil
 }

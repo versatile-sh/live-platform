@@ -42,18 +42,18 @@ var (
 	jpegEnd   = []byte{0xFF, 0xD9}
 	gif87     = []byte("GIF87a")
 	gif89     = []byte("GIF89a")
-	errPhoto  = port.NewDomainError(port.ErrCodeInvalidArgument, "a photo is a JPEG of at most 10 KiB or a GIF of at most 90 KiB", nil)
+	errPhoto  = port.NewError(port.CodeInvalidArgument, "a photo is a JPEG of at most 10 KiB or a GIF of at most 90 KiB")
 )
 
 // NewFace accepts the few characters a participant typed to stand for their face, or nothing at all.
 func NewFace(raw string) (string, error) {
 	face := strings.TrimSpace(raw)
 	if utf8.RuneCountInString(face) > faceMaxRunes || !utf8.ValidString(face) {
-		return "", port.NewDomainError(port.ErrCodeInvalidArgument, "a face has at most 12 characters", nil)
+		return "", port.NewError(port.CodeInvalidArgument, "a face has at most 12 characters")
 	}
 	for _, c := range face {
 		if unicode.IsControl(c) || unicode.Is(unicode.Cf, c) || unicode.IsSpace(c) && c != ' ' {
-			return "", port.NewDomainError(port.ErrCodeInvalidArgument, "a face must not contain control or invisible characters", nil)
+			return "", port.NewError(port.CodeInvalidArgument, "a face must not contain control or invisible characters")
 		}
 	}
 	return face, nil

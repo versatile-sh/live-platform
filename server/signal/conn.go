@@ -231,7 +231,7 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 	case "join":
 		proof, ok := decodeVerifier(hello.Verifier)
 		if !ok {
-			return "", room.Seat{}, port.NewDomainError(port.ErrCodeInvalidArgument, "verifier is 32 bytes in base64url", nil)
+			return "", room.Seat{}, port.NewError(port.CodeInvalidArgument, "verifier is 32 bytes in base64url")
 		}
 		face, err := room.NewFace(hello.Face)
 		if err != nil {
@@ -249,9 +249,9 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 			seat, err := c.server.presence.Resume(slug, room.PID(hello.PID), secret, c)
 			return slug, seat, err
 		}
-		return "", room.Seat{}, port.NewDomainError(port.ErrCodeNotFound, "participant not found", nil)
+		return "", room.Seat{}, port.NewError(port.CodeNotFound, "participant not found")
 	}
-	return "", room.Seat{}, port.NewDomainError(port.ErrCodeInvalidArgument, "the first frame is join or resume", nil)
+	return "", room.Seat{}, port.NewError(port.CodeInvalidArgument, "the first frame is join or resume")
 }
 
 func (c *conn) vouched(pass string, slug room.Slug) *room.Discord {
