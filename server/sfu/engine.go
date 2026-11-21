@@ -15,7 +15,6 @@ import (
 
 	"github.com/pion/ice/v4"
 	"github.com/pion/interceptor"
-	"github.com/pion/interceptor/pkg/nack"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v4"
 
@@ -167,16 +166,12 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 	return &Engine{api: api, report: report, shared: shared, rooms: map[room.Slug]map[room.PID]*peer{}}, nil
 }
 
-// interceptors are Pion's defaults without its NACK responder, which keeps a copy of every packet for every subscriber, and without its statistics, which nothing reads; NACKs are answered from one history per stream.
+// interceptors are Pion's defaults with the server's own NACK generator and responder, which allocate nothing per packet and keep one history per stream for every subscriber, and without Pion's statistics, which nothing reads.
 func interceptors(media *webrtc.MediaEngine, shared *histories) (*interceptor.Registry, error) {
 	registry := &interceptor.Registry{}
-	generator, err := nack.NewGeneratorInterceptor()
-	if err != nil {
-		return nil, err
-	}
 	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
 	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack", Parameter: "pli"}, webrtc.RTPCodecTypeVideo)
-	registry.Add(generator)
+	registry.Add(lossFactory{})
 	if err := webrtc.ConfigureRTCPReports(registry); err != nil {
 		return nil, err
 	}
