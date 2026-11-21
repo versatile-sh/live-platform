@@ -20,13 +20,20 @@ func (l Logged) Record(e outbound.AuditEvent) {
 		if c := e.Client; c != nil {
 			attrs = append(attrs, "country", c.Geo.Country, "discord", c.Discord != nil)
 		}
-		l.Log.Info("join", attrs...)
+		l.Log.Info("join", traced(e, attrs)...)
 	case outbound.AuditLeave:
-		l.Log.Info("leave", "room", e.Room, "pid", e.Actor.PID, "reason", e.Reason, "duration_ms", e.DurationMS)
+		l.Log.Info("leave", traced(e, []any{"room", e.Room, "pid", e.Actor.PID, "reason", e.Reason, "duration_ms", e.DurationMS})...)
 	case outbound.AuditRoomCreated:
 		l.Log.Info("room created", "room", e.Room, "private", e.Private)
 	case outbound.AuditRoomEnded:
 		l.Log.Info("room ended", "room", e.Room, "duration_ms", e.DurationMS)
 	}
 	l.Next.Record(e)
+}
+
+func traced(e outbound.AuditEvent, attrs []any) []any {
+	if e.TraceID == "" {
+		return attrs
+	}
+	return append(attrs, "trace_id", e.TraceID, "span_id", e.SpanID)
 }

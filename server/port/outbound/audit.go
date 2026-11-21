@@ -43,6 +43,8 @@ type AuditEvent struct {
 	Length     int           `json:"length,omitempty"`
 	Text       string        `json:"text,omitempty"`
 	ImageBytes int           `json:"image_bytes,omitempty"`
+	TraceID    string        `json:"trace_id,omitempty"`
+	SpanID     string        `json:"span_id,omitempty"`
 }
 
 // Audit takes facts about who did what and when; Record never blocks and may drop an event when the sink cannot keep up.
@@ -58,8 +60,9 @@ func (NoAudit) Record(AuditEvent) {}
 
 // PassRecord is what the server remembers of a guest pass it handed to a browser: the room it was for and the Discord origin it vouched for.
 type PassRecord struct {
-	Slug    room.Slug
-	Discord room.Discord
+	Slug        room.Slug
+	Discord     room.Discord
+	TraceParent string
 }
 
 // PassLedger remembers, on the server's side, who a guest pass vouched for, so a join can claim it by id and the browser cannot name a Discord identity itself.

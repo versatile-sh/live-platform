@@ -20,6 +20,8 @@ type seat struct {
 	online   bool
 	name     string
 	joined   time.Time
+	traceID  string
+	spanID   string
 }
 
 type actor struct {
@@ -136,15 +138,15 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 		return room.Seat{}, err
 	}
 	a.room.From(p.ID, entry.Origin)
-	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true, name: p.Name, joined: a.now()}
+	a.seats[p.ID] = &seat{session: session, gen: p.Gen, lastSeen: a.now(), online: true, name: p.Name, joined: a.now(), traceID: entry.TraceID, spanID: entry.SpanID}
 	a.hub.joins.Add(1)
 	client := entry.Client
 	who := &outbound.AuditPerson{PID: uint32(p.ID), Name: p.Name}
 	if !a.founded {
 		a.founded = true
-		a.record(outbound.AuditEvent{Kind: outbound.AuditRoomCreated, Actor: who, Client: &client})
+		a.record(outbound.AuditEvent{Kind: outbound.AuditRoomCreated, Actor: who, Client: &client, TraceID: entry.TraceID, SpanID: entry.SpanID})
 	}
-	a.record(outbound.AuditEvent{Kind: outbound.AuditJoin, Actor: who, Client: &client, Look: string(entry.Look), Present: present})
+	a.record(outbound.AuditEvent{Kind: outbound.AuditJoin, Actor: who, Client: &client, Look: string(entry.Look), Present: present, TraceID: entry.TraceID, SpanID: entry.SpanID})
 	a.apply(events)
 	a.showPhotos(session)
 	a.wire(p.ID, p.Gen, session)
@@ -375,7 +377,7 @@ func (a *actor) apply(events []room.Event) {
 		}
 		a.gone = append(a.gone, room.Departure{PID: e.PID, Reason: e.Reason})
 		if s := a.seats[e.PID]; s != nil {
-			a.record(outbound.AuditEvent{Kind: outbound.AuditLeave, Actor: &outbound.AuditPerson{PID: uint32(e.PID), Name: s.name}, Reason: string(e.Reason), DurationMS: a.now().Sub(s.joined).Milliseconds()})
+			a.record(outbound.AuditEvent{Kind: outbound.AuditLeave, Actor: &outbound.AuditPerson{PID: uint32(e.PID), Name: s.name}, Reason: string(e.Reason), DurationMS: a.now().Sub(s.joined).Milliseconds(), TraceID: s.traceID, SpanID: s.spanID})
 		}
 		if s := a.seats[e.PID]; s != nil && s.online {
 			switch e.Reason {

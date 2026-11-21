@@ -22,7 +22,9 @@ func main() {
 		os.Exit(1)
 	}
 	ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	stopTracing := startTracing(ctx, log, os.Getenv)
 	err = app.Run(ctx, cfg, log)
+	stopTracing(context.WithoutCancel(ctx))
 	stop()
 	if err != nil {
 		os.Exit(1)

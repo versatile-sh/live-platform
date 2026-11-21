@@ -13,6 +13,7 @@ type GuestPass struct {
 	DiscordName   string `json:"discordName,omitempty"`
 	GuildID       string `json:"guildId,omitempty"`
 	ChannelID     string `json:"channelId,omitempty"`
+	TraceParent   string `json:"traceparent,omitempty"`
 }
 
 // GuestPasses hands a pass once by its id, or false when there is none or it is not valid.

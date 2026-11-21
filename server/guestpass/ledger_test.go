@@ -8,6 +8,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/port/outbound"
@@ -38,14 +42,14 @@ func TestLedgerRecallsUntilSpentOrExpired(t *testing.T) {
 
 func TestRememberingNotesOnlyPassesThatNameADiscordUser(t *testing.T) {
 	ledger := NewLedger(time.Now)
-	named := Remembering{Passes: onePass{outbound.GuestPass{Name: "Ana", Slug: "a-b", DiscordUserID: "7", GuildID: "g", ChannelID: "c"}}, Ledger: ledger}
+	named := Remembering{Passes: onePass{outbound.GuestPass{Name: "Ana", Slug: "a-b", DiscordUserID: "7", GuildID: "g", ChannelID: "c"}}, Ledger: ledger, Now: time.Now}
 	_, ok := named.Take(context.Background(), "named")
 	assert.True(t, ok)
 	got, found := ledger.Recall("named")
 	assert.True(t, found)
 	assert.Equal(t, room.Slug("a-b"), got.Slug)
 	assert.Equal(t, room.Discord{UserID: "7", GuildID: "g", ChannelID: "c"}, got.Discord)
-	plain := Remembering{Passes: onePass{outbound.GuestPass{Name: "Bia", Slug: "a-b"}}, Ledger: ledger}
+	plain := Remembering{Passes: onePass{outbound.GuestPass{Name: "Bia", Slug: "a-b"}}, Ledger: ledger, Now: time.Now}
 	_, _ = plain.Take(context.Background(), "plain")
 	_, found = ledger.Recall("plain")
 	assert.False(t, found)
@@ -68,4 +72,37 @@ func TestTakeToleratesAPassWithoutTheDiscordOrigin(t *testing.T) {
 	p, ok := s.Take(context.Background(), "abcdefghijklmnopqrstuv")
 	require.True(t, ok)
 	assert.Empty(t, p.DiscordUserID)
+}
+
+const (
+	issuerTrace = "4bf92f3577b34da6a3ce929d0e0e4736"
+	issuerSpan  = "00f067aa0ba902b7"
+)
+
+func TestTakeContinuesTheIssuersTrace(t *testing.T) {
+	spans := tracetest.NewSpanRecorder()
+	otel.SetTracerProvider(sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(spans)))
+	t.Cleanup(func() { otel.SetTracerProvider(noop.NewTracerProvider()) })
+	ledger := NewLedger(time.Now)
+	pass := outbound.GuestPass{Name: "Ana", Slug: "a-b", DiscordUserID: "7", TraceParent: "00-" + issuerTrace + "-" + issuerSpan + "-01"}
+	_, ok := Remembering{Passes: onePass{pass}, Ledger: ledger, Now: time.Now}.Take(context.Background(), "traced")
+	require.True(t, ok)
+	got, found := ledger.Recall("traced")
+	require.True(t, found)
+	ended := spans.Ended()
+	require.Len(t, ended, 1)
+	take := ended[0]
+	assert.Equal(t, "live.pass.take", take.Name())
+	assert.Equal(t, issuerTrace, take.SpanContext().TraceID().String())
+	assert.Equal(t, issuerSpan, take.Parent().SpanID().String())
+	assert.Equal(t, "00-"+issuerTrace+"-"+take.SpanContext().SpanID().String()+"-01", got.TraceParent)
+}
+
+func TestTakeDropsAMalformedTraceparent(t *testing.T) {
+	s := issuer(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"name":"Ana","slug":"a-b","traceparent":"00-not-a-trace-01"}`))
+	})
+	p, ok := s.Take(context.Background(), "abcdefghijklmnopqrstuv")
+	require.True(t, ok)
+	assert.Empty(t, p.TraceParent)
 }

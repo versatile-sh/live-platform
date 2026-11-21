@@ -5,6 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/port/outbound"
 )
@@ -73,16 +78,33 @@ func (l *Ledger) Spend(id string) {
 type Remembering struct {
 	Passes outbound.GuestPasses
 	Ledger outbound.PassLedger
+	Now    func() time.Time
 }
 
-// Take returns the pass and, when it names a Discord user, remembers who it vouched for under its id.
+// Take returns the pass and, when it names a Discord user, remembers who it vouched for and the trace its take continued.
 func (r Remembering) Take(ctx context.Context, id string) (outbound.GuestPass, bool) {
+	began := r.Now()
 	pass, ok := r.Passes.Take(ctx, id)
+	parent := traceTake(ctx, pass.TraceParent, began, ok)
 	if ok && pass.DiscordUserID != "" {
 		r.Ledger.Remember(id, outbound.PassRecord{
-			Slug:    room.Slug(pass.Slug),
-			Discord: room.Discord{UserID: pass.DiscordUserID, UserName: pass.DiscordName, GuildID: pass.GuildID, ChannelID: pass.ChannelID},
+			Slug:        room.Slug(pass.Slug),
+			Discord:     room.Discord{UserID: pass.DiscordUserID, UserName: pass.DiscordName, GuildID: pass.GuildID, ChannelID: pass.ChannelID},
+			TraceParent: parent,
 		})
 	}
 	return pass, ok
+}
+
+func traceTake(ctx context.Context, parent string, began time.Time, ok bool) string {
+	w3c := propagation.TraceContext{}
+	ctx = w3c.Extract(ctx, propagation.MapCarrier{"traceparent": parent})
+	ctx, span := otel.Tracer("live/guestpass").Start(ctx, "live.pass.take", trace.WithTimestamp(began), trace.WithSpanKind(trace.SpanKindClient))
+	defer span.End()
+	if !ok {
+		span.SetStatus(codes.Error, "no pass")
+	}
+	carrier := propagation.MapCarrier{}
+	w3c.Inject(ctx, carrier)
+	return carrier["traceparent"]
 }

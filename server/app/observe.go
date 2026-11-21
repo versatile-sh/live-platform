@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"time"
 
+	"go.opentelemetry.io/otel"
+
 	"github.com/versatile-sh/live/server/audit"
 	"github.com/versatile-sh/live/server/service/presence"
 )
@@ -27,7 +29,7 @@ func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail 
 		return nil, func() {}
 	}
 	keep := trail.RetentionDays
-	hub.UseAudit(audit.Logged{Log: log, Next: writer})
+	hub.UseAudit(audit.Logged{Log: log, Next: audit.NewTraced(context.WithoutCancel(ctx), otel.Tracer("live/audit"), writer)})
 	go audit.RunPurge(ctx, dir, keep, purgeEvery, time.Now, log)
 	log.InfoContext(ctx, "audit writer started", "dir", dir, "retention_days", keep)
 	return writer, func() {

@@ -38,7 +38,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 	httpapi.Register(mux, hub, starCount)
 	ledger := guestpass.NewLedger(time.Now)
 	if passes, ok := guestpass.NewSource(cfg.PassSource, cfg.PassKey, &http.Client{Timeout: 3 * time.Second}); ok {
-		httpapi.RegisterPasses(mux, guestpass.Remembering{Passes: passes, Ledger: ledger})
+		httpapi.RegisterPasses(mux, guestpass.Remembering{Passes: passes, Ledger: ledger, Now: time.Now})
 	}
 	trail, drainTrail := startAudit(ctx, log, hub, cfg.Audit)
 	defer drainTrail()
@@ -93,7 +93,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 		})
 	}
 	signalling := signal.NewServer(rooms, signalCfg)
-	signalling.UsePasses(ledger)
+	signalling.UsePasses(ctx, ledger)
 
 	failed := make(chan error, 2)
 	go func() { failed <- signalling.Run(cfg.SignalAddr) }()
