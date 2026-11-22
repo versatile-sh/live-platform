@@ -383,6 +383,14 @@ func TestEngine(t *testing.T) {
 		assert.NotSame(t, before, after)
 		assert.Equal(t, webrtc.PeerConnectionStateClosed, before.ConnectionState())
 		assert.True(t, seen.seen(room.TroublePublishReplaced), "the replaced connection is told as a trouble")
+		engine.mu.Lock()
+		p := engine.rooms["bk"][2]
+		engine.mu.Unlock()
+		p.mu.Lock()
+		for source, f := range p.feeds {
+			assert.Same(t, after, f.pc, "no feed of the closed connection is kept: %s", source)
+		}
+		p.mu.Unlock()
 	})
 
 	t.Run("an offer the server cannot apply is told as a trouble instead of going unanswered in silence", func(t *testing.T) {

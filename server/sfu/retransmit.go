@@ -48,7 +48,11 @@ func (h *history) at(seq uint16) *slot {
 }
 
 // put keeps a packet unless it is already kept: every subscriber writes the same packets, and the first one to write stores it.
+// A padded packet is a bandwidth probe, not media, and is not kept: its padding is not part of what is stored, so a resend would go out corrupt.
 func (h *history) put(header *rtp.Header, payload []byte) {
+	if header.Padding {
+		return
+	}
 	seq := header.SequenceNumber
 	h.mu.RLock()
 	s := h.at(seq)

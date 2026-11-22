@@ -372,6 +372,13 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 	p.waiting = kept
 	var stopped, resumed []*feed
 	for source, f := range p.feeds {
+		if stale != nil && f.pc == stale {
+			if f.on {
+				stopped = append(stopped, f)
+			}
+			delete(p.feeds, source)
+			continue
+		}
 		on := declared(signal.Sources, source)
 		if f.on && !on {
 			stopped = append(stopped, f)
@@ -413,7 +420,7 @@ func (e *Engine) published(p *peer, signal room.MediaSignal) {
 		e.withdraw(others, f)
 	}
 	for _, f := range resumed {
-		e.spread(others, f)
+		e.spreadFrom(p, others, f)
 	}
 }
 
@@ -477,7 +484,7 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 		e.withdraw(others, previous)
 	}
 	if on {
-		e.spread(others, f)
+		e.spreadFrom(p, others, f)
 	}
 
 	packet := make([]byte, 1500)
@@ -505,6 +512,17 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 		others = e.others(p.slug, p.pid)
 		e.mu.Unlock()
 		e.withdraw(others, f)
+	}
+}
+
+// spreadFrom sends a feed to the others, then takes it back if its publisher left, or stopped it, while it was being sent.
+func (e *Engine) spreadFrom(owner *peer, to []*peer, f *feed) {
+	e.spread(to, f)
+	owner.mu.Lock()
+	gone := owner.sub == nil || !f.on || owner.feeds[f.local.ID()] != f
+	owner.mu.Unlock()
+	if gone {
+		e.withdraw(to, f)
 	}
 }
 

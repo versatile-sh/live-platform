@@ -170,6 +170,13 @@ func TestHistoryGrowsWithTheRate(t *testing.T) {
 		assert.Len(t, h.slots, historyMost)
 	})
 
+	t.Run("a padded packet, a bandwidth probe, is not kept to be sent again", func(t *testing.T) {
+		h := newHistory()
+		h.put(&rtp.Header{Version: 2, SequenceNumber: 5, SSRC: 1, Padding: true, PaddingSize: 200}, []byte{1})
+		_, ok := h.copyOut(5, nil)
+		assert.False(t, ok)
+	})
+
 	t.Run("keeping a packet allocates nothing once its slot has a buffer", func(t *testing.T) {
 		h := newHistory()
 		header := &rtp.Header{Version: 2, SSRC: 1, PayloadType: 96}

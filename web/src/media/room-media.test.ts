@@ -142,6 +142,18 @@ describe("room media", () => {
       expect(sent.at(-1)).toEqual({ role: "pub", kind: "offer", sdp: "offer:c2,s1", sources: { c1: "camera", s1: "screen" } });
     });
 
+    test("an answer that finds no offer of ours waiting means an earlier one landed here, so the connection is built again", async () => {
+      const { media, made, sent } = setup();
+      media.publish({ camera: track("c1") });
+      await settle();
+      (made[0] as unknown as { signalingState: string }).signalingState = "stable";
+      media.signal({ role: "pub", kind: "answer", sdp: "late" });
+      await settle();
+      expect(made[0]!.closed).toBe(true);
+      expect(made).toHaveLength(2);
+      expect(sent.filter((signal) => signal.kind === "offer")).toHaveLength(2);
+    });
+
     test("changing the track of a source that stays on does not negotiate again", async () => {
       const { media, made, sent } = setup();
       media.publish({ camera: track("c1") });

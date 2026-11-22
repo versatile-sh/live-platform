@@ -146,8 +146,8 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void,
       return;
     }
     negotiating = true;
+    const pc = pub;
     try {
-      const pc = pub;
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       const sources: Record<string, string> = {};
@@ -161,7 +161,7 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void,
       }, patience);
     } catch {
       report("offer.failed");
-      settled();
+      if (pub === pc) settled();
     }
   }
 
@@ -259,6 +259,10 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void,
         void answerOffer(signal.sdp ?? "");
       } else if (signal.role === "pub" && signal.kind === "answer" && pub) {
         const pc = pub;
+        if (pc.signalingState !== undefined && pc.signalingState !== "have-local-offer") {
+          rebuild();
+          return;
+        }
         void pc
           .setRemoteDescription({ type: "answer", sdp: signal.sdp ?? "" })
           .then(() => {
@@ -266,7 +270,9 @@ export function createRoomMedia(rtc: RtcPort, send: (signal: RtcSignal) => void,
             return flush("pub", pc);
           })
           .catch(() => undefined)
-          .finally(settled);
+          .finally(() => {
+            if (pub === pc) settled();
+          });
       }
     },
     publish(tracks) {
