@@ -6,8 +6,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      "/api": "http://127.0.0.1:8080",
-      "/ws": { target: "ws://127.0.0.1:8081", ws: true },
+      "/api": process.env.LIVE_HTTP ?? "http://127.0.0.1:8080",
+      "/ws": { target: process.env.LIVE_SIGNAL?.replace(/\/ws$/, "") ?? "ws://127.0.0.1:8081", ws: true },
     },
   },
   build: {

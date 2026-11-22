@@ -107,7 +107,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
 
   return (
-    <div data-view={view} data-stop={stop} data-more={more ? "" : undefined} className="group relative isolate flex h-dvh flex-col overflow-hidden bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
+    <div data-view={view} data-stop={stop} data-more={more ? "" : undefined} className="group relative isolate flex min-h-dvh flex-col overflow-x-clip bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
       <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 lg:flex">
         {[0, 1].map((pair) => (
           <div key={pair} className="flex w-1/2">
@@ -136,7 +136,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         />
       ) : null}
       <Pitch />
-      <div className={`no-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+      <div className={`no-scrollbar relative flex flex-1 flex-col px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:min-h-0 lg:overflow-y-auto lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
         <div className="enter-fade" style={at(0.4)}>
           <Social className="justify-end" />
         </div>

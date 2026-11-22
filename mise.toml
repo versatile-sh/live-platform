@@ -37,9 +37,19 @@ description = "Race tests of the server"
 dir = "server"
 run = "go test -race -count=1 ./..."
 
+[tasks.web]
+description = "Web: typecheck, unit tests and the headless layout and live tests"
+dir = "web"
+run = [
+  "test -d node_modules || npm ci --no-audit --no-fund",
+  "npm run typecheck",
+  "npm test",
+  "npm run test:live",
+]
+
 [tasks.check]
-description = "Everything: full lint, race tests, Semgrep"
-run = [{ task = "lint-full" }, { task = "test" }, { task = "semgrep" }]
+description = "Everything: full lint, race tests, web checks, Semgrep"
+run = [{ task = "lint-full" }, { task = "test" }, { task = "web" }, { task = "semgrep" }]
 
 [tasks.semgrep]
 description = "Semgrep on the new findings since the merge base"
