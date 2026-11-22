@@ -15,7 +15,9 @@ One page that moves like a conveyor. The left half says what the product is and 
 
 More options changes only the left half, with the conveyor's easing and duration: the headline and chat slide out to the left and the options slide in from the middle on a card, past a hairline. The form, its toggle (a second click closes), the social row and the conveyor link stay where they are, and the backdrop keeps its stop. On a phone there are no halves, so the options slide in over the whole page with a Back at the top and the form's own button at the foot. Going into a room is a forward view transition, coming out of one a back transition.
 
-The front page never scrolls. It is one screen tall at every size; on a phone the pitch keeps its height and the panel under it takes the rest, scrolling inside only when nothing else fits (360x640). Options belong in a pane that slides in, never in a section that grows the page.
+The front page does not scroll while everything fits. When it does not (a phone, a short or split window), the page scrolls as one document: below 64rem the lime pitch and the panel stack in normal flow and the page is the only scroll container, so the pitch scrolls away with the form and nothing overlaps. From 64rem the halves sit side by side and the right half may scroll beside the lime one. Options belong in a pane that slides in, never in a section that grows the page.
+
+Guard: `src/home/entry-layout.live.test.ts` loads a free room's door in headless Chromium at 360x740, 390x844, 700x900, 900x880, 1280x650 and 1440x900 and asserts that no control overlaps the pitch, the enter button can be scrolled to and is not covered, and (stacked) no element but the page scrolls. It runs in `mise run check` and `npm run test:live`; set `CHROME_BIN` when Chromium is not at `/usr/bin/chromium`.
 
 ## Tokens (`src/styles.css`, `@theme`)
 
@@ -90,6 +92,7 @@ The call keeps one bar at the bottom with five things a person needs at a glance
 ## Rules
 
 - **One live colour.** Lime means alive: the bubble, the chosen option, a raised hand, my messages. Never a tint over a section.
+- **On the canvas, fg.** `ink` and `paper` are fixed and do not follow the theme, so text on `canvas` or `card` is `fg`, never `paper`. `src/home/entry-contrast.live.test.ts` checks every entry screen at 4.5:1 in both themes at 360, 390 and 900 wide.
 - **On lime, ink.** Anything drawn on the lime half uses `ink` and `paper`, never the theme tokens, and no white card.
 - **Fixed boxes.** A box does not change size with its state: notes reserve their line, the see/back button keeps its place and width at every stop, Copy keeps its width when it says Copied.
 - **Nothing teleports.** A change of view slides or cross-fades; a choice slides its thumb.

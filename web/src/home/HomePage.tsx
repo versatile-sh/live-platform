@@ -29,7 +29,7 @@ function Said({ mine = false, live = false, order, children }: { mine?: boolean;
         className={`inline-flex max-w-[22rem] items-center gap-2 border px-4 py-2.5 text-[0.9375rem] leading-snug ${SWAP} ${
           mine
             ? "bubble-sent border-transparent bg-paper font-mono text-sm text-ink group-data-[view=lobby]:bg-bubble"
-            : "bubble border-transparent bg-ink text-paper group-data-[view=lobby]:border-line-strong group-data-[view=lobby]:bg-card"
+            : "bubble border-transparent bg-ink text-paper group-data-[view=lobby]:border-line-strong group-data-[view=lobby]:bg-card group-data-[view=lobby]:text-fg"
         }`}
       >
         {live ? <span aria-hidden="true" className="pulse size-2 shrink-0 rounded-full bg-ink" /> : null}
@@ -43,7 +43,7 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className={`enter-iris-below bubble-half-below no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+    <section className={`enter-iris-below bubble-half-below no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-fg sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
       <AppLink href="/" aria-label={t("app.home")} className="enter-rise relative self-start lg:z-30" style={at(0.15)}>
         <Wordmark onAccent className="text-lg" />
       </AppLink>
@@ -107,7 +107,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
   const HIDDEN = "pointer-events-none -translate-x-24 opacity-0";
 
   return (
-    <div data-view={view} data-stop={stop} data-more={more ? "" : undefined} className="group relative isolate flex h-dvh flex-col overflow-hidden bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
+    <div data-view={view} data-stop={stop} data-more={more ? "" : undefined} className="group relative isolate flex min-h-dvh flex-col overflow-x-clip bg-canvas lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row lg:overflow-hidden">
       <div aria-hidden="true" className="absolute inset-y-0 left-0 -z-10 hidden w-[200%] transition-transform duration-700 ease-(--ease-glide) group-data-[stop=1]:-translate-x-1/4 group-data-[stop=2]:-translate-x-1/2 lg:flex">
         {[0, 1].map((pair) => (
           <div key={pair} className="flex w-1/2">
@@ -136,7 +136,7 @@ export function HomePage({ view = "home", panel }: { view?: "home" | "lobby" | "
         />
       ) : null}
       <Pitch />
-      <div className={`no-scrollbar relative flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+      <div className={`no-scrollbar relative flex flex-1 flex-col px-6 py-4 group-data-[view=lobby]:bg-bubble sm:px-10 max-lg:group-data-[more]:invisible lg:min-h-0 lg:overflow-y-auto lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
         <div className="enter-fade" style={at(0.4)}>
           <Social className="justify-end" />
         </div>

@@ -72,7 +72,7 @@ func TestLostPacketsAreSentAgain(t *testing.T) {
 	})
 	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "track-camera", "stream-camera")
 	require.NoError(t, err)
-	_, err = ana.pub.AddTrack(track)
+	_, err = ana.publisher().AddTrack(track)
 	require.NoError(t, err)
 	ana.declare(map[string]string{"stream-camera": "camera"})
 	seq := uint16(0)

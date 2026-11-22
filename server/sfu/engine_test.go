@@ -88,23 +88,12 @@ func enterWith(t *testing.T, engine *Engine, pid room.PID, subAPI *webrtc.API) *
 	t.Helper()
 	sub, err := subAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
-	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = sub.Close(); _ = pub.Close() })
-	b := &browser{t: t, engine: engine, pid: pid, sub: sub, pub: pub, heard: map[string]string{}, inbox: make(chan room.MediaSignal, 256), done: make(chan struct{}), early: map[*webrtc.PeerConnection][]webrtc.ICECandidateInit{}}
+	t.Cleanup(func() { _ = sub.Close() })
+	b := &browser{t: t, engine: engine, pid: pid, sub: sub, heard: map[string]string{}, inbox: make(chan room.MediaSignal, 256), done: make(chan struct{}), early: map[*webrtc.PeerConnection][]webrtc.ICECandidateInit{}}
+	b.renew()
 	go b.run()
 	t.Cleanup(func() { close(b.done) })
-	trickle := func(role string) func(*webrtc.ICECandidate) {
-		return func(c *webrtc.ICECandidate) {
-			if c == nil {
-				return
-			}
-			encoded, _ := json.Marshal(c.ToJSON())
-			engine.Signal("bk", pid, 1, room.MediaSignal{Role: role, Kind: room.MediaKindICE, Candidate: string(encoded)})
-		}
-	}
-	sub.OnICECandidate(trickle(room.MediaRoleSubscribe))
-	pub.OnICECandidate(trickle(room.MediaRolePublish))
+	sub.OnICECandidate(b.trickle(room.MediaRoleSubscribe))
 	sub.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 		if _, _, err := remote.ReadRTP(); err != nil {
 			return
@@ -123,6 +112,33 @@ func enterWith(t *testing.T, engine *Engine, pid room.PID, subAPI *webrtc.API) *
 	return b
 }
 
+func (b *browser) trickle(role string) func(*webrtc.ICECandidate) {
+	return func(c *webrtc.ICECandidate) {
+		if c == nil {
+			return
+		}
+		encoded, _ := json.Marshal(c.ToJSON())
+		b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: role, Kind: room.MediaKindICE, Candidate: string(encoded)})
+	}
+}
+
+func (b *browser) renew() {
+	b.t.Helper()
+	pub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	require.NoError(b.t, err)
+	b.t.Cleanup(func() { _ = pub.Close() })
+	pub.OnICECandidate(b.trickle(room.MediaRolePublish))
+	b.mu.Lock()
+	b.pub = pub
+	b.mu.Unlock()
+}
+
+func (b *browser) publisher() *webrtc.PeerConnection {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.pub
+}
+
 func (b *browser) run() {
 	for {
 		select {
@@ -137,7 +153,7 @@ func (b *browser) run() {
 func (b *browser) receive(signal room.MediaSignal) {
 	pc := b.sub
 	if signal.Role == room.MediaRolePublish {
-		pc = b.pub
+		pc = b.publisher()
 	}
 	switch {
 	case signal.Kind == room.MediaKindICE:
@@ -180,10 +196,7 @@ func (b *browser) describe(pc *webrtc.PeerConnection, kind webrtc.SDPType, sdp s
 
 func (b *browser) declare(sources map[string]string) {
 	b.t.Helper()
-	offer, err := b.pub.CreateOffer(nil)
-	require.NoError(b.t, err)
-	require.NoError(b.t, b.pub.SetLocalDescription(offer))
-	b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: offer.SDP, Sources: sources})
+	b.offer(b.publisher(), sources)
 }
 
 func (e *Engine) forwarding(slug room.Slug, to, from room.PID, source string) bool {
@@ -222,12 +235,10 @@ func (b *browser) publishKeyed(source, key string) {
 	b.t.Helper()
 	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "track-"+source, "stream-"+source)
 	require.NoError(b.t, err)
-	_, err = b.pub.AddTrack(track)
+	pub := b.publisher()
+	_, err = pub.AddTrack(track)
 	require.NoError(b.t, err)
-	offer, err := b.pub.CreateOffer(nil)
-	require.NoError(b.t, err)
-	require.NoError(b.t, b.pub.SetLocalDescription(offer))
-	b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: offer.SDP, Sources: map[string]string{key: source}})
+	b.offer(pub, map[string]string{key: source})
 	stop := make(chan struct{})
 	b.t.Cleanup(func() { close(stop) })
 	go func() {
@@ -240,6 +251,25 @@ func (b *browser) publishKeyed(source, key string) {
 			}
 		}
 	}()
+}
+
+func (b *browser) offer(pub *webrtc.PeerConnection, sources map[string]string) {
+	b.t.Helper()
+	offer, err := pub.CreateOffer(nil)
+	require.NoError(b.t, err)
+	require.NoError(b.t, pub.SetLocalDescription(offer))
+	b.engine.Signal("bk", b.pid, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: offer.SDP, Sources: sources})
+}
+
+func (b *browser) unpublish() {
+	b.t.Helper()
+	pub := b.publisher()
+	for _, transceiver := range pub.GetTransceivers() {
+		require.NoError(b.t, transceiver.Stop())
+	}
+	b.offer(pub, map[string]string{})
+	require.Eventually(b.t, func() bool { return pub.SignalingState() != webrtc.SignalingStateHaveLocalOffer }, wait, 20*time.Millisecond)
+	b.renew()
 }
 
 func (b *browser) hears(source string) (string, bool) {
@@ -341,7 +371,7 @@ func TestEngine(t *testing.T) {
 		caio := enter(t, engine, 5)
 		track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "track-camera", "stream-late")
 		require.NoError(t, err)
-		_, err = caio.pub.AddTrack(track)
+		_, err = caio.publisher().AddTrack(track)
 		require.NoError(t, err)
 		caio.declare(map[string]string{})
 		stop := make(chan struct{})
@@ -397,6 +427,15 @@ func TestEngine(t *testing.T) {
 		enter(t, engine, 6)
 		engine.Signal("bk", 6, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: "v=0 not a description"})
 		assert.True(t, seen.seen(room.TroubleOfferRejected))
+	})
+
+	t.Run("one who stopped publishing everything publishes again, on a new connection", func(t *testing.T) {
+		eva := enter(t, engine, 7)
+		eva.publish("camera")
+		require.Eventually(t, func() bool { stream, ok := ana.hears("camera"); return ok && stream == "7:camera" }, wait, 20*time.Millisecond)
+		eva.unpublish()
+		eva.publish("screen")
+		require.Eventually(t, func() bool { stream, ok := ana.hears("screen"); return ok && stream == "7:screen" }, wait, 20*time.Millisecond)
 	})
 
 	t.Run("signals from a connection the participant no longer holds are ignored", func(t *testing.T) {
