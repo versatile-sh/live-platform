@@ -6,6 +6,7 @@ import { createBrowserServices } from "./browser-services";
 import { I18nProvider } from "./i18n/I18nProvider";
 import { chosenLocale, type Locale } from "./i18n";
 import { NavigationProvider } from "./routing/Navigation";
+import { bundleIn, createFreshness } from "./routing/freshness";
 import { createPathnameStore } from "./routing/pathname-store";
 import { ServicesProvider } from "./services";
 
@@ -19,6 +20,25 @@ document.addEventListener("dragstart", (event) => event.preventDefault());
 
 /** How long the first-load entrance (styles.css, html[data-enter]) lasts before the page is left to its own transitions. */
 const ENTRANCE_MS = 2400;
+
+function reloader() {
+  const script = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]');
+  const freshness = createFreshness({
+    current: script ? bundleIn(script.src) : undefined,
+    latest: async () => {
+      const response = await fetch("/", { cache: "no-store" });
+      return response.ok ? bundleIn(await response.text()) : undefined;
+    },
+    now: () => Date.now(),
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") freshness.check();
+  });
+  return {
+    ...freshness,
+    load: (path: string, replace: boolean) => (replace ? window.location.replace(path) : window.location.assign(path)),
+  };
+}
 
 const container = document.getElementById("root");
 
@@ -48,7 +68,7 @@ if (container) {
     <StrictMode>
       <I18nProvider locale={locale} onChoose={keep}>
         <ServicesProvider services={createBrowserServices()}>
-          <NavigationProvider store={createPathnameStore(window)}>
+          <NavigationProvider store={createPathnameStore(window, reloader())}>
             <App />
           </NavigationProvider>
         </ServicesProvider>
