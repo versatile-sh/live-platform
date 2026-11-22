@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -26,22 +28,35 @@ const (
 type remembered struct {
 	record  outbound.PassRecord
 	expires time.Time
+	seq     uint64
 }
 
 // Ledger keeps in memory who each handed-out pass vouched for: a quarter of an hour for a pass the issuer handed, twelve hours for the
 // re-entry pass a join receives in its place.
 type Ledger struct {
 	now     func() time.Time
+	log     *slog.Logger
+	evicted atomic.Uint64
 	mu      sync.Mutex
+	seq     uint64
 	entries map[string]remembered
 }
 
 // NewLedger builds an empty ledger that reads time from now.
 func NewLedger(now func() time.Time) *Ledger {
-	return &Ledger{now: now, entries: map[string]remembered{}}
+	return &Ledger{now: now, log: slog.Default(), entries: map[string]remembered{}}
 }
 
-// Remember keeps what a pass vouched for; when the ledger is full of live entries the newest is not kept.
+// WithLog sends the ledger's eviction warnings to log and returns the ledger.
+func (l *Ledger) WithLog(log *slog.Logger) *Ledger {
+	l.log = log
+	return l
+}
+
+// Evicted counts the live passes dropped to make room because the ledger was full.
+func (l *Ledger) Evicted() uint64 { return l.evicted.Load() }
+
+// Remember keeps what a pass vouched for; when the ledger is full of live entries the oldest one is evicted and logged.
 func (l *Ledger) Remember(id string, record outbound.PassRecord) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -53,10 +68,24 @@ func (l *Ledger) Remember(id string, record outbound.PassRecord) {
 			}
 		}
 	}
-	if len(l.entries) >= ledgerCap {
-		return
+	if _, held := l.entries[id]; !held && len(l.entries) >= ledgerCap {
+		l.evictOldest()
 	}
-	l.entries[id] = remembered{record: record, expires: now.Add(ledgerTTL)}
+	l.seq++
+	l.entries[id] = remembered{record: record, expires: now.Add(ledgerTTL), seq: l.seq}
+}
+
+func (l *Ledger) evictOldest() {
+	var oldest string
+	var least uint64
+	for k, v := range l.entries {
+		if oldest == "" || v.seq < least {
+			oldest, least = k, v.seq
+		}
+	}
+	delete(l.entries, oldest)
+	total := l.evicted.Add(1)
+	l.log.Warn("guest pass ledger full, oldest pass evicted", "capacity", ledgerCap, "evicted_total", total)
 }
 
 // Recall returns what a pass vouched for, or false when it is unknown, spent or expired.
@@ -88,7 +117,8 @@ func (l *Ledger) Renew(id string) (string, bool) {
 		return "", false
 	}
 	v.record.TraceParent = ""
-	l.entries[next] = remembered{record: v.record, expires: now.Add(reentryTTL)}
+	l.seq++
+	l.entries[next] = remembered{record: v.record, expires: now.Add(reentryTTL), seq: l.seq}
 	return next, true
 }
 

@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -16,6 +18,8 @@ import (
 
 const (
 	noteName = "handover.json"
+	badName  = "handover.json.bad"
+	takeName = "handover.taken"
 	saltName = "salt"
 	fresh    = time.Minute
 	every    = 100 * time.Millisecond
@@ -27,6 +31,11 @@ var errSaltLength = errors.New("handoff: salt file is too short")
 type note struct {
 	From  string                `json:"from"`
 	Rooms []presence.HandedRoom `json:"rooms"`
+}
+
+type receipt struct {
+	From  string `json:"from"`
+	Rooms int    `json:"rooms"`
 }
 
 // Dir is the directory two servers share during a deploy.
@@ -134,30 +143,33 @@ func (d *Dir) syncDir() error {
 	return err
 }
 
-// Taken waits until another server has picked the rooms up, and reports whether one did before ctx ended.
-func (d *Dir) Taken(ctx context.Context) bool {
+// Taken waits for the acknowledgement of the server that adopted this server's rooms and answers how many it took; false when ctx ends first.
+func (d *Dir) Taken(ctx context.Context) (int, bool) {
+	file := filepath.Join(d.path, takeName)
 	tick := time.NewTicker(every / 2)
 	defer tick.Stop()
 	for {
-		if _, err := os.Stat(filepath.Join(d.path, noteName)); errors.Is(err, os.ErrNotExist) {
-			return true
+		if data, err := os.ReadFile(file); err == nil {
+			var r receipt
+			if json.Unmarshal(data, &r) == nil && r.From == d.id {
+				_ = os.Remove(file)
+				return r.Rooms, true
+			}
 		}
 		select {
 		case <-ctx.Done():
-			return false
+			return 0, false
 		case <-tick.C:
 		}
 	}
 }
 
-// Watch hands adopt the rooms another server leaves, for as long as ctx lives; a note this server wrote, or one older than a minute, is never adopted.
-func (d *Dir) Watch(ctx context.Context, adopt func([]presence.HandedRoom)) {
+// Watch hands adopt the rooms another server leaves, for as long as ctx lives, and acknowledges the count adopt answers; a note this server wrote is never adopted, and one older than a minute or unreadable is set aside as handover.json.bad.
+func (d *Dir) Watch(ctx context.Context, log *slog.Logger, adopt func([]presence.HandedRoom) int) {
 	tick := time.NewTicker(every)
 	defer tick.Stop()
 	for {
-		if rooms, ok := d.take(); ok {
-			adopt(rooms)
-		}
+		d.take(ctx, log, adopt)
 		select {
 		case <-ctx.Done():
 			return
@@ -166,26 +178,54 @@ func (d *Dir) Watch(ctx context.Context, adopt func([]presence.HandedRoom)) {
 	}
 }
 
-func (d *Dir) take() ([]presence.HandedRoom, bool) {
+func (d *Dir) take(ctx context.Context, log *slog.Logger, adopt func([]presence.HandedRoom) int) bool {
 	file := filepath.Join(d.path, noteName)
-	info, err := os.Stat(file)
+	f, err := os.Open(file)
 	if err != nil {
-		return nil, false
+		return false
 	}
-	data, err := os.ReadFile(file)
+	info, err := f.Stat()
+	var data []byte
+	if err == nil {
+		data, err = io.ReadAll(f)
+	}
+	_ = f.Close()
 	if err != nil {
-		return nil, false
+		return false
 	}
 	var n note
-	if json.Unmarshal(data, &n) != nil {
-		_ = os.Remove(file)
-		return nil, false
+	if json.Unmarshal(data, &n) != nil || d.now().Sub(info.ModTime()) > fresh {
+		_ = os.Rename(file, filepath.Join(d.path, badName))
+		log.WarnContext(ctx, "handover note set aside", "file", badName)
+		return false
 	}
 	if n.From == d.id {
-		return nil, false
+		return false
 	}
-	if os.Remove(file) != nil || d.now().Sub(info.ModTime()) > fresh {
-		return nil, false
+	claim := filepath.Join(d.path, noteName+"."+d.id+".claim")
+	if os.Rename(file, claim) != nil {
+		return false
 	}
-	return n.Rooms, true
+	taken := adopt(n.Rooms)
+	ack, err := json.Marshal(receipt{From: n.From, Rooms: taken})
+	if err == nil {
+		err = d.acknowledge(ack)
+	}
+	if err != nil {
+		log.ErrorContext(ctx, "handover acknowledgement not written", "error", err.Error())
+	}
+	_ = os.Remove(claim)
+	return true
+}
+
+func (d *Dir) acknowledge(data []byte) error {
+	tmp, err := d.stage(takeName, data)
+	if err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, filepath.Join(d.path, takeName)); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return d.syncDir()
 }

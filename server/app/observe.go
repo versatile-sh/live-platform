@@ -8,6 +8,7 @@ import (
 	"go.opentelemetry.io/otel"
 
 	"github.com/versatile-sh/live/server/audit"
+	"github.com/versatile-sh/live/server/guestpass"
 	"github.com/versatile-sh/live/server/service/presence"
 )
 
@@ -41,7 +42,7 @@ func startAudit(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail 
 	}
 }
 
-func reportMetrics(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail *audit.Writer, every time.Duration) {
+func reportMetrics(ctx context.Context, log *slog.Logger, hub *presence.Hub, trail *audit.Writer, ledger *guestpass.Ledger, every time.Duration) {
 	if every <= 0 {
 		return
 	}
@@ -57,6 +58,7 @@ func reportMetrics(ctx context.Context, log *slog.Logger, hub *presence.Hub, tra
 		rooms, people, joins := hub.Stats()
 		attrs := []any{"rooms", rooms, "people", people, "joins_total", joins, "joins_per_min", float64(joins-last) * float64(time.Minute) / float64(every)}
 		last = joins
+		attrs = append(attrs, "guestpass_evicted", ledger.Evicted())
 		if trail != nil {
 			attrs = append(attrs, "audit_queue", trail.Depth(), "audit_written", trail.Written(), "audit_dropped", trail.Dropped(), "audit_failed", trail.Failed())
 		}
