@@ -91,6 +91,8 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 		handover = opened
 		if salt, err := handover.Salt(); err == nil {
 			signalCfg.Salt = salt
+		} else {
+			log.ErrorContext(ctx, "handover salt unusable, bans last only for this process", "error", err.Error())
 		}
 		go handover.Watch(ctx, func(handed []presence.HandedRoom) {
 			log.InfoContext(ctx, "rooms taken over", "handed", len(handed), "taken", hub.Adopt(handed, handoverHold))
