@@ -1,5 +1,5 @@
 import { createContext, use, type ReactNode } from "react";
-import type { GuestPass, Invite } from "./domain/guest-pass";
+import type { GuestPass, Invite, KeptPass } from "./domain/guest-pass";
 import type { ThemeStore } from "./ui/theme";
 
 import type { RoomsApi } from "./api/rooms";
@@ -31,6 +31,8 @@ export type Services = {
   nameMemory: { read(): string; write(name: string): void };
   lookMemory: { read(): string; write(look: string): void };
   faceMemory: { read(): string; write(face: string): void };
+  /** What this browser keeps of the guest pass each recent room was entered with, so leaving and coming back keeps the photo and the Discord origin. */
+  passMemory: { read(slug: string): KeptPass | undefined; write(slug: string, kept: KeptPass): void };
   /** Shrinks a picture chosen by the person to a small square JPEG as base64, or nothing when it cannot be read. */
   shrinkPhoto(file: Blob): Promise<string | undefined>;
   origin: string;

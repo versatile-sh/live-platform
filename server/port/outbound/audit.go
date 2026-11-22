@@ -66,8 +66,9 @@ type PassRecord struct {
 }
 
 // PassLedger remembers, on the server's side, who a guest pass vouched for, so a join can claim it by id and the browser cannot name a Discord identity itself.
+// A pass that let someone in is renewed: it stops working and a fresh id, valid for the same room, is handed back so the same person can enter again.
 type PassLedger interface {
 	Remember(id string, record PassRecord)
 	Recall(id string) (PassRecord, bool)
-	Spend(id string)
+	Renew(id string) (string, bool)
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import type { StatusResult } from "../api/rooms";
+import type { KeptPass } from "../domain/guest-pass";
 import { useT } from "../i18n/I18nProvider";
 import { NotFoundPage } from "../NotFoundPage";
 import { useServices } from "../services";
@@ -37,15 +38,27 @@ type Held = { slug: string | undefined; status: Promise<StatusResult> | undefine
 /** What a room route needs from the page around it: whether the visitor is in the room, the room itself, and what to show while they are not. */
 export type RoomGate = { inRoom: boolean; view: ReactNode; panel: ReactNode };
 
+function withKeptPass(entry: JoinEntry | undefined, kept: KeptPass | undefined): JoinEntry | undefined {
+  if (!entry || !kept) return entry;
+  return { ...entry, ...(kept.pass ? { pass: kept.pass } : {}), ...(kept.face && !entry.photo ? { photo: kept.face } : {}) };
+}
+
 /** Runs a room for the slug in the address, or nothing when the address is not a room. The page that calls it stays mounted while the slug comes and goes. */
 export function useRoomGate(slug: string | undefined): RoomGate | undefined {
   const t = useT();
   const services = useServices();
 
+  function keepPass(room: string) {
+    return (pass: string | undefined) => {
+      const kept = services.passMemory.read(room);
+      if (kept) services.passMemory.write(room, { ...kept, pass });
+    };
+  }
+
   function open(next: string | undefined): Held {
     if (next === undefined) return { slug: next, status: undefined, session: undefined };
-    const base = { slug: next, url: services.signalUrl, socket: services.socket, storage: services.seatStorage };
-    const entry = services.entryIntent.read(next);
+    const base = { slug: next, url: services.signalUrl, socket: services.socket, storage: services.seatStorage, onPass: keepPass(next) };
+    const entry = withKeptPass(services.entryIntent.read(next), services.passMemory.read(next));
     const session = readSeat(services.seatStorage, next) ? createSession(base) : entry ? createSession({ ...base, entry }) : undefined;
     return { slug: next, status: services.roomsApi.status(next), session };
   }
@@ -86,7 +99,7 @@ export function useRoomGate(slug: string | undefined): RoomGate | undefined {
   if (slug === undefined || status === undefined) return undefined;
 
   const setSession = (next: Session | undefined) => setHeld((current) => (current.slug === slug ? { ...current, session: next } : current));
-  const enter = (entry: JoinEntry) => setSession(createSession({ slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage, entry }));
+  const enter = (entry: JoinEntry) => setSession(createSession({ slug, url: services.signalUrl, socket: services.socket, storage: services.seatStorage, entry, onPass: keepPass(slug) }));
   const retry = () => setHeld((current) => (current.slug === slug ? { ...current, status: services.roomsApi.status(slug) } : current));
 
   const connection = snapshot.connection;

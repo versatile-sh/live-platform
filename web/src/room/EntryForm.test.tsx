@@ -42,6 +42,47 @@ describe("EntryForm", () => {
       await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", face: "", listed: true, pass: "abcdefghijklmnopqrstuv" })));
     });
 
+    test("the pass a guest pass link gave is kept for the room, with its photo and access", async () => {
+      const write = vi.fn();
+      const takePass = vi.fn(async () => ({ name: "Ana Souza", face: "AQID", private: false, listed: true }));
+      const services = fakeServices({ invite: { read: () => ({ listed: undefined, pass: "abcdefghijklmnopqrstuv" }), forget: () => undefined }, takePass, passMemory: { read: () => undefined, write } });
+      setup(free, { services });
+      await waitFor(() => expect(write).toHaveBeenCalledWith("demo", { pass: "abcdefghijklmnopqrstuv", name: "Ana Souza", face: "AQID", private: false, listed: true }));
+    });
+
+    test("coming back without the link enters with the kept pass, name and photo, even when another room changed the name", async () => {
+      const read = vi.fn(() => ({ pass: "pass-renewed-000000", name: "Ana Souza", face: "AQID", private: false, listed: true }));
+      const write = vi.fn();
+      const takePass = vi.fn(async () => undefined);
+      const services = fakeServices({ takePass, passMemory: { read, write }, nameMemory: { read: () => "Someone Else", write: () => undefined } });
+      const { onEnter } = setup(existing(), { services });
+      expect(screen.getByLabelText("Your name")).toHaveValue("Ana Souza");
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", pass: "pass-renewed-000000" })));
+      expect(read).toHaveBeenCalledWith("demo");
+      expect(takePass).not.toHaveBeenCalled();
+      expect(write).toHaveBeenCalledWith("demo", { pass: "pass-renewed-000000", name: "Ana Souza", face: "AQID", private: false, listed: true });
+    });
+
+    test("opening the same Discord link again, whose pass is spent, still enters with what was kept", async () => {
+      const takePass = vi.fn(async () => undefined);
+      const services = fakeServices({ invite: { read: () => ({ listed: undefined, pass: "abcdefghijklmnopqrstuv" }), forget: () => undefined }, takePass, passMemory: { read: () => ({ pass: "pass-renewed-000000", name: "Ana Souza", face: "AQID", private: false, listed: true }), write: () => undefined } });
+      const { onEnter } = setup(existing(), { services });
+      await waitFor(() => expect(takePass).toHaveBeenCalledWith("abcdefghijklmnopqrstuv"));
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(onEnter).toHaveBeenCalledWith(expect.objectContaining({ name: "Ana Souza", photo: "AQID", pass: "pass-renewed-000000" })));
+    });
+
+    test("a name typed over the kept one is kept for that room", async () => {
+      const write = vi.fn();
+      const services = fakeServices({ passMemory: { read: () => ({ pass: "pass-renewed-000000", name: "Ana Souza", face: "AQID", private: false, listed: true }), write } });
+      setup(existing(), { services });
+      await userEvent.clear(screen.getByLabelText("Your name"));
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana S");
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(write).toHaveBeenCalledWith("demo", expect.objectContaining({ name: "Ana S" })));
+    });
+
     test("a join without a pass carries none, and the doorway links to the privacy policy", async () => {
       setup(free);
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");

@@ -2,6 +2,8 @@ package guestpass
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"sync"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 
 const (
 	ledgerTTL  = 15 * time.Minute
+	reentryTTL = 12 * time.Hour
 	ledgerCap  = 16384
 	sweepAbove = 1024
 )
@@ -25,7 +28,8 @@ type remembered struct {
 	expires time.Time
 }
 
-// Ledger keeps in memory who each handed-out pass vouched for, until it is spent or a quarter of an hour has passed.
+// Ledger keeps in memory who each handed-out pass vouched for: a quarter of an hour for a pass the issuer handed, twelve hours for the
+// re-entry pass a join receives in its place.
 type Ledger struct {
 	now     func() time.Time
 	mu      sync.Mutex
@@ -67,11 +71,25 @@ func (l *Ledger) Recall(id string) (outbound.PassRecord, bool) {
 	return v.record, true
 }
 
-// Spend forgets a pass once it has been used to enter.
-func (l *Ledger) Spend(id string) {
+// Renew forgets a pass that was used to enter and keeps what it vouched for under a fresh id, without the issuer's trace, for twelve hours;
+// false when the pass is unknown, spent or expired.
+func (l *Ledger) Renew(id string) (string, bool) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", false
+	}
+	next := base64.RawURLEncoding.EncodeToString(raw[:])
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	v, ok := l.entries[id]
 	delete(l.entries, id)
+	now := l.now()
+	if !ok || !now.Before(v.expires) {
+		return "", false
+	}
+	v.record.TraceParent = ""
+	l.entries[next] = remembered{record: v.record, expires: now.Add(reentryTTL)}
+	return next, true
 }
 
 // Remembering takes passes from another source and notes in a ledger the Discord origin each one vouches for.

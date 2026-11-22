@@ -106,6 +106,7 @@ type joinedFrame struct {
 	PID    uint32 `json:"pid"`
 	Gen    uint32 `json:"gen"`
 	Secret string `json:"secret"`
+	Pass   string `json:"pass,omitempty"`
 }
 
 type errorFrame struct {
@@ -133,8 +134,8 @@ func encodeChat(m room.ChatMessage) []byte {
 	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, Img: base64.StdEncoding.EncodeToString(m.Image), At: m.At.UnixMilli()})
 }
 
-func encodeJoined(seat room.Seat) []byte {
-	return mustJSON(joinedFrame{T: "joined", PID: uint32(seat.PID), Gen: seat.Gen, Secret: base64.RawURLEncoding.EncodeToString(seat.Secret[:])})
+func encodeJoined(seat room.Seat, pass string) []byte {
+	return mustJSON(joinedFrame{T: "joined", PID: uint32(seat.PID), Gen: seat.Gen, Secret: base64.RawURLEncoding.EncodeToString(seat.Secret[:]), Pass: pass})
 }
 
 func encodeError(err error) []byte {

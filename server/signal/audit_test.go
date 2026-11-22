@@ -113,8 +113,9 @@ func TestOnlyTheServersOwnLedgerNamesTheDiscordOrigin(t *testing.T) {
 	require.NoError(t, err)
 	genuine := dial(t, url)
 	genuine.send(`{"t":"join","slug":"bk","name":"ana","pass":"pass-for-bk-0000000"}`)
-	_, err = genuine.next()
-	require.NoError(t, err)
+	joined := genuine.joined()
+	require.NotEmpty(t, joined.Pass, "a vouched join hands back a pass to enter again")
+	assert.NotEqual(t, "pass-for-bk-0000000", joined.Pass)
 
 	joins := rec.joins()
 	require.Len(t, joins, 3)
@@ -126,6 +127,21 @@ func TestOnlyTheServersOwnLedgerNamesTheDiscordOrigin(t *testing.T) {
 	assert.False(t, again, "a pass that let someone in is spent")
 	_, kept := ledger.Recall("pass-for-other-0000")
 	assert.True(t, kept, "a pass used for the wrong room stays")
+
+	genuine.send(`{"t":"leave"}`)
+	back := dial(t, url)
+	back.send(`{"t":"join","slug":"bk","name":"ana","pass":"` + joined.Pass + `"}`)
+	rejoined := back.joined()
+	assert.NotEqual(t, joined.Pass, rejoined.Pass)
+	stale := dial(t, url)
+	stale.send(`{"t":"join","slug":"bk","name":"ana","pass":"` + joined.Pass + `"}`)
+	assert.Empty(t, stale.joined().Pass, "a re-entry pass works once")
+
+	joins = rec.joins()
+	require.Len(t, joins, 5)
+	require.NotNil(t, joins[3].Client.Discord, "the same person returns with the Discord origin")
+	assert.Equal(t, "42", joins[3].Client.Discord.UserID)
+	assert.Nil(t, joins[4].Client.Discord)
 }
 
 func TestJoinContinuesThePassTraceAndAuditsIt(t *testing.T) {

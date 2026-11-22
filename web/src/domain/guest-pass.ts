@@ -35,3 +35,42 @@ export function parsePass(value: unknown): GuestPass | undefined {
   if (!name.ok || v.face.length > FACE_MAX || !FACE.test(v.face)) return undefined;
   return { name: name.name, face: v.face, private: v.private === true, listed: v.listed === true };
 }
+
+/** What the page keeps of a guest pass so the same person can enter its room again: the pass to present next, the name and photo, and the access it chose. */
+export type KeptPass = { pass: string | undefined; name: string; face: string; private: boolean; listed: boolean };
+
+const KEPT_ROOMS = 8;
+
+function parseKept(value: unknown): KeptPass | undefined {
+  const v = value as Partial<Record<keyof KeptPass, unknown>> | null;
+  if (typeof v !== "object" || v === null || typeof v.face !== "string" || v.face.length > FACE_MAX || !FACE.test(v.face)) return undefined;
+  const pass = typeof v.pass === "string" && PASS_ID.test(v.pass) ? v.pass : undefined;
+  const name = typeof v.name === "string" ? checkName(v.name) : undefined;
+  return { pass, name: name?.ok ? name.name : "", face: v.face, private: v.private === true, listed: v.listed === true };
+}
+
+function keptRooms(raw: string | null): [string, KeptPass][] {
+  if (!raw) return [];
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item: unknown) => {
+      if (!Array.isArray(item) || typeof item[0] !== "string") return [];
+      const kept = parseKept(item[1]);
+      return kept ? [[item[0], kept] as [string, KeptPass]] : [];
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Reads what is kept for `slug` from the stored list, or nothing when the list is absent, malformed or does not hold it. */
+export function readKept(raw: string | null, slug: string): KeptPass | undefined {
+  return keptRooms(raw).find(([room]) => room === slug)?.[1];
+}
+
+/** The stored list with `kept` as the newest entry for `slug`, holding at most the last eight rooms. */
+export function withKept(raw: string | null, slug: string, kept: KeptPass): string {
+  const rest = keptRooms(raw).filter(([room]) => room !== slug);
+  return JSON.stringify([[slug, kept], ...rest].slice(0, KEPT_ROOMS));
+}

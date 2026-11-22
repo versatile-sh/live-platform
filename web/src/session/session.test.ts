@@ -13,10 +13,10 @@ function memoryStorage() {
   };
 }
 
-function setup(entry: JoinEntry | null = { name: "Ana" }) {
+function setup(entry: JoinEntry | null = { name: "Ana" }, onPass?: (pass: string | undefined) => void) {
   const { factory, sockets } = fakeSockets();
   const storage = memoryStorage();
-  const session = createSession({ slug: "demo", url: "ws://x/ws", socket: factory, storage, ...(entry ? { entry } : {}) });
+  const session = createSession({ slug: "demo", url: "wss://x/ws", socket: factory, storage, ...(entry ? { entry } : {}), ...(onPass ? { onPass } : {}) });
   return { session, sockets, storage };
 }
 
@@ -272,6 +272,50 @@ describe("Session when the socket closes", () => {
     session.start();
     vi.advanceTimersByTime(DEAD_AFTER_MS);
     expect(session.getSnapshot().connection).toEqual({ phase: "ended", reason: { kind: "unreachable" } });
+  });
+});
+
+describe("Session with a guest pass", () => {
+  function setupWithPass() {
+    const passes: (string | undefined)[] = [];
+    const { session, sockets } = setup({ name: "Ana", pass: "pass-from-bot-00000" }, (pass) => void passes.push(pass));
+    return { session, sockets, passes };
+  }
+
+  test("hands on the pass the server gave back and presents it on the next join", () => {
+    const { session, sockets, passes } = setupWithPass();
+    session.start();
+    sockets[0]!.serverOpen();
+    expect(sentFrames(sockets[0]!)[0]).toMatchObject({ pass: "pass-from-bot-00000" });
+    sockets[0]!.serverSend({ t: "joined", pid: 1, gen: 1, secret: "s1", pass: "pass-renewed-000000" });
+    expect(passes).toEqual(["pass-renewed-000000"]);
+    sockets[0]!.serverClose(4001);
+    session.rejoin();
+    sockets[1]!.serverOpen();
+    expect(sentFrames(sockets[1]!)[0]).toMatchObject({ t: "join", pass: "pass-renewed-000000" });
+  });
+
+  test("forgets the pass when the server took none", () => {
+    const { session, sockets, passes } = setupWithPass();
+    session.start();
+    enter(sockets[0]!);
+    expect(passes).toEqual([undefined]);
+    sockets[0]!.serverClose(4001);
+    session.rejoin();
+    sockets[1]!.serverOpen();
+    expect(sentFrames(sockets[1]!)[0]).not.toHaveProperty("pass");
+  });
+
+  test("a resume hears nothing about passes", () => {
+    const { session, sockets, passes } = setupWithPass();
+    session.start();
+    sockets[0]!.serverOpen();
+    sockets[0]!.serverSend({ t: "joined", pid: 1, gen: 1, secret: "s1", pass: "pass-renewed-000000" });
+    vi.advanceTimersByTime(DEAD_AFTER_MS + 1);
+    sockets[1]!.serverOpen();
+    sockets[1]!.serverSend({ t: "joined", pid: 1, gen: 2, secret: "s2" });
+    expect(sentFrames(sockets[1]!)[0]).toMatchObject({ t: "resume" });
+    expect(passes).toEqual(["pass-renewed-000000"]);
   });
 });
 
