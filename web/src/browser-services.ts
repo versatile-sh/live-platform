@@ -193,7 +193,11 @@ export function createBrowserServices(): Services {
       if (!taking) {
         taking = fetch(`/api/pass/${encodeURIComponent(id)}`, { cache: "no-store" })
           .then(async (res) => (res.ok ? parsePass(await res.json()) : undefined))
-          .catch(() => undefined);
+          .catch(() => undefined)
+          .then((pass) => {
+            if (!pass) passes.delete(id);
+            return pass;
+          });
         passes.set(id, taking);
       }
       return taking;

@@ -62,9 +62,9 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
 
   function drain() {
     timer = undefined;
-    const next = queue.shift();
+    const next = queue[0];
     if (!next) return;
-    send({ k: "els", els: next.els }, next.to);
+    if (send({ k: "els", els: next.els }, next.to)) queue.shift();
     if (queue.length > 0) timer = timers.set(drain, GAP_MS);
   }
 
@@ -82,9 +82,9 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
     local(elements) {
       const changed = elements.filter((element) => wins(element, known.get(element.id)));
       if (changed.length === 0) return;
-      for (const element of changed) known.set(element.id, element);
+      for (const element of changed) known.set(element.id, { ...element });
       publish();
-      post(changed);
+      post(changed.map((element) => ({ ...element })));
     },
     remote(from, message, me, others) {
       const data = message as BoardMessage | null;

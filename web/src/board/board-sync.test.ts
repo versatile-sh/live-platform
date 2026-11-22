@@ -80,4 +80,46 @@ describe("createBoardSync", () => {
     vi.advanceTimersByTime(1000);
     expect(sent).toHaveLength(1);
   });
+
+  describe("local", () => {
+    describe("with an element the editor changes in place", () => {
+      test("sends every later change of it", () => {
+        const { sync, sent } = setup();
+        const live = el("a", 1, 1, { x: 0 });
+        sync.local([live]);
+        vi.advanceTimersByTime(150);
+        Object.assign(live, { version: 2, versionNonce: 2, x: 10 });
+        sync.local([live]);
+        vi.advanceTimersByTime(150);
+        expect(sent).toHaveLength(2);
+        expect(sent[1]!.message).toEqual({ k: "els", els: [el("a", 2, 2, { x: 10 })] });
+      });
+
+      test("sends the element as it was when handed over, even when edited before the frame goes out", () => {
+        const { sync, sent } = setup();
+        const live = el("a", 1, 1, { x: 0 });
+        sync.local([live]);
+        Object.assign(live, { version: 2, versionNonce: 2, x: 10 });
+        vi.advanceTimersByTime(150);
+        expect(sent[0]!.message).toEqual({ k: "els", els: [el("a", 1, 1, { x: 0 })] });
+      });
+    });
+  });
+
+  describe("when the room cannot be reached", () => {
+    test("keeps the frame queued and sends it once the send works again", () => {
+      vi.useFakeTimers();
+      const sent: BoardMessage[] = [];
+      let open = false;
+      const sync = createBoardSync((message) => (open ? (sent.push(message), true) : false));
+      sync.local([el("a", 1)]);
+      vi.advanceTimersByTime(450);
+      expect(sent).toEqual([]);
+      open = true;
+      vi.advanceTimersByTime(150);
+      expect(sent).toEqual([{ k: "els", els: [el("a", 1)] }]);
+      vi.advanceTimersByTime(1000);
+      expect(sent).toHaveLength(1);
+    });
+  });
 });

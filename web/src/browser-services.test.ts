@@ -64,3 +64,27 @@ describe("createBrowserServices share link", () => {
     window.location.hash = "";
   });
 });
+
+describe("createBrowserServices takePass", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  test("asks the server again after a failed fetch", async () => {
+    const fetchPass = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ name: "Ana", face: "", private: false, listed: false }) });
+    vi.stubGlobal("fetch", fetchPass);
+    const services = createBrowserServices();
+    expect(await services.takePass("retry-pass-id-0000000")).toBeUndefined();
+    expect(await services.takePass("retry-pass-id-0000000")).toMatchObject({ name: "Ana" });
+    expect(fetchPass).toHaveBeenCalledTimes(2);
+  });
+
+  test("shares one fetch between two asks while it is in flight", async () => {
+    const fetchPass = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ name: "Ana", face: "", private: false, listed: false }) });
+    vi.stubGlobal("fetch", fetchPass);
+    const services = createBrowserServices();
+    await Promise.all([services.takePass("shared-pass-id-000000"), services.takePass("shared-pass-id-000000")]);
+    expect(fetchPass).toHaveBeenCalledTimes(1);
+  });
+});

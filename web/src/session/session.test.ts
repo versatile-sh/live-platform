@@ -330,6 +330,43 @@ describe("Session#rejoin", () => {
     expect(sentFrames(sockets[1]!)[0]).toMatchObject({ t: "join", name: "Ana" });
   });
 
+  describe("with photos and chat lines from the previous visit", () => {
+    function endedWithHistory(entry: JoinEntry = { name: "Ana" }) {
+      const { session, sockets } = setup(entry);
+      session.start();
+      enter(sockets[0]!);
+      sockets[0]!.serverSend({ t: "photo", pid: 2, data: "/9j/AQID" });
+      sockets[0]!.serverSend({ t: "chat", pid: 2, name: "Bia", text: "oi", at: 1 });
+      sockets[0]!.serverClose(4001);
+      return { session, sockets };
+    }
+
+    test("forgets them so a new participant never inherits an old face or line", () => {
+      const { session } = endedWithHistory();
+      expect(Object.keys(session.getSnapshot().photos)).toEqual(["2"]);
+      expect(session.getSnapshot().chat).toHaveLength(1);
+      session.rejoin();
+      expect(session.getSnapshot().photos).toEqual({});
+      expect(session.getSnapshot().chat).toEqual([]);
+    });
+
+    test("numbers the first new chat line from the start again", () => {
+      const { session, sockets } = endedWithHistory();
+      session.rejoin();
+      sockets[1]!.serverOpen();
+      sockets[1]!.serverSend({ t: "joined", pid: 1, gen: 1, secret: "s2" });
+      sockets[1]!.serverSend({ t: "chat", pid: 3, name: "Caio", text: "e ai", at: 2 });
+      expect(session.getSnapshot().chat.map((line) => line.id)).toEqual([1]);
+    });
+
+    test("sends the photo of the entry again after the new join", () => {
+      const { session, sockets } = endedWithHistory({ name: "Ana", photo: "AQID" });
+      session.rejoin();
+      enter(sockets[1]!, "s2");
+      expect(sentFrames(sockets[1]!).filter((f) => f.t === "photo")).toEqual([{ t: "photo", data: "AQID" }]);
+    });
+  });
+
   test("is not available without an entry", () => {
     expect(setup(null).session.canRejoin()).toBe(false);
   });

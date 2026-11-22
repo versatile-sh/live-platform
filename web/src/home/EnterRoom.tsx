@@ -55,16 +55,20 @@ export function EnterRoom() {
       return;
     }
     setWorking(true);
-    nameMemory.write(who.name);
-    const derived = withPassword ? await services.derive(code, where.slug) : undefined;
-    services.entryIntent.put(where.slug, {
-      name: who.name,
-      look: services.lookMemory.read(),
-      face: services.faceMemory.read(),
-      listed,
-      ...(derived ? { verifier: derived.verifier, password: code } : {}),
-    });
-    withMotion("forward", () => navigate(`/${where.slug}`));
+    try {
+      nameMemory.write(who.name);
+      const derived = withPassword ? await services.derive(code, where.slug) : undefined;
+      services.entryIntent.put(where.slug, {
+        name: who.name,
+        look: services.lookMemory.read(),
+        face: services.faceMemory.read(),
+        listed,
+        ...(derived ? { verifier: derived.verifier, password: code } : {}),
+      });
+      withMotion("forward", () => navigate(`/${where.slug}`));
+    } catch {
+      setWorking(false);
+    }
   }
 
   function join(event: FormEvent) {

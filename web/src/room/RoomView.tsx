@@ -84,6 +84,10 @@ const PHI = 1.618;
 const SHOWN = Array.from({ length: 9 }, (_, back) => (back === 0 ? LINE : LINE / PHI ** back));
 const LIFT = SHOWN.map((_, back) => SHOWN.slice(1, back + 1).reduce((sum, shown) => sum + shown, 0));
 
+function typing(target: EventTarget | null) {
+  return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.closest("[data-board]") !== null);
+}
+
 /** Marks the balloon settled a frame after it appears, so its lines animate only when they arrive later, not with the balloon itself. */
 function settle(balloon: HTMLDivElement | null) {
   if (balloon && balloon.dataset.settled === undefined) requestAnimationFrame(() => (balloon.dataset.settled = ""));
@@ -314,7 +318,6 @@ export function RoomView({
   }, [roomMedia, cameraQuality, screenQuality]);
   useEffect(() => {
     if (!pushToTalk) return;
-    const typing = (target: EventTarget | null) => target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.closest("[data-board]") !== null);
     const down = (event: KeyboardEvent) => {
       if (event.code !== talkKey || typing(event.target)) return;
       event.preventDefault();
@@ -388,14 +391,15 @@ export function RoomView({
       if (!event.ctrlKey || event.metaKey) return;
       if (event.target instanceof Element && event.target.closest("[data-board]")) return;
       const key = event.key.toLowerCase();
+      const mayToggleMedia = !typing(event.target);
       const act =
         !event.altKey && !event.shiftKey && key === "k"
           ? () => setPalette((open) => !open)
-          : !event.altKey && !event.shiftKey && key === "d"
+          : !event.altKey && !event.shiftKey && key === "d" && mayToggleMedia
             ? () => void media.toggle("microphone")
-            : !event.altKey && !event.shiftKey && key === "e"
+            : !event.altKey && !event.shiftKey && key === "e" && mayToggleMedia
               ? () => void media.toggle("camera")
-              : !event.altKey && event.shiftKey && key === "e"
+              : !event.altKey && event.shiftKey && key === "e" && mayToggleMedia
                 ? () => void media.toggle("screen")
                 : event.altKey && key === "h"
                   ? media.toggleHand

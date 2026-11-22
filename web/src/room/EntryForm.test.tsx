@@ -83,6 +83,29 @@ describe("EntryForm", () => {
       await waitFor(() => expect(write).toHaveBeenCalledWith("demo", expect.objectContaining({ name: "Ana S" })));
     });
 
+    test("a name typed over the one a new guest pass gave is kept for that room, with the pass data", async () => {
+      const write = vi.fn();
+      const takePass = vi.fn(async () => ({ name: "Ana Souza", face: "AQID", private: false, listed: true }));
+      const services = fakeServices({ invite: { read: () => ({ listed: undefined, pass: "abcdefghijklmnopqrstuv" }), forget: () => undefined }, takePass, passMemory: { read: () => undefined, write } });
+      setup(existing(), { services });
+      await waitFor(() => expect(screen.getByLabelText("Your name")).toHaveValue("Ana Souza"));
+      await userEvent.clear(screen.getByLabelText("Your name"));
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana S");
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(write).toHaveBeenLastCalledWith("demo", { pass: "abcdefghijklmnopqrstuv", name: "Ana S", face: "AQID", private: false, listed: true }));
+    });
+
+    test("a new guest pass wins over the entry kept earlier for that room", async () => {
+      const write = vi.fn();
+      const takePass = vi.fn(async () => ({ name: "Ana Souza", face: "BQID", private: true, listed: true }));
+      const old = { pass: "pass-renewed-000000", name: "Ana Souza", face: "AQID", private: false, listed: false };
+      const services = fakeServices({ invite: { read: () => ({ listed: undefined, pass: "abcdefghijklmnopqrstuv" }), forget: () => undefined }, takePass, passMemory: { read: () => old, write } });
+      setup(existing(), { services });
+      await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+      await userEvent.click(screen.getByRole("button", { name: "Enter" }));
+      await waitFor(() => expect(write).toHaveBeenLastCalledWith("demo", { pass: "abcdefghijklmnopqrstuv", name: "Ana Souza", face: "BQID", private: true, listed: true }));
+    });
+
     test("a join without a pass carries none, and the doorway links to the privacy policy", async () => {
       setup(free);
       await userEvent.type(screen.getByLabelText("Your name"), "Ana");

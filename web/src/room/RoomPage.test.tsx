@@ -608,6 +608,29 @@ describe("RoomPage", () => {
       expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "media", flags: 17 });
     });
 
+    test("Ctrl+D and Ctrl+E switch the microphone and camera outside text fields, never while typing a message", async () => {
+      const track = { stop: () => undefined, addEventListener: () => undefined };
+      const stream = { getTracks: () => [track], getAudioTracks: () => [track], getVideoTracks: () => [] } as unknown as MediaStream;
+      const asked: MediaStreamConstraints[] = [];
+      await inCall({
+        mediaDevices: {
+          user: async (constraints) => {
+            asked.push(constraints);
+            return stream;
+          },
+          display: async () => stream,
+          list: async () => [],
+        },
+      });
+      await userEvent.type(screen.getByLabelText("Message to the room"), "hi");
+      await userEvent.keyboard("{Control>}d{/Control}{Control>}e{/Control}{Control>}{Shift>}e{/Shift}{/Control}");
+      expect(asked).toEqual([]);
+      expect(screen.getByRole("button", { name: "Turn microphone on" })).toBeInTheDocument();
+      (document.activeElement as HTMLElement).blur();
+      await userEvent.keyboard("{Control>}d{/Control}");
+      await waitFor(() => expect(asked).toHaveLength(1));
+    });
+
     test("the microphone options list the devices and change the voice filter", async () => {
       const track = { stop: () => undefined, addEventListener: () => undefined };
       const stream = { getTracks: () => [track], getAudioTracks: () => [track] } as unknown as MediaStream;

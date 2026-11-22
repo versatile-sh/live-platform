@@ -6,6 +6,8 @@ import wasmUrl from "@sapphi-red/web-noise-suppressor/rnnoise.wasm?url";
 
 import type { CleanedVoice, VoiceChain } from "./local-media";
 
+const RNNOISE_WORKLET_DELAY_SAMPLES = 640;
+
 let binary: Promise<ArrayBuffer> | undefined;
 
 /** Passes a microphone through the chain asked for, all in this browser: RNNoise (a neural noise remover) mixed with the original by its strength, then a rumble cut and a compressor, then a gate that closes between phrases. */
@@ -24,10 +26,11 @@ export async function cleanVoice(raw: MediaStream, chain: VoiceChain): Promise<C
       dispose.push(() => denoiser.destroy());
       const wet = new GainNode(context, { gain: chain.strength / 100 });
       const dry = new GainNode(context, { gain: 1 - chain.strength / 100 });
+      const align = new DelayNode(context, { delayTime: RNNOISE_WORKLET_DELAY_SAMPLES / context.sampleRate });
       const mix = new GainNode(context);
       source.connect(denoiser).connect(wet).connect(mix);
-      source.connect(dry).connect(mix);
-      made.push(denoiser, wet, dry, mix);
+      source.connect(align).connect(dry).connect(mix);
+      made.push(denoiser, wet, align, dry, mix);
       head = mix;
     }
     if (chain.balanced) {

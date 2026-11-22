@@ -164,6 +164,23 @@ describe("HomePage", () => {
       expect(services.entryIntent.read("secret")).toEqual({ name: "Ana", look: "ff9ec7-0e1116-0", face: "^_^", listed: true, verifier: "v:secret:8ABH-23HK", password: "8ABH-23HK" });
     });
 
+    test("a private room whose code cannot be derived leaves the form usable again", async () => {
+      const pathname = fakePathname();
+      const services = fakeServices({
+        derive: async () => {
+          throw new Error("no secure context");
+        },
+      });
+      renderWithApp(<HomePage />, { pathname, services });
+      await userEvent.click(more());
+      await userEvent.type(screen.getByLabelText("Your name"), "Ana");
+      await userEvent.type(screen.getByLabelText("Room name"), "secret");
+      await userEvent.click(screen.getByRole("radio", { name: /Private/ }));
+      await userEvent.click(createInPane());
+      await waitFor(() => expect(createInPane()).toBeEnabled());
+      expect(pathname.visited).toEqual([]);
+    });
+
     test("a room can be kept out of the open rooms, created from the form while the options are open", async () => {
       const pathname = fakePathname();
       const services = fakeServices();
