@@ -2,6 +2,7 @@ import { useId } from "react";
 
 import { useT } from "../i18n/I18nProvider";
 import { RoomCode } from "../ui/RoomCode";
+import { button } from "../ui/styles";
 import { Switch } from "../ui/Switch";
 
 export type Access = "public" | "private";
@@ -11,7 +12,7 @@ type AccessSettingsProps = {
   onAccess(access: Access): void;
   listed: boolean;
   onListed(listed: boolean): void;
-  code: string;
+  code: string | undefined;
   onRenew(): void;
 };
 
@@ -41,7 +42,18 @@ export function AccessSettings({ access, onAccess, listed, onListed, code, onRen
       <div className={`grid transition-[grid-template-rows,opacity] duration-500 ease-(--ease-glide) ${access === "private" ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
         <div inert={access !== "private"} className="overflow-hidden">
           <div className="pt-4">
-            <RoomCode code={code} onRenew={onRenew} />
+            {code === undefined ? (
+              <div className="bubble flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-line-strong bg-card py-3 pr-3 pl-5">
+                <p role="status" className="min-w-0 flex-1 text-sm">
+                  {t("owner.codeUnknown")}
+                </p>
+                <button type="button" className={button({ size: "xs" })} onClick={onRenew}>
+                  {t("home.newCode")}
+                </button>
+              </div>
+            ) : (
+              <RoomCode code={code} onRenew={onRenew} />
+            )}
           </div>
         </div>
       </div>

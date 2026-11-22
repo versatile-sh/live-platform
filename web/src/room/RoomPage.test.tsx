@@ -378,6 +378,47 @@ describe("RoomPage", () => {
       expect(sent(socket, 1)).toEqual([{ t: "owner", op: "password" }]);
     });
 
+    describe("after the page reloads in a private room", () => {
+      async function reloadedAsOwner() {
+        const services = fakeServices({ roomsApi: { status: async () => ({ kind: "ok", room: { ...free, exists: true, count: 1 } }), lobby: async () => ({ kind: "unreachable" }) }, generatePassword: () => "INVENTED-1" });
+        writeSeat(services.seatStorage, "demo", { pid: 1, secret: "s1", private: true, listed: false });
+        await renderWithAppSettled(<RoomPage slug="demo" />, { services });
+        const socket = await socketOf(services);
+        await joinAs(socket);
+        await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 })], gone: [] });
+        await fromMore("Room settings");
+        return { services, socket };
+      }
+
+      test("says this browser no longer knows the code and shows no invented one", async () => {
+        await reloadedAsOwner();
+        expect(screen.getByText("This browser no longer knows the code. Renew it to set a new one.")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Room code")).not.toBeInTheDocument();
+        expect(screen.queryByText("INVENTED-1")).not.toBeInTheDocument();
+      });
+
+      test("the invite says the link goes without the code", async () => {
+        const { services } = await reloadedAsOwner();
+        expect(screen.getByText("This link has no code. Whoever opens it will need the code.")).toBeInTheDocument();
+        await userEvent.keyboard("{Escape}");
+        expect(screen.getByText("The link goes without the code.")).toBeInTheDocument();
+        await userEvent.click(screen.getByRole("button", { name: "Invite" }));
+        expect(services.copied.at(-1)).toBe("https://live.test/demo");
+        expect(await screen.findByText("Link copied. The link goes without the code.")).toBeInTheDocument();
+      });
+
+      test("renewing shows the new code and the link carries it", async () => {
+        const { services, socket } = await reloadedAsOwner();
+        services.generatePassword = () => "9XYZ-45QR";
+        await userEvent.click(screen.getByRole("button", { name: "New" }));
+        expect(await screen.findByLabelText("Room code")).toHaveTextContent("9XYZ-45QR");
+        expect(screen.queryByText(/no longer knows the code/)).not.toBeInTheDocument();
+        await waitFor(() => expect(JSON.parse(socket.sent.at(-1)!)).toEqual({ t: "owner", op: "password", verifier: "v:demo:9XYZ-45QR" }));
+        await userEvent.click(within(screen.getByRole("region", { name: "Room settings" })).getByRole("button", { name: "Copy link" }));
+        expect(services.copied.at(-1)).toBe("https://live.test/demo#9XYZ-45QR");
+      });
+    });
+
     test("show a refusal in words when the server will not do it", async () => {
       const { socket } = await asOwner();
       await userEvent.click(screen.getByRole("button", { name: "People" }));
