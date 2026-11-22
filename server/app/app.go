@@ -72,7 +72,7 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 	hub.UseTroubles(audit.NewTroubles(context.WithoutCancel(ctx), log, otel.Tracer("live/media")))
 	var rooms inbound.Presence = presence.WithoutMedia{Hub: hub}
 	if cfg.Media {
-		engine, err := sfu.New(sfu.Config{UDPPort: cfg.MediaUDPPort, PublicIP: cfg.MediaPublicIP}, hub)
+		engine, err := sfu.New(sfu.Config{UDPPort: cfg.MediaUDPPort, PublicIP: cfg.MediaPublicIP, Now: time.Now}, hub)
 		if err != nil {
 			log.ErrorContext(ctx, "media plane unusable", "error", err.Error())
 			return err

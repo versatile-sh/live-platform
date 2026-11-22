@@ -16,7 +16,6 @@ const (
 	nackEvery  = 100 * time.Millisecond
 )
 
-// headerKey is the key Pion's interceptors cache a parsed RTP header under; it is unexported, so it is read off an attributes map once.
 var headerKey = func() any {
 	probe := interceptor.Attributes{}
 	if _, err := probe.GetRTPHeader([]byte{0x80, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1}); err != nil {
@@ -28,7 +27,6 @@ var headerKey = func() any {
 	return nil
 }()
 
-// lossLog remembers which of the last lossWindow sequence numbers of one received stream arrived, as Pion's receive log does, in a fixed array.
 type lossLog struct {
 	mu          sync.Mutex
 	seen        [lossWindow / 64]uint64
@@ -80,7 +78,6 @@ func (l *lossLog) advance() {
 	l.consecutive = i - 1
 }
 
-// missing appends to out the sequence numbers not yet arrived since the last run of consecutive ones.
 func (l *lossLog) missing(out []uint16) []uint16 {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -95,7 +92,6 @@ func (l *lossLog) missing(out []uint16) []uint16 {
 	return out
 }
 
-// lossTracker asks publishers again for what did not arrive; it takes the place of Pion's NACK generator, which allocates an attributes map and a header for every packet received.
 type lossTracker struct {
 	interceptor.NoOp
 	loop    *lossLoop
@@ -107,7 +103,6 @@ type lossTracker struct {
 	closed  bool
 }
 
-// lossLoop is the one goroutine that, every nackEvery, asks for what every connection's streams are missing; it runs only while some connection receives a stream that takes NACKs.
 type lossLoop struct {
 	mu       sync.Mutex
 	trackers map[*lossTracker]struct{}
@@ -156,7 +151,6 @@ func (l *lossLoop) run() {
 	}
 }
 
-// ask sends one NACK per stream of this connection that is missing packets, reusing the loop's scratch.
 func (t *lossTracker) ask(nack *rtcp.TransportLayerNack, packets []rtcp.Packet, missing []uint16) []uint16 {
 	t.mu.Lock()
 	writer := t.writer
@@ -179,7 +173,6 @@ func (t *lossTracker) ask(nack *rtcp.TransportLayerNack, packets []rtcp.Packet, 
 	return missing
 }
 
-// join hands the tracker to the loop once it can write RTCP and receives a stream that takes NACKs, so a connection that only sends never costs a tick; it holds mu.
 func (t *lossTracker) join() {
 	if t.joined || t.closed || t.writer == nil || len(t.streams) == 0 {
 		return
@@ -194,14 +187,12 @@ func newLossFactory() lossFactory {
 	return lossFactory{loop: &lossLoop{trackers: map[*lossTracker]struct{}{}}}
 }
 
-// NewInterceptor gives each peer connection its own tracker, all asked for by the factory's one loop.
 func (f lossFactory) NewInterceptor(string) (interceptor.Interceptor, error) {
 	var ssrc [4]byte
 	_, _ = rand.Read(ssrc[:])
 	return &lossTracker{loop: f.loop, ssrc: binary.BigEndian.Uint32(ssrc[:]), streams: map[uint32]*lossLog{}}, nil
 }
 
-// BindRemoteStream notes each packet's sequence number and hands the interceptors after it one parsed header, kept per stream.
 func (t *lossTracker) BindRemoteStream(info *interceptor.StreamInfo, reader interceptor.RTPReader) interceptor.RTPReader {
 	if !acceptsNack(info) {
 		return reader
@@ -229,7 +220,6 @@ func (t *lossTracker) BindRemoteStream(info *interceptor.StreamInfo, reader inte
 	})
 }
 
-// UnbindRemoteStream forgets a stream no longer received, and leaves the loop with the last one.
 func (t *lossTracker) UnbindRemoteStream(info *interceptor.StreamInfo) {
 	t.mu.Lock()
 	delete(t.streams, info.SSRC)
@@ -243,7 +233,6 @@ func (t *lossTracker) UnbindRemoteStream(info *interceptor.StreamInfo) {
 	}
 }
 
-// BindRTCPWriter keeps the writer NACKs are sent on.
 func (t *lossTracker) BindRTCPWriter(writer interceptor.RTCPWriter) interceptor.RTCPWriter {
 	t.mu.Lock()
 	if t.writer == nil {
@@ -254,7 +243,6 @@ func (t *lossTracker) BindRTCPWriter(writer interceptor.RTCPWriter) interceptor.
 	return writer
 }
 
-// Close leaves the loop for good.
 func (t *lossTracker) Close() error {
 	t.mu.Lock()
 	t.closed, t.joined = true, false
@@ -263,7 +251,6 @@ func (t *lossTracker) Close() error {
 	return nil
 }
 
-// pairs packs ascending sequence numbers into NACK pairs: a first lost packet and a bitmask of the sixteen after it.
 func pairs(out []rtcp.NackPair, seqs []uint16) []rtcp.NackPair {
 	for _, seq := range seqs {
 		if len(out) > 0 {

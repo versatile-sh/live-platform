@@ -54,7 +54,6 @@ type clientFrame struct {
 	Code      string            `json:"code"`
 }
 
-// A browser may report a few troubles at once, then one every ten seconds: enough to see a lost picture, too few to fill the logs.
 const (
 	troublesPerSec = 0.1
 	troubleBurst   = 5
@@ -195,7 +194,6 @@ func mustJSON(v any) []byte {
 	return b
 }
 
-// textFrameOf allocates one unmasked text frame for a payload of n bytes and returns it with the payload's offset.
 func textFrameOf(n int) ([]byte, int) {
 	switch {
 	case n >= 0 && n <= 125:
@@ -215,7 +213,6 @@ func textFrameOf(n int) ([]byte, int) {
 	}
 }
 
-// boardText is the board frame written straight into its WebSocket frame: the piece is already checked JSON, so it is copied once.
 func boardText(u room.BoardUpdate) []byte {
 	var digits [10]byte
 	pid := strconv.AppendUint(digits[:0], uint64(u.From), 10)
@@ -229,7 +226,6 @@ func boardText(u room.BoardUpdate) []byte {
 	return frame
 }
 
-// photoText is the photo frame with the picture base64-encoded straight into its WebSocket frame.
 func photoText(pid room.PID, jpeg []byte) []byte {
 	var digits [10]byte
 	id := strconv.AppendUint(digits[:0], uint64(pid), 10)

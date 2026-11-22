@@ -306,7 +306,7 @@ func TestFingerprint(t *testing.T) {
 
 func TestEngine(t *testing.T) {
 	seen := &reports{up: map[room.PID]bool{}}
-	engine, err := New(Config{Loopback: true}, seen)
+	engine, err := New(Config{Loopback: true, Now: time.Now}, seen)
 	require.NoError(t, err)
 
 	ana := enter(t, engine, 1)

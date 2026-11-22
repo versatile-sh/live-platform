@@ -24,7 +24,7 @@ func video(ssrc uint32, payloadType uint8) *interceptor.StreamInfo {
 
 func subscriber(t *testing.T, shared *histories, info *interceptor.StreamInfo) (interceptor.RTPWriter, func([]byte), *[]sentPacket) {
 	t.Helper()
-	made, err := retransmitFactory{shared: shared}.NewInterceptor("")
+	made, err := retransmitFactory{shared: shared, now: time.Now}.NewInterceptor("")
 	require.NoError(t, err)
 	r := made.(*retransmitter)
 	var sent []sentPacket
@@ -52,7 +52,7 @@ func nackFor(ssrc uint32, seqs ...uint16) []byte {
 
 func TestRetransmitter(t *testing.T) {
 	shared := newHistories()
-	past := newHistory()
+	past := newHistory(time.Now)
 	shared.route(111, past)
 	shared.route(222, past)
 	ana, anaRTCP, anaSent := subscriber(t, shared, video(111, 96))
@@ -121,7 +121,7 @@ func TestRetransmitter(t *testing.T) {
 	t.Run("an SSRC two connections drew is given no history", func(t *testing.T) {
 		clash := newHistories()
 		clash.route(5, past)
-		clash.route(5, newHistory())
+		clash.route(5, newHistory(time.Now))
 		assert.Nil(t, clash.find(5))
 		clash.unroute(5)
 		clash.unroute(5)
@@ -130,7 +130,7 @@ func TestRetransmitter(t *testing.T) {
 	})
 
 	t.Run("an audio stream, or one without NACK, is passed through and kept nowhere", func(t *testing.T) {
-		made, _ := retransmitFactory{shared: shared}.NewInterceptor("")
+		made, _ := retransmitFactory{shared: shared, now: time.Now}.NewInterceptor("")
 		plain := interceptor.RTPWriterFunc(func(*rtp.Header, []byte, interceptor.Attributes) (int, error) { return 0, nil })
 		info := &interceptor.StreamInfo{ID: "microphone", SSRC: 9}
 		assert.NotNil(t, made.BindLocalStream(info, plain))
@@ -145,7 +145,7 @@ func TestHistoryGrowsWithTheRate(t *testing.T) {
 	start := time.Unix(100, 0)
 
 	t.Run("a stream sent slowly keeps the fewest slots", func(t *testing.T) {
-		h := newHistory()
+		h := newHistory(time.Now)
 		h.resize(start)
 		h.count = 150
 		h.resize(start.Add(time.Second))
@@ -153,7 +153,7 @@ func TestHistoryGrowsWithTheRate(t *testing.T) {
 	})
 
 	t.Run("a fast stream grows to cover half a second, keeping what it had, and never past the most", func(t *testing.T) {
-		h := newHistory()
+		h := newHistory(time.Now)
 		for seq := uint16(1); seq <= 100; seq++ {
 			put(h, seq)
 		}
@@ -171,14 +171,14 @@ func TestHistoryGrowsWithTheRate(t *testing.T) {
 	})
 
 	t.Run("a padded packet, a bandwidth probe, is not kept to be sent again", func(t *testing.T) {
-		h := newHistory()
+		h := newHistory(time.Now)
 		h.put(&rtp.Header{Version: 2, SequenceNumber: 5, SSRC: 1, Padding: true, PaddingSize: 200}, []byte{1})
 		_, ok := h.copyOut(5, nil)
 		assert.False(t, ok)
 	})
 
 	t.Run("keeping a packet allocates nothing once its slot has a buffer", func(t *testing.T) {
-		h := newHistory()
+		h := newHistory(time.Now)
 		header := &rtp.Header{Version: 2, SSRC: 1, PayloadType: 96}
 		payload := make([]byte, 1000)
 		for seq := range uint16(historyFewest) {

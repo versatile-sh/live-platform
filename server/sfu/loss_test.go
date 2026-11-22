@@ -43,7 +43,7 @@ func (d *dropper) BindRemoteStream(_ *interceptor.StreamInfo, reader interceptor
 }
 
 func TestLostPacketsAreSentAgain(t *testing.T) {
-	engine, err := New(Config{Loopback: true}, &reports{up: map[room.PID]bool{}})
+	engine, err := New(Config{Loopback: true, Now: time.Now}, &reports{up: map[room.PID]bool{}})
 	require.NoError(t, err)
 	media := &webrtc.MediaEngine{}
 	require.NoError(t, media.RegisterDefaultCodecs())

@@ -37,6 +37,8 @@ type Config struct {
 	PublicIP string
 	// Loopback keeps media on 127.0.0.1, for tests on one machine.
 	Loopback bool
+	// Now reads the time; it is required.
+	Now func() time.Time
 }
 
 // Loopback limits ICE to 127.0.0.1 over UDP4: a machine with many interfaces (bridges, VMs) otherwise pairs every one and connects slowly.
@@ -52,6 +54,7 @@ type Engine struct {
 	api    *webrtc.API
 	report Reporter
 	shared *histories
+	now    func() time.Time
 	mu     sync.Mutex
 	rooms  map[room.Slug]map[room.PID]*peer
 }
@@ -76,17 +79,15 @@ type peer struct {
 	senders map[*feed]*webrtc.RTPSender
 }
 
-// parked is a track that arrived before the publisher named it; it is read once it is named.
 type parked struct {
 	pc     *webrtc.PeerConnection
 	remote *webrtc.TrackRemote
 }
 
-// keyframeGap is the least time between two keyframe requests for one feed, however many subscribers ask.
 const keyframeGap = 500 * time.Millisecond
 
-// feed is one source a participant sends, as it reaches the server, and whether the others are being sent it.
 type feed struct {
+	now   func() time.Time
 	local *webrtc.TrackLocalStaticRTP
 	pc    *webrtc.PeerConnection
 	ssrc  uint32
@@ -96,12 +97,11 @@ type feed struct {
 	asked atomic.Int64
 }
 
-// keyframe asks the publisher for a full picture, at most once per keyframeGap.
 func (f *feed) keyframe() {
 	if !f.video {
 		return
 	}
-	now := time.Now().UnixNano()
+	now := f.now().UnixNano()
 	last := f.asked.Load()
 	if now-last < int64(keyframeGap) || !f.asked.CompareAndSwap(last, now) {
 		return
@@ -109,7 +109,6 @@ func (f *feed) keyframe() {
 	_ = f.pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: f.ssrc}})
 }
 
-// wantsKeyframe reports whether a compound RTCP packet holds a picture loss indication or a full intra request, without allocating.
 func wantsKeyframe(b []byte) bool {
 	for len(b) >= 4 {
 		if format := b[0] & 0x1f; b[1] == 206 && (format == 1 || format == 4) {
@@ -124,7 +123,6 @@ func wantsKeyframe(b []byte) bool {
 	return false
 }
 
-// fingerprint is the DTLS fingerprint a description announces; a new one means the browser opened a new connection.
 func fingerprint(sdp string) string {
 	at := strings.Index(sdp, "a=fingerprint:")
 	if at < 0 {
@@ -140,12 +138,15 @@ func fingerprint(sdp string) string {
 // New builds an engine; with a UDP port every participant's media shares that one socket.
 // mDNS stays off: a server has no .local names to give or resolve, and each connection would otherwise hold multicast sockets and six goroutines for it.
 func New(cfg Config, report Reporter) (*Engine, error) {
+	if cfg.Now == nil {
+		return nil, errors.New("sfu: Config.Now is required")
+	}
 	media := &webrtc.MediaEngine{}
 	if err := media.RegisterDefaultCodecs(); err != nil {
 		return nil, err
 	}
 	shared := newHistories()
-	registry, err := interceptors(media, shared)
+	registry, err := interceptors(media, shared, cfg.Now)
 	if err != nil {
 		return nil, err
 	}
@@ -165,11 +166,10 @@ func New(cfg Config, report Reporter) (*Engine, error) {
 		Loopback(&settings)
 	}
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(media), webrtc.WithInterceptorRegistry(registry), webrtc.WithSettingEngine(settings))
-	return &Engine{api: api, report: report, shared: shared, rooms: map[room.Slug]map[room.PID]*peer{}}, nil
+	return &Engine{api: api, report: report, shared: shared, now: cfg.Now, rooms: map[room.Slug]map[room.PID]*peer{}}, nil
 }
 
-// interceptors are Pion's defaults with the server's own NACK generator and responder, which allocate nothing per packet and keep one history per stream for every subscriber, and without Pion's statistics, which nothing reads.
-func interceptors(media *webrtc.MediaEngine, shared *histories) (*interceptor.Registry, error) {
+func interceptors(media *webrtc.MediaEngine, shared *histories, now func() time.Time) (*interceptor.Registry, error) {
 	registry := &interceptor.Registry{}
 	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack"}, webrtc.RTPCodecTypeVideo)
 	media.RegisterFeedback(webrtc.RTCPFeedback{Type: "nack", Parameter: "pli"}, webrtc.RTPCodecTypeVideo)
@@ -183,7 +183,7 @@ func interceptors(media *webrtc.MediaEngine, shared *histories) (*interceptor.Re
 	if err := webrtc.ConfigureTWCCSender(media, registry); err != nil {
 		return nil, err
 	}
-	registry.Add(retransmitFactory{shared: shared})
+	registry.Add(retransmitFactory{shared: shared, now: now})
 	return registry, nil
 }
 
@@ -469,9 +469,9 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 		p.mu.Unlock()
 		return
 	}
-	f := &feed{local: local, pc: pc, ssrc: uint32(remote.SSRC()), video: remote.Kind() == webrtc.RTPCodecTypeVideo, on: on}
+	f := &feed{now: e.now, local: local, pc: pc, ssrc: uint32(remote.SSRC()), video: remote.Kind() == webrtc.RTPCodecTypeVideo, on: on}
 	if f.video {
-		f.past = newHistory()
+		f.past = newHistory(e.now)
 	}
 	previous := p.feeds[source]
 	p.feeds[source] = f
@@ -515,7 +515,6 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 	}
 }
 
-// spreadFrom sends a feed to the others, then takes it back if its publisher left, or stopped it, while it was being sent.
 func (e *Engine) spreadFrom(owner *peer, to []*peer, f *feed) {
 	e.spread(to, f)
 	owner.mu.Lock()

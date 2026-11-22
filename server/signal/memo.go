@@ -6,8 +6,6 @@ import (
 	"github.com/versatile-sh/live/server/core/room"
 )
 
-// memo keeps the last frame encoded for one kind of broadcast, so a room sending one value to everyone encodes it once and every connection queues the same bytes.
-// It holds the value it was built from, so the memory a key points at cannot be reused for something else while the key is kept.
 type memo[K comparable, H any] struct {
 	mu    sync.Mutex
 	key   K
@@ -59,7 +57,6 @@ type photoKey struct {
 	size int
 }
 
-// frames holds one memo per kind of broadcast the rooms send.
 type frames struct {
 	roster memo[rosterKey, room.Snapshot]
 	chat   memo[chatKey, []byte]

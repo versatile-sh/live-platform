@@ -30,7 +30,7 @@ func (t Troubles) Report(e outbound.MediaTroubleEvent) {
 	if e.Browser {
 		from = "browser"
 	}
-	attrs := []any{"room", e.Room, "pid", e.PID, "trouble", string(e.Trouble), "from", from}
+	attrs := []any{"room", e.Room, "pid", e.PID, "trouble", e.Trouble, "from", from}
 	if e.Detail != "" {
 		attrs = append(attrs, "detail", e.Detail)
 	}
@@ -44,7 +44,7 @@ func (t Troubles) Report(e outbound.MediaTroubleEvent) {
 	}
 	span := t.start(sc, trace.WithTimestamp(e.At), trace.WithAttributes(
 		attribute.String("live.room", e.Room),
-		attribute.String("live.trouble", string(e.Trouble)),
+		attribute.String("live.trouble", e.Trouble),
 		attribute.String("live.from", from),
 		attribute.String("live.detail", e.Detail),
 	))

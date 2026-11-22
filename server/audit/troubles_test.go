@@ -24,7 +24,7 @@ func TestTroubles(t *testing.T) {
 	at := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
 
 	t.Run("a trouble is a warning line with the stay's trace ids and a span under that stay", func(t *testing.T) {
-		troubles.Report(outbound.MediaTroubleEvent{At: at, Room: "bk", PID: 3, Trouble: room.TroubleOfferRejected, Detail: "InvalidStateError: connection closed", TraceID: joinTrace, SpanID: joinSpan})
+		troubles.Report(outbound.MediaTroubleEvent{At: at, Room: "bk", PID: 3, Trouble: string(room.TroubleOfferRejected), Detail: "InvalidStateError: connection closed", TraceID: joinTrace, SpanID: joinSpan})
 		var line map[string]any
 		require.NoError(t, json.Unmarshal(out.Bytes(), &line))
 		assert.Equal(t, "WARN", line["level"])
@@ -42,7 +42,7 @@ func TestTroubles(t *testing.T) {
 
 	t.Run("a trouble outside a traced stay is still logged, with no span", func(t *testing.T) {
 		out.Reset()
-		troubles.Report(outbound.MediaTroubleEvent{At: at, Room: "bk", PID: 4, Trouble: room.TroubleAnswerLate, Browser: true})
+		troubles.Report(outbound.MediaTroubleEvent{At: at, Room: "bk", PID: 4, Trouble: string(room.TroubleAnswerLate), Browser: true})
 		var line map[string]any
 		require.NoError(t, json.Unmarshal(out.Bytes(), &line))
 		assert.Equal(t, "browser", line["from"])

@@ -10,7 +10,6 @@ import (
 	"github.com/pion/rtp"
 )
 
-// A forwarded video stream keeps its last packets once for all its subscribers, enough for historySpan at the rate it is sent: from historyFewest slots, doubling up to historyMost, so a camera keeps little and an 8 Mbps screen still covers half a second.
 const (
 	historyFewest = 128
 	historyMost   = 1024
@@ -18,13 +17,10 @@ const (
 	rateEvery     = 64
 )
 
-// resendGap is the least time between two resends of one packet to one subscriber, so a NACK repeated before the first resend lands is not answered twice.
 const resendGap = 100 * time.Millisecond
 
-// dedupSlots is how many recent resends each subscriber's stream remembers; two packets this far apart cannot both be asked for within resendGap below 2560 packets a second.
 const dedupSlots = 256
 
-// history is the last packets of one forwarded stream, kept once however many subscribers it goes to.
 type history struct {
 	mu    sync.RWMutex
 	slots []slot
@@ -39,16 +35,14 @@ type slot struct {
 	raw  []byte
 }
 
-func newHistory() *history {
-	return &history{slots: make([]slot, historyFewest), now: time.Now}
+func newHistory(now func() time.Time) *history {
+	return &history{slots: make([]slot, historyFewest), now: now}
 }
 
 func (h *history) at(seq uint16) *slot {
 	return &h.slots[int(seq)&(len(h.slots)-1)]
 }
 
-// put keeps a packet unless it is already kept: every subscriber writes the same packets, and the first one to write stores it.
-// A padded packet is a bandwidth probe, not media, and is not kept: its padding is not part of what is stored, so a resend would go out corrupt.
 func (h *history) put(header *rtp.Header, payload []byte) {
 	if header.Padding {
 		return
@@ -79,7 +73,6 @@ func (h *history) put(header *rtp.Header, payload []byte) {
 	s.seq, s.full = seq, err == nil
 }
 
-// resize measures the rate packets came at over the last second and grows the history to cover historySpan of it; it holds mu.
 func (h *history) resize(now time.Time) {
 	if h.since.IsZero() {
 		h.since, h.count = now, 0
@@ -107,7 +100,6 @@ func (h *history) resize(now time.Time) {
 	h.slots = grown
 }
 
-// copyOut writes the packet kept under a sequence number into scratch, reporting whether it is still kept.
 func (h *history) copyOut(seq uint16, scratch []byte) ([]byte, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -118,8 +110,6 @@ func (h *history) copyOut(seq uint16, scratch []byte) ([]byte, bool) {
 	return append(scratch[:0], s.raw...), true
 }
 
-// histories finds the history a subscriber's stream is sent from by the SSRC the server sends it under.
-// Two connections may draw the same SSRC: that SSRC is then given no history, so a resend can never carry another stream's packet.
 type histories struct {
 	mu     sync.Mutex
 	bySSRC map[uint32]*history
@@ -156,15 +146,14 @@ func (h *histories) find(ssrc uint32) *history {
 	return h.bySSRC[ssrc]
 }
 
-// retransmitter answers subscribers' NACKs from the shared histories; it takes the place of Pion's responder, which keeps a copy of every packet for every subscriber.
 type retransmitter struct {
 	interceptor.NoOp
 	shared *histories
+	now    func() time.Time
 	mu     sync.Mutex
 	bySSRC map[uint32]*outgoing
 }
 
-// outgoing is one forwarded stream to one subscriber.
 type outgoing struct {
 	past        *history
 	writer      interceptor.RTPWriter
@@ -180,7 +169,6 @@ type outgoing struct {
 	sent        [dedupSlots]int64
 }
 
-// send writes a kept packet again: on the retransmission stream when one was negotiated (RFC 4588, the original sequence number first), otherwise on the stream itself.
 func (o *outgoing) send(payload []byte) error {
 	if o.rtxSSRC == 0 || o.rtxType == 0 {
 		o.header.SSRC, o.header.PayloadType = o.ssrc, o.payloadType
@@ -195,14 +183,15 @@ func (o *outgoing) send(payload []byte) error {
 	return err
 }
 
-type retransmitFactory struct{ shared *histories }
-
-// NewInterceptor gives each peer connection its own retransmitter over the engine's shared histories.
-func (f retransmitFactory) NewInterceptor(string) (interceptor.Interceptor, error) {
-	return &retransmitter{shared: f.shared, bySSRC: map[uint32]*outgoing{}}, nil
+type retransmitFactory struct {
+	shared *histories
+	now    func() time.Time
 }
 
-// BindLocalStream stores each packet of a forwarded video stream in its shared history on the way out.
+func (f retransmitFactory) NewInterceptor(string) (interceptor.Interceptor, error) {
+	return &retransmitter{shared: f.shared, now: f.now, bySSRC: map[uint32]*outgoing{}}, nil
+}
+
 func (r *retransmitter) BindLocalStream(info *interceptor.StreamInfo, writer interceptor.RTPWriter) interceptor.RTPWriter {
 	past := r.shared.find(info.SSRC)
 	if past == nil || !acceptsNack(info) {
@@ -220,14 +209,12 @@ func (r *retransmitter) BindLocalStream(info *interceptor.StreamInfo, writer int
 	})
 }
 
-// UnbindLocalStream forgets a stream that is no longer sent.
 func (r *retransmitter) UnbindLocalStream(info *interceptor.StreamInfo) {
 	r.mu.Lock()
 	delete(r.bySSRC, info.SSRC)
 	r.mu.Unlock()
 }
 
-// BindRTCPReader resends what a subscriber's NACK asks for; RTCP without a NACK passes untouched and unparsed.
 func (r *retransmitter) BindRTCPReader(reader interceptor.RTCPReader) interceptor.RTCPReader {
 	return interceptor.RTCPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) {
 		n, attr, err := reader.Read(b, a)
@@ -255,7 +242,7 @@ func (r *retransmitter) resend(nack *rtcp.TransportLayerNack) {
 	if out == nil {
 		return
 	}
-	now := time.Now().UnixNano()
+	now := r.now().UnixNano()
 	out.mu.Lock()
 	defer out.mu.Unlock()
 	for _, pair := range nack.Nacks {
@@ -290,7 +277,6 @@ func acceptsNack(info *interceptor.StreamInfo) bool {
 	return false
 }
 
-// hasNack reports whether a compound RTCP packet holds a generic NACK, without allocating.
 func hasNack(b []byte) bool {
 	for len(b) >= 4 {
 		if b[1] == 205 && b[0]&0x1f == 1 {

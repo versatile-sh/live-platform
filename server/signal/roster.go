@@ -9,7 +9,6 @@ import (
 
 const hexDigits = "0123456789abcdef"
 
-// jsonStringLen is how many bytes appendJSONString writes for s, quotes included.
 func jsonStringLen(s string) int {
 	n := 2
 	for i := 0; i < len(s); {
@@ -40,7 +39,6 @@ func jsonStringLen(s string) int {
 	return n
 }
 
-// appendJSONString writes s as encoding/json does: short escapes, \u00XX for other control bytes, <, > and & escaped for HTML, U+2028 and U+2029 escaped, and invalid UTF-8 replaced.
 func appendJSONString(dst []byte, s string) []byte {
 	dst = append(dst, '"')
 	for i := 0; i < len(s); {
@@ -94,7 +92,6 @@ func digits(v uint64) int {
 	return n
 }
 
-// rosterText is the roster frame written straight into its WebSocket frame in one allocation, byte for byte what encoding it as JSON gives.
 func rosterText(s room.Snapshot) []byte {
 	return writeRoster(s, rosterLen(s))
 }

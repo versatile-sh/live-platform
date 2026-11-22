@@ -367,7 +367,7 @@ func (a *actor) trouble(pid room.PID, gen uint32, trouble room.MediaTrouble, bro
 	if s == nil || s.gen != gen {
 		return
 	}
-	a.hub.troubles.Report(outbound.MediaTroubleEvent{At: a.now(), Room: string(a.room.Slug()), PID: uint32(pid), Trouble: trouble, Browser: browser, Detail: detail, TraceID: s.traceID, SpanID: s.spanID})
+	a.hub.troubles.Report(outbound.MediaTroubleEvent{At: a.now(), Room: string(a.room.Slug()), PID: uint32(pid), Trouble: string(trouble), Browser: browser, Detail: detail, TraceID: s.traceID, SpanID: s.spanID})
 }
 
 func (a *actor) holds(pid room.PID, gen uint32) bool {
