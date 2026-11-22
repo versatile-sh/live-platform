@@ -32,8 +32,9 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const found = searchCommands(commands, query);
-  const at = Math.min(active, Math.max(found.length - 1, 0));
   const groups = [...new Set(found.map((command) => command.group))];
+  const ordered = groups.flatMap((group) => found.filter((command) => command.group === group));
+  const at = Math.min(active, Math.max(ordered.length - 1, 0));
 
   function run(command: Command | undefined) {
     if (!command) return;
@@ -44,10 +45,10 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
   function key(event: KeyboardEvent) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      if (found.length > 0) setActive((at + (event.key === "ArrowDown" ? 1 : found.length - 1)) % found.length);
+      if (ordered.length > 0) setActive((at + (event.key === "ArrowDown" ? 1 : ordered.length - 1)) % ordered.length);
     } else if (event.key === "Enter") {
       event.preventDefault();
-      run(found[at]);
+      run(ordered[at]);
     } else if (event.key === "Escape") {
       event.preventDefault();
       onClose();
@@ -67,7 +68,7 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
             role="combobox"
             aria-expanded="true"
             aria-controls={`${id}-list`}
-            aria-activedescendant={found[at] ? `${id}-${found[at].id}` : undefined}
+            aria-activedescendant={ordered[at] ? `${id}-${ordered[at].id}` : undefined}
             aria-label={t("palette.label")}
             autoFocus
             value={query}
@@ -92,10 +93,10 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
             <li key={group} role="presentation" className="pb-1">
               <p className="px-3 pt-2 pb-1 font-mono text-xs text-accent">{group}</p>
               <ul role="group" aria-label={group} className="flex flex-col gap-0.5">
-                {found
+                {ordered
                   .filter((command) => command.group === group)
                   .map((command) => {
-                    const selected = found[at] === command;
+                    const selected = ordered[at] === command;
                     return (
                       <li
                         key={command.id}
@@ -104,7 +105,7 @@ export function CommandPalette({ commands, onClose }: { commands: readonly Comma
                         aria-selected={selected}
                         ref={selected ? intoView : undefined}
                         className="flex h-11 cursor-pointer items-center justify-between gap-3 bubble px-3.5 text-sm transition-colors duration-150 aria-selected:bg-bubble aria-selected:font-semibold aria-selected:text-on-bubble"
-                        onPointerMove={() => setActive(found.indexOf(command))}
+                        onPointerMove={() => setActive(ordered.indexOf(command))}
                         onClick={() => run(command)}
                       >
                         <span className="min-w-0 truncate">{command.label}</span>

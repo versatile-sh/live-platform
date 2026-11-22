@@ -301,6 +301,11 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
           end(stream);
           return;
         }
+        if (kind === "microphone" && snapshot.silenced) {
+          end(stream);
+          patch({ busy: undefined });
+          return;
+        }
         watch(kind, stream);
         patch({ [kind]: stream, busy: undefined });
         if (kind === "microphone") gateKey();
@@ -376,7 +381,7 @@ export function createLocalMedia(devices: MediaDevicesPort | undefined, onFlags:
       end(snapshot.microphone);
       end(snapshot.camera);
       end(snapshot.screen);
-      snapshot = { ...OFF, settings: snapshot.settings };
+      patch({ ...OFF, settings: snapshot.settings });
     },
   };
   return store;

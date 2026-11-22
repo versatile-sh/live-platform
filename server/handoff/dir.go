@@ -19,7 +19,10 @@ const (
 	saltName = "salt"
 	fresh    = time.Minute
 	every    = 100 * time.Millisecond
+	saltLen  = 16
 )
+
+var errSaltLength = errors.New("handoff: salt file is too short")
 
 type note struct {
 	From  string                `json:"from"`
@@ -48,14 +51,34 @@ func Open(path string, now func() time.Time) (*Dir, error) {
 // Salt answers the secret that keys visitors' origins, the same for every server that shares the directory; it is drawn once.
 func (d *Dir) Salt() ([]byte, error) {
 	file := filepath.Join(d.path, saltName)
-	if salt, err := os.ReadFile(file); err == nil && len(salt) >= 16 {
-		return salt, nil
+	for {
+		salt, err := os.ReadFile(file)
+		if err == nil {
+			if len(salt) < saltLen {
+				return nil, errSaltLength
+			}
+			return salt, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+		drawn := make([]byte, saltLen)
+		if _, err := rand.Read(drawn); err != nil {
+			return nil, err
+		}
+		tmp, err := d.stage(saltName, drawn)
+		if err != nil {
+			return nil, err
+		}
+		err = os.Link(tmp, file)
+		_ = os.Remove(tmp)
+		if err != nil && !errors.Is(err, os.ErrExist) {
+			return nil, err
+		}
+		if err == nil {
+			return drawn, d.syncDir()
+		}
 	}
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return nil, err
-	}
-	return salt, os.WriteFile(file, salt, 0o600)
 }
 
 // Leave writes the rooms for the next server, whole or not at all.
@@ -64,11 +87,51 @@ func (d *Dir) Leave(rooms []presence.HandedRoom) error {
 	if err != nil {
 		return err
 	}
-	tmp := filepath.Join(d.path, noteName+".tmp")
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	tmp, err := d.stage(noteName, data)
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, filepath.Join(d.path, noteName))
+	if err := os.Rename(tmp, filepath.Join(d.path, noteName)); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return d.syncDir()
+}
+
+func (d *Dir) stage(name string, data []byte) (string, error) {
+	var nonce [8]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return "", err
+	}
+	tmp := filepath.Join(d.path, name+"."+d.id+"."+hex.EncodeToString(nonce[:])+".tmp")
+	f, err := os.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return "", err
+	}
+	_, err = f.Write(data)
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return "", err
+	}
+	return tmp, nil
+}
+
+func (d *Dir) syncDir() error {
+	f, err := os.Open(d.path)
+	if err != nil {
+		return err
+	}
+	err = f.Sync()
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	return err
 }
 
 // Taken waits until another server has picked the rooms up, and reports whether one did before ctx ended.

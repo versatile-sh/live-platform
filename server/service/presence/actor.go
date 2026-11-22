@@ -400,6 +400,7 @@ func (a *actor) apply(events []room.Event) {
 		}
 		delete(a.seats, e.PID)
 		delete(a.shots, e.PID)
+		delete(a.pictured, e.PID)
 		a.unwire(e.PID)
 	}
 	a.broadcast()

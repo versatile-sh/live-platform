@@ -372,7 +372,12 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
     },
     canRejoin: () => entry !== undefined,
     rejoin() {
-      if (entry && snapshot.connection.phase === "ended") begin(joinHello(entry));
+      if (!entry || snapshot.connection.phase !== "ended") return;
+      photoSent = false;
+      nextChatId = 1;
+      beatAt = 0;
+      patch({ chat: [], photos: {}, rtt: undefined });
+      begin(joinHello(entry));
     },
     leave() {
       leaving = true;

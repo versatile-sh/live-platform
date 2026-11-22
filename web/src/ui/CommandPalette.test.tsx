@@ -41,6 +41,21 @@ describe("CommandPalette", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  test("the arrows follow the order the groups are drawn in when a group's commands are not next to each other", async () => {
+    const ran: string[] = [];
+    const scattered: Command[] = [
+      { id: "a1", group: "Room", label: "Room first", run: () => ran.push("a1") },
+      { id: "b1", group: "Site", label: "Site only", run: () => ran.push("b1") },
+      { id: "a2", group: "Room", label: "Room second", run: () => ran.push("a2") },
+    ];
+    renderWithApp(<CommandPalette commands={scattered} onClose={vi.fn()} />);
+    await userEvent.keyboard("{ArrowDown}");
+    expect(screen.getByRole("option", { name: "Room second" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-activedescendant", expect.stringMatching(/-a2$/));
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+    expect(ran).toEqual(["b1"]);
+  });
+
   test("narrows as I type and says so when nothing is left", async () => {
     setup();
     await userEvent.type(screen.getByRole("combobox"), "chat");

@@ -27,6 +27,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const creating = !room.exists;
   const [invite] = useState(() => services.invite.read());
   const [kept] = useState(() => services.passMemory.read(slug));
+  const [stored, setStored] = useState(kept);
   const [photo, setPhoto] = useState(() => kept?.face || undefined);
   const [passId, setPassId] = useState(() => kept?.pass);
   const [name, setName] = useState(() => kept?.name || services.nameMemory.read());
@@ -40,7 +41,9 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     void services.takePass(invite.pass).then((pass) => {
       if (!current || !pass) return;
       services.nameMemory.write(pass.name);
-      services.passMemory.write(slug, { pass: invite.pass, name: pass.name, face: pass.face, private: pass.private, listed: pass.listed });
+      const fresh = { pass: invite.pass, name: pass.name, face: pass.face, private: pass.private, listed: pass.listed };
+      services.passMemory.write(slug, fresh);
+      setStored(fresh);
       setPassId(invite.pass);
       setName(pass.name);
       setPhoto(pass.face || undefined);
@@ -76,7 +79,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     }
     setWorking(true);
     services.nameMemory.write(who.name);
-    if (passId && kept) services.passMemory.write(slug, { ...kept, pass: passId, name: who.name });
+    if (passId && stored) services.passMemory.write(slug, { ...stored, pass: passId, name: who.name });
     const derived = needsCode ? await services.derive(code.trim(), slug) : undefined;
     services.forgetHash();
     const entry: JoinEntry = {

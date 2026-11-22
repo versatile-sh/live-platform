@@ -38,6 +38,19 @@ func TestLossLog(t *testing.T) {
 		assert.Len(t, log.missing(nil), lossWindow-1)
 	})
 
+	t.Run("a packet further behind than the window is ignored, not recorded over the one it aliases", func(t *testing.T) {
+		var log lossLog
+		for _, seq := range []uint16{1000, 1001, 1003} {
+			log.add(seq)
+		}
+		log.add(1002 - lossWindow)
+		assert.Equal(t, []uint16{1002}, log.missing(nil))
+		log.add(1003 - lossWindow)
+		assert.Equal(t, []uint16{1002}, log.missing(nil))
+		log.add(1003 - lossWindow + 1)
+		assert.Equal(t, []uint16{1002}, log.missing(nil))
+	})
+
 	t.Run("lost packets are packed into NACK pairs of a first one and the sixteen after it", func(t *testing.T) {
 		assert.Equal(t, []rtcp.NackPair{{PacketID: 12, LostPackets: 0b110}, {PacketID: 40}}, pairs(nil, []uint16{12, 14, 15, 40}))
 		assert.Equal(t, []rtcp.NackPair{{PacketID: 1, LostPackets: 1 << 15}, {PacketID: 18}}, pairs(nil, []uint16{1, 17, 18}))
@@ -80,6 +93,19 @@ func TestLossTracker(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, uint16(100), header.SequenceNumber)
 		assert.Equal(t, uint32(9), header.SSRC)
+	})
+
+	t.Run("a packet whose header does not parse leaves nothing of the previous one", func(t *testing.T) {
+		read(100)
+		next = []byte{0x80, 96, 0, 101}
+		_, attr, err := reader.Read(buf, nil)
+		require.NoError(t, err)
+		assert.NotContains(t, attr, headerKey)
+		tracker.mu.Lock()
+		log := tracker.streams[7]
+		tracker.mu.Unlock()
+		assert.Zero(t, log.header.SSRC)
+		assert.Zero(t, log.header.SequenceNumber)
 	})
 
 	t.Run("a gap is asked for again from the publisher", func(t *testing.T) {

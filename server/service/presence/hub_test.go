@@ -284,6 +284,23 @@ func TestHub(t *testing.T) {
 		}, wait, tick)
 	})
 
+	t.Run("a participant who sent a picture and left leaves no throttle entry behind", func(t *testing.T) {
+		h := newCalmHub()
+		jpeg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 1, 2, 3, 0xFF, 0xD9}
+		ana, _ := enter(t, h, "ana")
+		bia, _ := enter(t, h, "bia")
+		keepAlive(t, h, bia)
+		pictured := func() int {
+			out := make(chan int, 1)
+			h.tell("bk", func(a *actor) { out <- len(a.pictured) })
+			return <-out
+		}
+		h.Chat("bk", ana.PID, ana.Gen, 0, "", jpeg)
+		require.Equal(t, 1, pictured())
+		h.Leave("bk", ana.PID, ana.Gen)
+		require.Eventually(t, func() bool { return pictured() == 0 }, wait, tick)
+	})
+
 	t.Run("an empty room is released and its slug is free for a new owner", func(t *testing.T) {
 		h := newHub()
 		ana, _ := enter(t, h, "ana")

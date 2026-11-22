@@ -63,6 +63,8 @@ func (l *lossLog) add(seq uint16) {
 			l.consecutive = seq - lossWindow
 			l.advance()
 		}
+	case l.end-seq >= lossWindow:
+		return
 	case l.consecutive+1 == seq:
 		l.consecutive = seq
 		l.advance()
@@ -211,6 +213,7 @@ func (t *lossTracker) BindRemoteStream(info *interceptor.StreamInfo, reader inte
 		if attr != nil || headerKey == nil {
 			return n, attr, err
 		}
+		log.header = rtp.Header{CSRC: log.header.CSRC[:0], Extensions: log.header.Extensions[:0]}
 		if _, parseErr := log.header.Unmarshal(b[:n]); parseErr != nil {
 			delete(log.attrs, headerKey)
 		} else {

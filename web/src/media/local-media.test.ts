@@ -256,3 +256,34 @@ describe("camera effects", () => {
     expect(media.getSnapshot()).toMatchObject({ microphone: undefined, problem: undefined, silenced: false });
   });
 });
+
+describe("dispose", () => {
+  test("tells the listeners and the room that nothing is captured any more", async () => {
+    const { devices } = setup();
+    const flags = vi.fn();
+    const media = createLocalMedia(devices, flags);
+    await media.toggle("microphone");
+    const heard = vi.fn();
+    media.subscribe(heard);
+    media.dispose();
+    expect(heard).toHaveBeenCalledTimes(1);
+    expect(flags).toHaveBeenLastCalledWith(0);
+    expect(media.getSnapshot().microphone).toBeUndefined();
+  });
+});
+
+describe("silence", () => {
+  test("while the microphone is being asked for, ends the stream instead of using it", async () => {
+    const raw = fakeStream();
+    let grant!: (stream: MediaStream) => void;
+    const user = vi.fn(() => new Promise<MediaStream>((resolve) => (grant = resolve)));
+    const devices = { user, display: vi.fn(), list: async () => [] } as unknown as MediaDevicesPort;
+    const media = createLocalMedia(devices, () => undefined);
+    const pending = media.toggle("microphone");
+    media.silence(true);
+    grant(raw);
+    await pending;
+    expect(raw.track.stop).toHaveBeenCalled();
+    expect(media.getSnapshot()).toMatchObject({ microphone: undefined, busy: undefined, silenced: true });
+  });
+});
