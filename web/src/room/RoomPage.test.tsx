@@ -118,16 +118,17 @@ describe("RoomPage", () => {
 
   describe("when I come back to a room I entered with a guest pass", () => {
     test("enters with the kept pass and photo, and keeps the pass the server hands back", async () => {
-      const kept = new Map<string, KeptPass>([["demo", { pass: "pass-renewed-000000", face: "AQID", private: false, listed: false }]]);
+      const kept = new Map<string, KeptPass>([["demo", { pass: "pass-renewed-000000", name: "Ana", face: "AQID", private: false, listed: false }]]);
       const passMemory = { read: (slug: string) => kept.get(slug), write: (slug: string, value: KeptPass) => void kept.set(slug, value) };
       const { services } = await setup(undefined, { passMemory });
-      await submitName();
+      expect(await screen.findByLabelText("Your name")).toHaveValue("Ana");
+      await userEvent.click(within(screen.getByRole("form", { name: /^Create demo$/ })).getByRole("button", { name: "Create and enter" }));
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
       expect(JSON.parse(socket.sent[0]!)).toMatchObject({ t: "join", pass: "pass-renewed-000000" });
       await send(socket, { t: "joined", pid: 1, gen: 1, secret: "s1", pass: "pass-renewed-111111" });
       expect(socket.sent.map((f) => JSON.parse(f) as Record<string, unknown>)).toContainEqual({ t: "photo", data: "AQID" });
-      expect(kept.get("demo")).toEqual({ pass: "pass-renewed-111111", face: "AQID", private: false, listed: false });
+      expect(kept.get("demo")).toEqual({ pass: "pass-renewed-111111", name: "Ana", face: "AQID", private: false, listed: false });
     });
   });
 

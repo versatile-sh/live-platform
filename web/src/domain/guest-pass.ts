@@ -36,8 +36,8 @@ export function parsePass(value: unknown): GuestPass | undefined {
   return { name: name.name, face: v.face, private: v.private === true, listed: v.listed === true };
 }
 
-/** What the page keeps of a guest pass so the same person can enter its room again: the pass to present next, the photo and the access it chose. */
-export type KeptPass = { pass: string | undefined; face: string; private: boolean; listed: boolean };
+/** What the page keeps of a guest pass so the same person can enter its room again: the pass to present next, the name and photo, and the access it chose. */
+export type KeptPass = { pass: string | undefined; name: string; face: string; private: boolean; listed: boolean };
 
 const KEPT_ROOMS = 8;
 
@@ -45,7 +45,8 @@ function parseKept(value: unknown): KeptPass | undefined {
   const v = value as Partial<Record<keyof KeptPass, unknown>> | null;
   if (typeof v !== "object" || v === null || typeof v.face !== "string" || v.face.length > FACE_MAX || !FACE.test(v.face)) return undefined;
   const pass = typeof v.pass === "string" && PASS_ID.test(v.pass) ? v.pass : undefined;
-  return { pass, face: v.face, private: v.private === true, listed: v.listed === true };
+  const name = typeof v.name === "string" ? checkName(v.name) : undefined;
+  return { pass, name: name?.ok ? name.name : "", face: v.face, private: v.private === true, listed: v.listed === true };
 }
 
 function keptRooms(raw: string | null): [string, KeptPass][] {

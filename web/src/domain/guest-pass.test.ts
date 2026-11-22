@@ -32,7 +32,7 @@ describe("parsePass", () => {
 });
 
 describe("kept passes", () => {
-  const kept = { pass: "pass-for-bk-0000000", face: "/9j/4AAQ", private: false, listed: true };
+  const kept = { pass: "pass-for-bk-0000000", name: "Ana Souza", face: "/9j/4AAQ", private: false, listed: true };
 
   describe("when a room was kept", () => {
     test("reads it back for that room only", () => {
@@ -68,8 +68,9 @@ describe("kept passes", () => {
       expect(readKept(withKept("[1,2]", "bk", kept), "bk")).toEqual(kept);
     });
 
-    test("drops a pass id that is not one", () => {
+    test("drops a pass id or a name that is not one", () => {
       expect(readKept(JSON.stringify([["bk", { ...kept, pass: "x" }]]), "bk")?.pass).toBeUndefined();
+      expect(readKept(JSON.stringify([["bk", { ...kept, name: " " }]]), "bk")?.name).toBe("");
     });
   });
 });
