@@ -8,16 +8,32 @@ export type PathnameHost = {
   removeEventListener(type: "popstate", listener: () => void): void;
 };
 
+/** How the store leaves a client that a newer one replaced: whether one was published, a way to ask again, and a full page load. */
+export type Reloader = { stale(): boolean; check(): void; load(path: string, replace: boolean): void };
+
 export type PathnameStore = {
   subscribe(listener: () => void): () => void;
   getSnapshot(): string;
   navigate(path: string): void;
 };
 
-/** The current pathname as an external store over the History API, for `useSyncExternalStore`. */
-export function createPathnameStore(host: PathnameHost): PathnameStore {
+/**
+ * The current pathname as an external store over the History API, for `useSyncExternalStore`.
+ * With a reloader, a move made after a newer client was published loads the page anew, so the person runs the new client.
+ */
+export function createPathnameStore(host: PathnameHost, reloader?: Reloader): PathnameStore {
   const listeners = new Set<() => void>();
-  const notify = () => listeners.forEach((listener) => listener());
+  let shown = host.location.pathname;
+  const notify = () => {
+    const moved = host.location.pathname !== shown;
+    shown = host.location.pathname;
+    if (moved && reloader?.stale()) {
+      reloader.load(shown, true);
+      return;
+    }
+    reloader?.check();
+    listeners.forEach((listener) => listener());
+  };
   return {
     subscribe(listener) {
       if (listeners.size === 0) host.addEventListener("popstate", notify);
@@ -30,6 +46,10 @@ export function createPathnameStore(host: PathnameHost): PathnameStore {
     getSnapshot: () => host.location.pathname,
     navigate(path) {
       if (path === host.location.pathname) return;
+      if (reloader?.stale()) {
+        reloader.load(path, false);
+        return;
+      }
       host.history.pushState(null, "", path);
       notify();
     },
