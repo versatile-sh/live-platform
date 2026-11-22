@@ -2,6 +2,7 @@ package handoff
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -98,8 +99,8 @@ func TestDir(t *testing.T) {
 		wg.Wait()
 		taker, err := Open(shared, time.Now)
 		require.NoError(t, err)
-		got, ok := taker.take()
-		require.True(t, ok)
+		var got []presence.HandedRoom
+		require.True(t, taker.take(context.Background(), quiet, func(r []presence.HandedRoom) int { got = r; return len(r) }))
 		assert.Len(t, got, len(big))
 		left, err := filepath.Glob(filepath.Join(shared, "*.tmp"))
 		require.NoError(t, err)
@@ -110,12 +111,14 @@ func TestDir(t *testing.T) {
 		ctx, stop := context.WithCancel(context.Background())
 		defer stop()
 		got := make(chan []presence.HandedRoom, 2)
-		go next.Watch(ctx, func(r []presence.HandedRoom) { got <- r })
-		go old.Watch(ctx, func(r []presence.HandedRoom) { t.Error("a server took back what it left") })
+		go next.Watch(ctx, quiet, func(r []presence.HandedRoom) int { got <- r; return len(r) })
+		go old.Watch(ctx, quiet, func(r []presence.HandedRoom) int { t.Error("a server took back what it left"); return 0 })
 		require.NoError(t, old.Leave(rooms))
 		wait, cancel := context.WithTimeout(ctx, 2*time.Second)
 		defer cancel()
-		assert.True(t, old.Taken(wait))
+		count, ok := old.Taken(wait)
+		assert.True(t, ok)
+		assert.Equal(t, 1, count)
 		select {
 		case taken := <-got:
 			assert.Equal(t, room.Slug("bk"), taken[0].Room.Slug)
@@ -135,10 +138,11 @@ func TestDir(t *testing.T) {
 		require.NoError(t, lone.Leave(rooms))
 		wait, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
-		assert.False(t, lone.Taken(wait))
+		_, ok := lone.Taken(wait)
+		assert.False(t, ok)
 	})
 
-	t.Run("an old note and a broken one are thrown away, not adopted", func(t *testing.T) {
+	t.Run("an old note is set aside as bad, never adopted, and the one leaving is not told it was taken", func(t *testing.T) {
 		dir := t.TempDir()
 		writer, err := Open(dir, time.Now)
 		require.NoError(t, err)
@@ -147,12 +151,96 @@ func TestDir(t *testing.T) {
 		require.NoError(t, writer.Leave(rooms))
 		past := time.Now().Add(-5 * time.Minute)
 		require.NoError(t, os.Chtimes(filepath.Join(dir, noteName), past, past))
-		_, ok := reader.take()
+		assert.False(t, reader.take(context.Background(), quiet, adoptNothing(t)))
+		assert.FileExists(t, filepath.Join(dir, badName))
+		assert.NoFileExists(t, filepath.Join(dir, noteName))
+		assert.NoFileExists(t, filepath.Join(dir, takeName))
+		wait, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		_, ok := writer.Taken(wait)
 		assert.False(t, ok)
+	})
+
+	t.Run("a broken note is set aside as bad, replacing an older one, and never adopted", func(t *testing.T) {
+		dir := t.TempDir()
+		reader, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(dir, badName), []byte("older"), 0o600))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, noteName), []byte("{broken"), 0o600))
-		_, ok = reader.take()
-		assert.False(t, ok)
+		assert.False(t, reader.take(context.Background(), quiet, adoptNothing(t)))
+		bad, err := os.ReadFile(filepath.Join(dir, badName))
+		require.NoError(t, err)
+		assert.Equal(t, []byte("{broken"), bad)
+		assert.NoFileExists(t, filepath.Join(dir, noteName))
+		assert.NoFileExists(t, filepath.Join(dir, takeName))
+	})
+
+	t.Run("the taker acknowledges after adopting, naming the leaver and the rooms taken", func(t *testing.T) {
+		dir := t.TempDir()
+		writer, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		reader, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		require.NoError(t, writer.Leave(rooms))
+		adopted := false
+		assert.True(t, reader.take(context.Background(), quiet, func(r []presence.HandedRoom) int {
+			assert.NoFileExists(t, filepath.Join(dir, takeName))
+			adopted = true
+			return 1
+		}))
+		assert.True(t, adopted)
+		assert.NoFileExists(t, filepath.Join(dir, noteName))
+		data, err := os.ReadFile(filepath.Join(dir, takeName))
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"from":"`+writer.id+`","rooms":1}`, string(data))
+		wait, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		count, ok := writer.Taken(wait)
+		assert.True(t, ok)
+		assert.Equal(t, 1, count)
+		assert.NoFileExists(t, filepath.Join(dir, takeName))
+	})
+
+	t.Run("a leaver of the old kind, that only waits for the note to go, sees it go", func(t *testing.T) {
+		dir := t.TempDir()
+		writer, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		reader, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		require.NoError(t, writer.Leave(rooms))
+		require.True(t, reader.take(context.Background(), quiet, func(r []presence.HandedRoom) int { return len(r) }))
 		_, err = os.Stat(filepath.Join(dir, noteName))
 		assert.ErrorIs(t, err, os.ErrNotExist)
 	})
+
+	t.Run("an acknowledgement for another server is ignored and does not block", func(t *testing.T) {
+		dir := t.TempDir()
+		writer, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		reader, err := Open(dir, time.Now)
+		require.NoError(t, err)
+		foreign := filepath.Join(dir, takeName)
+		require.NoError(t, os.WriteFile(foreign, []byte(`{"from":"someone-else","rooms":3}`), 0o600))
+		short, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		_, ok := writer.Taken(short)
+		assert.False(t, ok)
+		assert.FileExists(t, foreign)
+		require.NoError(t, writer.Leave(rooms))
+		require.True(t, reader.take(context.Background(), quiet, func(r []presence.HandedRoom) int { return len(r) }))
+		wait, stop := context.WithTimeout(context.Background(), time.Second)
+		defer stop()
+		_, ok = writer.Taken(wait)
+		assert.True(t, ok)
+	})
+}
+
+var quiet = slog.New(slog.DiscardHandler)
+
+func adoptNothing(t *testing.T) func([]presence.HandedRoom) int {
+	t.Helper()
+	return func([]presence.HandedRoom) int {
+		t.Error("a note that should not be adopted was adopted")
+		return 0
+	}
 }

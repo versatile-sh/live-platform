@@ -5,7 +5,7 @@ import { button } from "../ui/styles";
 import type { CopyResult } from "../ui/useCopy";
 
 /** What the stage shows beside me while nobody else is in the room: the link to send, and a button that copies it and says so. */
-export function InviteCard({ link, copied, onCopy }: { link: string; copied: CopyResult; onCopy(): void }) {
+export function InviteCard({ link, copied, onCopy, withoutCode = false }: { link: string; copied: CopyResult; onCopy(): void; withoutCode?: boolean }) {
   const t = useT();
   const id = useId();
   return (
@@ -17,6 +17,7 @@ export function InviteCard({ link, copied, onCopy }: { link: string; copied: Cop
       <p className="bubble truncate border border-line-strong bg-canvas px-3.5 py-2.5 font-mono text-sm" translate="no">
         {link}
       </p>
+      {withoutCode ? <p className="text-sm text-muted">{t("invite.noCode")}</p> : null}
       <button type="button" className={`${button({ variant: "accent" })} w-40 self-start`} onClick={onCopy}>
         {copied === "copied" ? t("invite.copied") : t("invite.copy")}
       </button>

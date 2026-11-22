@@ -39,13 +39,13 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 		starCount = stars.Count
 	}
 	httpapi.Register(mux, hub, starCount)
-	ledger := guestpass.NewLedger(time.Now)
+	ledger := guestpass.NewLedger(time.Now).WithLog(log)
 	if passes, ok := guestpass.NewSource(cfg.PassSource, cfg.PassKey, &http.Client{Timeout: 3 * time.Second}); ok {
 		httpapi.RegisterPasses(mux, guestpass.Remembering{Passes: passes, Ledger: ledger, Now: time.Now})
 	}
 	trail, drainTrail := startAudit(ctx, log, hub, cfg.Audit)
 	defer drainTrail()
-	go reportMetrics(ctx, log, hub, trail, cfg.MetricsEvery)
+	go reportMetrics(ctx, log, hub, trail, ledger, cfg.MetricsEvery)
 	if cfg.WebDir != "" {
 		files := os.DirFS(cfg.WebDir)
 		if cfg.WebLiveDir != "" {
@@ -94,8 +94,10 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 		} else {
 			log.ErrorContext(ctx, "handover salt unusable, bans last only for this process", "error", err.Error())
 		}
-		go handover.Watch(ctx, func(handed []presence.HandedRoom) {
-			log.InfoContext(ctx, "rooms taken over", "handed", len(handed), "taken", hub.Adopt(handed, handoverHold))
+		go handover.Watch(ctx, log, func(handed []presence.HandedRoom) int {
+			taken := hub.Adopt(handed, handoverHold)
+			log.InfoContext(ctx, "rooms taken over", "handed", len(handed), "taken", taken)
+			return taken
 		})
 	}
 	signalling := signal.NewServer(rooms, signalCfg)
@@ -118,7 +120,8 @@ func Run(ctx context.Context, cfg Config, log *slog.Logger) error {
 			log.ErrorContext(ctx, "rooms not handed over", "error", err.Error())
 		} else {
 			wait, done := context.WithTimeout(context.WithoutCancel(ctx), handoverWait)
-			log.InfoContext(ctx, "rooms handed over", "rooms", len(handed), "taken", handover.Taken(wait))
+			taken, ok := handover.Taken(wait)
+			log.InfoContext(ctx, "rooms handed over", "rooms", len(handed), "acknowledged", ok, "taken", taken)
 			done()
 		}
 		signalling.Handoff()

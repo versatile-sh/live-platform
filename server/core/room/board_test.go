@@ -30,3 +30,22 @@ func TestBoard(t *testing.T) {
 		assert.False(t, ok)
 	}
 }
+
+func TestViewOnlyParticipantsMayOnlyAskForTheBoard(t *testing.T) {
+	r := newRoom(t)
+	ana := joinActive(t, r, "ana", true)
+	bia := joinActive(t, r, "bia", false)
+	_, err := r.Quiet(DrawDeny, ana.ID, bia.ID)
+	require.NoError(t, err)
+
+	hello := `{"k":"hello"}`
+	update, ok := r.Draw(bia.ID, 0, hello)
+	require.True(t, ok)
+	assert.Equal(t, BoardUpdate{From: bia.ID, Data: hello}, update)
+	_, ok = r.Draw(bia.ID, ana.ID, hello)
+	assert.False(t, ok, "the request is broadcast, never addressed")
+	for _, other := range []string{`{"k":"els","els":[]}`, `{"k":"hello","els":[]}`, `{"k":"hello","x":1}`, `{"k":"hi"}`, `{"k":1}`, `{}`, `{"els":[]}`, `[]`, `x`} {
+		_, ok = r.Draw(bia.ID, 0, other)
+		assert.False(t, ok, other)
+	}
+}

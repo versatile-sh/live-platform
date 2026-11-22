@@ -282,7 +282,14 @@ export function RoomView({
     const stopBoard = session.onBoard((from, data) => {
       const { connection } = session.getSnapshot();
       if (connection.phase !== "joined" && connection.phase !== "reconnecting") return;
-      board.remote(from, data, connection.me, connection.roster.people.map((person) => person.pid).filter((pid) => pid !== connection.me));
+      const people = connection.roster.people;
+      board.remote(
+        from,
+        data,
+        connection.me,
+        people.map((person) => person.pid).filter((pid) => pid !== connection.me),
+        people.filter((person) => !hasFlag(person.flags, "noDraw")).map((person) => person.pid),
+      );
     });
     return () => {
       stop();
@@ -370,6 +377,7 @@ export function RoomView({
   const choose = useChooseLocale();
   const { origin } = useServices();
   const link = shareLink(origin, slug, snapshot.private ? snapshot.password : undefined);
+  const withoutCode = snapshot.private && snapshot.password === undefined;
   const { result: invited, copy } = useCopy();
   const invite = () => void copy(link);
   const [peer, setPeer] = useState<number | undefined>();
@@ -843,7 +851,7 @@ export function RoomView({
               <span className="max-sm:sr-only">{t("invite.button")}</span>
             </button>
             <p role="status" className={`pointer-events-none absolute top-full right-0 z-20 mt-2 w-max max-w-[calc(100vw-1.5rem)] text-sm break-all ${invited === "idle" ? "" : "arrive bubble border border-bubble bg-card px-4 py-2"}`}>
-              {invited === "copied" ? t("invite.copied") : invited === "failed" ? t("invite.failed", { link }) : ""}
+              {invited === "copied" ? (withoutCode ? `${t("invite.copied")}. ${t("invite.noCode")}` : t("invite.copied")) : invited === "failed" ? t("invite.failed", { link }) : ""}
             </p>
           </span>
           <div role="group" aria-label={t("dock.panels")} className="flex items-center gap-1">
@@ -883,7 +891,7 @@ export function RoomView({
                 style={fit ? { gridTemplateColumns: `repeat(${fit.columns}, ${fit.tile.width}px)`, gridAutoRows: `${fit.tile.height}px` } : undefined}
               >
                 {frames.map((frame) => frame.render("grid"))}
-                {alone ? <InviteCard link={link} copied={invited} onCopy={invite} /> : null}
+                {alone ? <InviteCard link={link} copied={invited} onCopy={invite} withoutCode={withoutCode} /> : null}
               </ul>
             </div>
           )}

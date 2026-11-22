@@ -1,6 +1,8 @@
 import { CaptureUpdateAction, Excalidraw, restoreElements } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+
+import { useT } from "../i18n/I18nProvider";
 
 import type { BoardElement, BoardSync } from "./board-sync";
 import { wins } from "./board-sync";
@@ -16,7 +18,9 @@ function clean(elements: readonly BoardElement[]): NonNullable<SceneElements> {
 
 /** The room's shared whiteboard: what I draw goes to the others, and what they draw is merged into mine without entering my undo history. Read only, it shows and takes nothing from me. */
 export default function Whiteboard({ sync, langCode, readOnly = false, light = false }: { sync: BoardSync; langCode: string; readOnly?: boolean; light?: boolean }) {
+  const t = useT();
   const [api, setApi] = useState<Api | undefined>();
+  const oversized = useSyncExternalStore(sync.subscribe, sync.getOversized);
 
   useEffect(() => {
     if (!api) return;
@@ -33,14 +37,21 @@ export default function Whiteboard({ sync, langCode, readOnly = false, light = f
   }, [api, sync]);
 
   return (
-    <Excalidraw
-      excalidrawAPI={setApi}
-      initialData={{ elements: clean(sync.getSnapshot()), appState: { viewBackgroundColor: light ? "#ffffff" : "#0e1116" } }}
-      theme={light ? "light" : "dark"}
-      langCode={langCode}
-      viewModeEnabled={readOnly}
-      UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, toggleTheme: false, export: false } }}
-      onChange={(elements) => (readOnly ? undefined : sync.local(elements as unknown as readonly BoardElement[]))}
-    />
+    <div className="relative h-full w-full">
+      <Excalidraw
+        excalidrawAPI={setApi}
+        initialData={{ elements: clean(sync.getSnapshot()), appState: { viewBackgroundColor: light ? "#ffffff" : "#0e1116" } }}
+        theme={light ? "light" : "dark"}
+        langCode={langCode}
+        viewModeEnabled={readOnly}
+        UIOptions={{ tools: { image: false }, canvasActions: { loadScene: false, saveToActiveFile: false, toggleTheme: false, export: false } }}
+        onChange={(elements) => (readOnly ? undefined : sync.local(elements as unknown as readonly BoardElement[]))}
+      />
+      {oversized > 0 && !readOnly ? (
+        <p role="status" className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 border border-bubble bg-card px-4 py-2 text-sm">
+          {t("board.tooLarge")}
+        </p>
+      ) : null}
+    </div>
   );
 }

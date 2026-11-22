@@ -14,9 +14,10 @@ type OwnerPanelProps = { slug: string; session: Session; snapshot: SessionSnapsh
 export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
   const t = useT();
   const services = useServices();
-  const [code, setCode] = useState(() => snapshot.password ?? services.generatePassword());
+  const [code, setCode] = useState<string | undefined>(snapshot.password);
   const { result, copy } = useCopy();
   const access: Access = snapshot.private ? "private" : "public";
+  const codeUnknown = snapshot.private && code === undefined;
   const link = shareLink(services.origin, slug, snapshot.private ? snapshot.password : undefined);
 
   async function lockWith(next: string) {
@@ -26,7 +27,11 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
 
   function choose(next: Access) {
     if (next === access) return;
-    if (next === "private") void lockWith(code);
+    if (next === "private") {
+      const fresh = code ?? services.generatePassword();
+      setCode(fresh);
+      void lockWith(fresh);
+    }
     else session.owner({ op: "password" }, { private: false, password: undefined });
   }
 
@@ -51,7 +56,7 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
       <button type="button" className={`${button({ size: "sm" })} mt-3 self-start`} onClick={() => void copy(link)}>
         {result === "copied" ? t("invite.copied") : t("invite.copy")}
       </button>
-      <p className="mt-2 text-sm text-muted">{snapshot.private ? t("owner.linkPrivate") : t("owner.linkPublic")}</p>
+      <p className="mt-2 text-sm text-muted">{codeUnknown ? t("owner.linkNoCode") : snapshot.private ? t("owner.linkPrivate") : t("owner.linkPublic")}</p>
     </section>
   );
 }

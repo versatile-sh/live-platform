@@ -1,7 +1,10 @@
 package guestpass
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"testing"
 	"time"
@@ -134,4 +137,28 @@ func TestTakeDropsAMalformedTraceparent(t *testing.T) {
 	p, ok := s.Take(context.Background(), "abcdefghijklmnopqrstuv")
 	require.True(t, ok)
 	assert.Empty(t, p.TraceParent)
+}
+
+func TestFullLedgerEvictsTheOldestPassAndSaysSo(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	var logs bytes.Buffer
+	ledger := NewLedger(func() time.Time { return now }).WithLog(slog.New(slog.NewTextHandler(&logs, nil)))
+	record := outbound.PassRecord{Slug: "a-b", Discord: room.Discord{UserID: "1"}}
+	for i := 0; i < ledgerCap; i++ {
+		ledger.Remember(fmt.Sprintf("p%d", i), record)
+	}
+	assert.Zero(t, ledger.Evicted())
+
+	ledger.Remember("newest", record)
+	_, ok := ledger.Recall("newest")
+	assert.True(t, ok, "the newest pass is kept")
+	_, ok = ledger.Recall("p0")
+	assert.False(t, ok, "the oldest pass makes room")
+	_, ok = ledger.Recall("p1")
+	assert.True(t, ok)
+	assert.Equal(t, uint64(1), ledger.Evicted())
+	assert.Contains(t, logs.String(), "oldest pass evicted")
+
+	ledger.Remember("newest", record)
+	assert.Equal(t, uint64(1), ledger.Evicted(), "refreshing a held pass evicts nothing")
 }
