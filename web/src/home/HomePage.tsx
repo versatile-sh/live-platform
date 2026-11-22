@@ -29,7 +29,7 @@ function Said({ mine = false, live = false, order, children }: { mine?: boolean;
         className={`inline-flex max-w-[22rem] items-center gap-2 border px-4 py-2.5 text-[0.9375rem] leading-snug ${SWAP} ${
           mine
             ? "bubble-sent border-transparent bg-paper font-mono text-sm text-ink group-data-[view=lobby]:bg-bubble"
-            : "bubble border-transparent bg-ink text-paper group-data-[view=lobby]:border-line-strong group-data-[view=lobby]:bg-card"
+            : "bubble border-transparent bg-ink text-paper group-data-[view=lobby]:border-line-strong group-data-[view=lobby]:bg-card group-data-[view=lobby]:text-fg"
         }`}
       >
         {live ? <span aria-hidden="true" className="pulse size-2 shrink-0 rounded-full bg-ink" /> : null}
@@ -43,7 +43,7 @@ function Pitch() {
   const t = useT();
   const host = new URL(useServices().origin).host;
   return (
-    <section className={`enter-iris-below bubble-half-below no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-paper sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
+    <section className={`enter-iris-below bubble-half-below no-scrollbar relative flex shrink-0 flex-col bg-bubble px-6 py-5 text-ink max-lg:group-data-[more]:invisible group-data-[view=lobby]:bg-canvas group-data-[view=lobby]:text-fg sm:px-10 lg:min-h-0 lg:w-1/2 lg:overflow-y-auto lg:bg-transparent lg:px-14 lg:py-10 lg:group-data-[view=lobby]:bg-transparent ${CONVEY}`}>
       <AppLink href="/" aria-label={t("app.home")} className="enter-rise relative self-start lg:z-30" style={at(0.15)}>
         <Wordmark onAccent className="text-lg" />
       </AppLink>

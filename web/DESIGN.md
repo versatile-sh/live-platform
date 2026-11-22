@@ -92,6 +92,7 @@ The call keeps one bar at the bottom with five things a person needs at a glance
 ## Rules
 
 - **One live colour.** Lime means alive: the bubble, the chosen option, a raised hand, my messages. Never a tint over a section.
+- **On the canvas, fg.** `ink` and `paper` are fixed and do not follow the theme, so text on `canvas` or `card` is `fg`, never `paper`. `src/home/entry-contrast.live.test.ts` checks every entry screen at 4.5:1 in both themes at 360, 390 and 900 wide.
 - **On lime, ink.** Anything drawn on the lime half uses `ink` and `paper`, never the theme tokens, and no white card.
 - **Fixed boxes.** A box does not change size with its state: notes reserve their line, the see/back button keeps its place and width at every stop, Copy keeps its width when it says Copied.
 - **Nothing teleports.** A change of view slides or cross-fades; a choice slides its thumb.
