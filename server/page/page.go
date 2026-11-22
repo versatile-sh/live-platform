@@ -42,7 +42,7 @@ func Handler(files fs.FS) (http.Handler, error) {
 			assets.ServeHTTP(w, r)
 			return
 		}
-		h.Set("Cache-Control", "no-cache")
+		h.Set("Cache-Control", "no-store")
 		http.ServeFileFS(w, r, files, "index.html")
 	}), nil
 }

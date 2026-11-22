@@ -22,10 +22,10 @@ func TestHandler(t *testing.T) {
 		path, body, cache string
 		status            int
 	}{
-		{"/", "<!doctype html>page", "no-cache", 200},
-		{"/bk", "<!doctype html>page", "no-cache", 200},
-		{"/a/b/c", "<!doctype html>page", "no-cache", 200},
-		{"/secret.txt", "<!doctype html>page", "no-cache", 200},
+		{"/", "<!doctype html>page", "no-store", 200},
+		{"/bk", "<!doctype html>page", "no-store", 200},
+		{"/a/b/c", "<!doctype html>page", "no-store", 200},
+		{"/secret.txt", "<!doctype html>page", "no-store", 200},
 		{"/assets/app-Ab3dE_9z.js", "console.log(1)", "public, max-age=31536000, immutable", 200},
 		{"/assets/og.png", "png", "public, max-age=3600", 200},
 		{"/assets/missing.js", "404 page not found\n", "", 404},
