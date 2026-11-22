@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 	"github.com/stretchr/testify/assert"
@@ -24,8 +25,9 @@ var browserAPI = func() *webrtc.API {
 }()
 
 type reports struct {
-	mu sync.Mutex
-	up map[room.PID]bool
+	mu       sync.Mutex
+	up       map[room.PID]bool
+	troubles []string
 }
 
 func (r *reports) MediaUp(_ room.Slug, pid room.PID, _ uint32) {
@@ -38,6 +40,23 @@ func (r *reports) MediaDown(_ room.Slug, pid room.PID, _ uint32) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.up[pid] = false
+}
+
+func (r *reports) ServerTrouble(_ room.Slug, _ room.PID, _ uint32, trouble room.MediaTrouble, _ string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.troubles = append(r.troubles, string(trouble))
+}
+
+func (r *reports) seen(trouble room.MediaTrouble) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, t := range r.troubles {
+		if t == string(trouble) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *reports) isUp(pid room.PID) bool {
@@ -62,7 +81,12 @@ type browser struct {
 
 func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 	t.Helper()
-	sub, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+	return enterWith(t, engine, pid, browserAPI)
+}
+
+func enterWith(t *testing.T, engine *Engine, pid room.PID, subAPI *webrtc.API) *browser {
+	t.Helper()
+	sub, err := subAPI.NewPeerConnection(webrtc.Configuration{})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sub.Close() })
 	b := &browser{t: t, engine: engine, pid: pid, sub: sub, heard: map[string]string{}, inbox: make(chan room.MediaSignal, 256), done: make(chan struct{}), early: map[*webrtc.PeerConnection][]webrtc.ICECandidateInit{}}
@@ -75,7 +99,8 @@ func enter(t *testing.T, engine *Engine, pid room.PID) *browser {
 			return
 		}
 		b.mu.Lock()
-		b.heard[remote.ID()] = remote.StreamID()
+		source := remote.ID()
+		b.heard[source] = remote.StreamID()
 		b.mu.Unlock()
 	})
 	engine.Attach("bk", pid, 1, func(signal room.MediaSignal) {
@@ -169,6 +194,38 @@ func (b *browser) describe(pc *webrtc.PeerConnection, kind webrtc.SDPType, sdp s
 	return true
 }
 
+func (b *browser) declare(sources map[string]string) {
+	b.t.Helper()
+	b.offer(b.publisher(), sources)
+}
+
+func (e *Engine) forwarding(slug room.Slug, to, from room.PID, source string) bool {
+	e.mu.Lock()
+	receiver, sender := e.rooms[slug][to], e.rooms[slug][from]
+	e.mu.Unlock()
+	if receiver == nil || sender == nil {
+		return false
+	}
+	sender.mu.Lock()
+	f := sender.feeds[source]
+	sender.mu.Unlock()
+	if f == nil {
+		return false
+	}
+	receiver.mu.Lock()
+	defer receiver.mu.Unlock()
+	return receiver.senders[f] != nil
+}
+
+func (e *Engine) publisher(slug room.Slug, pid room.PID) *webrtc.PeerConnection {
+	e.mu.Lock()
+	p := e.rooms[slug][pid]
+	e.mu.Unlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.pub
+}
+
 func (b *browser) publish(source string) {
 	b.t.Helper()
 	b.publishKeyed(source, "stream-"+source)
@@ -222,9 +279,34 @@ func (b *browser) hears(source string) (string, bool) {
 	return stream, ok
 }
 
+func TestWantsKeyframe(t *testing.T) {
+	pli, err := (&rtcp.PictureLossIndication{MediaSSRC: 7}).Marshal()
+	require.NoError(t, err)
+	fir, err := (&rtcp.FullIntraRequest{MediaSSRC: 7}).Marshal()
+	require.NoError(t, err)
+	receiver, err := (&rtcp.ReceiverReport{SSRC: 7}).Marshal()
+	require.NoError(t, err)
+	nack, err := (&rtcp.TransportLayerNack{MediaSSRC: 7, Nacks: []rtcp.NackPair{{PacketID: 1}}}).Marshal()
+	require.NoError(t, err)
+
+	compound := append(append([]byte{}, receiver...), pli...)
+	assert.True(t, wantsKeyframe(pli))
+	assert.True(t, wantsKeyframe(fir))
+	assert.True(t, wantsKeyframe(compound), "a picture loss after a receiver report in one compound packet")
+	assert.False(t, wantsKeyframe(append(append([]byte{}, receiver...), nack...)))
+	assert.False(t, wantsKeyframe([]byte{0x81, 206}))
+	assert.False(t, wantsKeyframe([]byte{0x81, 201, 0xff, 0xff}), "a length past the end")
+	assert.Zero(t, testing.AllocsPerRun(100, func() { wantsKeyframe(compound) }))
+}
+
+func TestFingerprint(t *testing.T) {
+	assert.Equal(t, "a=fingerprint:sha-256 AB:CD", fingerprint("v=0\r\na=fingerprint:sha-256 AB:CD\r\nm=video"))
+	assert.Empty(t, fingerprint("v=0\r\n"))
+}
+
 func TestEngine(t *testing.T) {
 	seen := &reports{up: map[room.PID]bool{}}
-	engine, err := New(Config{Loopback: true}, seen)
+	engine, err := New(Config{Loopback: true, Now: time.Now}, seen)
 	require.NoError(t, err)
 
 	ana := enter(t, engine, 1)
@@ -277,13 +359,83 @@ func TestEngine(t *testing.T) {
 		require.Eventually(t, func() bool { stream, ok := ana.hears("screen"); return ok && stream == "2:screen" }, wait, 20*time.Millisecond)
 	})
 
+	t.Run("a source declared off keeps its feed and stops reaching the others, and reaches them again once declared on", func(t *testing.T) {
+		require.Eventually(t, func() bool { return engine.forwarding("bk", 1, 2, "screen") }, wait, 20*time.Millisecond)
+		bia.declare(map[string]string{})
+		require.Eventually(t, func() bool { return !engine.forwarding("bk", 1, 2, "screen") }, wait, 20*time.Millisecond)
+		bia.declare(map[string]string{"track-screen": "screen"})
+		require.Eventually(t, func() bool { return engine.forwarding("bk", 1, 2, "screen") }, wait, 20*time.Millisecond)
+	})
+
+	t.Run("a track that arrives before its source is named waits, and is carried once the publisher names it", func(t *testing.T) {
+		caio := enter(t, engine, 5)
+		track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "track-camera", "stream-late")
+		require.NoError(t, err)
+		_, err = caio.publisher().AddTrack(track)
+		require.NoError(t, err)
+		caio.declare(map[string]string{})
+		stop := make(chan struct{})
+		t.Cleanup(func() { close(stop) })
+		go func() {
+			for seq := uint16(0); ; seq++ {
+				select {
+				case <-stop:
+					return
+				case <-time.After(20 * time.Millisecond):
+					_ = track.WriteRTP(&rtp.Packet{Header: rtp.Header{Version: 2, SequenceNumber: seq, Timestamp: uint32(seq) * 3000}, Payload: []byte{0x10, 0x02, 0x03}})
+				}
+			}
+		}()
+		require.Eventually(t, func() bool {
+			engine.mu.Lock()
+			p := engine.rooms["bk"][5]
+			engine.mu.Unlock()
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			return len(p.waiting) == 1
+		}, wait, 20*time.Millisecond)
+		caio.declare(map[string]string{"stream-late": "camera"})
+		require.Eventually(t, func() bool { return engine.forwarding("bk", 2, 5, "camera") }, wait, 20*time.Millisecond)
+	})
+
+	t.Run("an offer from a new browser connection replaces the publish connection instead of failing on the old one", func(t *testing.T) {
+		before := engine.publisher("bk", 2)
+		fresh, err := browserAPI.NewPeerConnection(webrtc.Configuration{})
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = fresh.Close() })
+		_, err = fresh.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RTPTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendonly})
+		require.NoError(t, err)
+		offer, err := fresh.CreateOffer(nil)
+		require.NoError(t, err)
+		require.NoError(t, fresh.SetLocalDescription(offer))
+		engine.Signal("bk", 2, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: offer.SDP, Sources: map[string]string{}})
+		after := engine.publisher("bk", 2)
+		assert.NotSame(t, before, after)
+		assert.Equal(t, webrtc.PeerConnectionStateClosed, before.ConnectionState())
+		assert.True(t, seen.seen(room.TroublePublishReplaced), "the replaced connection is told as a trouble")
+		engine.mu.Lock()
+		p := engine.rooms["bk"][2]
+		engine.mu.Unlock()
+		p.mu.Lock()
+		for source, f := range p.feeds {
+			assert.Same(t, after, f.pc, "no feed of the closed connection is kept: %s", source)
+		}
+		p.mu.Unlock()
+	})
+
+	t.Run("an offer the server cannot apply is told as a trouble instead of going unanswered in silence", func(t *testing.T) {
+		enter(t, engine, 6)
+		engine.Signal("bk", 6, 1, room.MediaSignal{Role: room.MediaRolePublish, Kind: room.MediaKindOffer, SDP: "v=0 not a description"})
+		assert.True(t, seen.seen(room.TroubleOfferRejected))
+	})
+
 	t.Run("one who stopped publishing everything publishes again, on a new connection", func(t *testing.T) {
-		eva := enter(t, engine, 5)
+		eva := enter(t, engine, 7)
 		eva.publish("camera")
-		require.Eventually(t, func() bool { stream, ok := ana.hears("camera"); return ok && stream == "5:camera" }, wait, 20*time.Millisecond)
+		require.Eventually(t, func() bool { stream, ok := ana.hears("camera"); return ok && stream == "7:camera" }, wait, 20*time.Millisecond)
 		eva.unpublish()
 		eva.publish("screen")
-		require.Eventually(t, func() bool { stream, ok := ana.hears("screen"); return ok && stream == "5:screen" }, wait, 20*time.Millisecond)
+		require.Eventually(t, func() bool { stream, ok := ana.hears("screen"); return ok && stream == "7:screen" }, wait, 20*time.Millisecond)
 	})
 
 	t.Run("signals from a connection the participant no longer holds are ignored", func(t *testing.T) {

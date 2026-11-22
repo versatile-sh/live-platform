@@ -189,7 +189,7 @@ func TestCall(t *testing.T) {
 	cfg := room.DefaultConfig()
 	cfg.ConnectTimeout = 3 * time.Second
 	hub := presence.NewHub(cfg, presence.DefaultLiveness(), time.Now)
-	engine, err := sfu.New(sfu.Config{Loopback: true}, hub)
+	engine, err := sfu.New(sfu.Config{Loopback: true, Now: time.Now}, hub)
 	require.NoError(t, err)
 	hub.UseMedia(engine)
 

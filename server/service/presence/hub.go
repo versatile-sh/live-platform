@@ -33,6 +33,7 @@ type Hub struct {
 	now      func() time.Time
 	media    outbound.MediaPlane
 	audit    outbound.Audit
+	troubles outbound.MediaTroubles
 	joins    atomic.Uint64
 	mu       sync.RWMutex
 	actors   map[room.Slug]*actor
@@ -40,11 +41,24 @@ type Hub struct {
 
 // NewHub builds a hub whose rooms share one configuration.
 func NewHub(cfg room.Config, liveness Liveness, now func() time.Time) *Hub {
-	return &Hub{cfg: cfg, liveness: liveness, now: now, audit: outbound.NoAudit{}, actors: map[room.Slug]*actor{}}
+	return &Hub{cfg: cfg, liveness: liveness, now: now, audit: outbound.NoAudit{}, troubles: outbound.NoTroubles{}, actors: map[room.Slug]*actor{}}
 }
 
 // UseAudit connects the audit trail; call it before the hub serves anyone. Without one, nothing is recorded.
 func (h *Hub) UseAudit(audit outbound.Audit) { h.audit = audit }
+
+// UseTroubles connects where troubles on media paths are told; call it before the hub serves anyone. Without one, they are dropped.
+func (h *Hub) UseTroubles(troubles outbound.MediaTroubles) { h.troubles = troubles }
+
+// MediaTrouble records a trouble a participant's browser reported about its media path.
+func (h *Hub) MediaTrouble(slug room.Slug, pid room.PID, gen uint32, trouble room.MediaTrouble) {
+	h.tell(slug, func(a *actor) { a.trouble(pid, gen, trouble, true, "") })
+}
+
+// ServerTrouble records a trouble the media plane saw on a participant's media path, with its own error text.
+func (h *Hub) ServerTrouble(slug room.Slug, pid room.PID, gen uint32, trouble room.MediaTrouble, detail string) {
+	h.tell(slug, func(a *actor) { a.trouble(pid, gen, trouble, false, detail) })
+}
 
 // UseMedia connects the media plane; without one, participants never get a media path of their own.
 func (h *Hub) UseMedia(plane outbound.MediaPlane) { h.media = plane }

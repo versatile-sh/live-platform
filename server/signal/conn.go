@@ -42,6 +42,7 @@ type conn struct {
 	remote   string
 	headers  clientinfo.Headers
 	limiter  bucket
+	troubles bucket
 	late     *time.Timer
 	pending  atomic.Int64
 
@@ -55,7 +56,7 @@ type conn struct {
 }
 
 func (c *conn) Roster(snapshot room.Snapshot) bool {
-	frame := textFrame(encodeRoster(snapshot))
+	frame := c.server.frames.rosterFrame(snapshot)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -72,7 +73,7 @@ func (c *conn) Roster(snapshot room.Snapshot) bool {
 }
 
 func (c *conn) Photo(pid room.PID, jpeg []byte) {
-	frame := textFrame(encodePhoto(pid, jpeg))
+	frame := c.server.frames.photoFrame(pid, jpeg)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -98,7 +99,7 @@ func (c *conn) Media(signal room.MediaSignal) {
 }
 
 func (c *conn) Board(update room.BoardUpdate) bool {
-	frame := textFrame(encodeBoard(update))
+	frame := c.server.frames.boardFrame(update)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -112,7 +113,7 @@ func (c *conn) Board(update room.BoardUpdate) bool {
 }
 
 func (c *conn) Chat(message room.ChatMessage) bool {
-	frame := textFrame(encodeChat(message))
+	frame := c.server.frames.chatFrame(message)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	switch {
@@ -204,7 +205,14 @@ func (c *conn) text(payload []byte) {
 }
 
 func (c *conn) enter(hello clientFrame) {
+	c.server.entry.RLock()
+	if c.server.draining {
+		c.server.entry.RUnlock()
+		c.fail(CloseRestarting, "restarting")
+		return
+	}
 	slug, seat, err := c.seatFor(hello)
+	c.server.entry.RUnlock()
 	if err != nil {
 		c.send(textFrame(encodeError(err)))
 		c.fail(CloseBadFrame, "entry refused")
@@ -303,6 +311,11 @@ func (c *conn) dispatch(f clientFrame) {
 			return
 		}
 		p.MediaSignal(c.slug, c.seat.PID, c.seat.Gen, room.MediaSignal{Role: f.Role, Kind: f.Kind, SDP: f.SDP, Candidate: f.Candidate, Sources: f.Sources})
+	case "trouble":
+		trouble, ok := room.BrowserTrouble(f.Code)
+		if ok && c.troubles.take(c.server.cfg.Now()) {
+			p.MediaTrouble(c.slug, c.seat.PID, c.seat.Gen, trouble)
+		}
 	case "look":
 		face, err := room.NewFace(f.Face)
 		if err != nil {

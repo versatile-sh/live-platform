@@ -46,7 +46,10 @@ export type OwnerOp =
   | { op: "listed"; listed: boolean }
   | { op: "password"; verifier?: string };
 
-export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number; data?: string } | { t: "board"; board: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "leave" } | ({ t: "owner" } & OwnerOp);
+/** What a browser may report went wrong on its media path; the server takes only these. */
+export type MediaTrouble = "answer.late" | "publish.failed" | "subscribe.failed" | "offer.failed" | "answer.failed";
+
+export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | { t: "chat"; text: string; to?: number; data?: string } | { t: "board"; board: string; to?: number } | { t: "look"; look: string; face: string } | { t: "photo"; data: string } | ({ t: "rtc" } & RtcSignal) | { t: "trouble"; code: MediaTrouble } | { t: "leave" } | ({ t: "owner" } & OwnerOp);
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "banned-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
@@ -136,6 +139,7 @@ export type CloseMeaning =
   | { kind: "no-hello" }
   | { kind: "silent" }
   | { kind: "slow" }
+  | { kind: "restarting" }
   | { kind: "abnormal" };
 
 /** Names a WebSocket close code the way lv.1 uses it. */
@@ -149,6 +153,8 @@ export function closeMeaning(code: number): CloseMeaning {
       return { kind: "refused" };
     case 4401:
       return { kind: "no-hello" };
+    case 4012:
+      return { kind: "restarting" };
     case 4403:
       return { kind: "removed" };
     case 4404:

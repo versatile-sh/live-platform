@@ -12,7 +12,7 @@ const EVERY_MS = 100;
 const HOLD_MS = 450;
 const LOUD = 0.018;
 
-type Ear = { stream: MediaStream; source: MediaStreamAudioSourceNode; analyser: AnalyserNode; samples: Float32Array<ArrayBuffer>; until: number };
+type Ear = { stream: MediaStream; tracks: MediaStreamTrack[]; source: MediaStreamAudioSourceNode; analyser: AnalyserNode; samples: Float32Array<ArrayBuffer>; until: number };
 
 /** Measures the loudness of each microphone ten times a second and calls a person speaking from the first loud moment until a little after the last. Silent where the browser has no audio graph. */
 export function createSpeaking(): Speaking {
@@ -24,20 +24,26 @@ export function createSpeaking(): Speaking {
 
   function measure() {
     const now = Date.now();
-    const next = new Set<number>();
+    let loud = 0;
+    let same = true;
     for (const [pid, ear] of ears) {
-      const live = ear.stream.getAudioTracks().some((track) => track.enabled && track.readyState === "live");
+      const live = ear.tracks.some((track) => track.enabled && track.readyState === "live");
       if (live) {
         ear.analyser.getFloatTimeDomainData(ear.samples);
         let sum = 0;
-        for (const sample of ear.samples) sum += sample * sample;
+        for (let i = 0; i < ear.samples.length; i++) sum += ear.samples[i]! * ear.samples[i]!;
         if (Math.sqrt(sum / ear.samples.length) > LOUD) ear.until = now + HOLD_MS;
       } else {
         ear.until = 0;
       }
-      if (ear.until > now) next.add(pid);
+      if (ear.until > now) {
+        loud++;
+        if (!snapshot.has(pid)) same = false;
+      }
     }
-    if (next.size === snapshot.size && [...next].every((pid) => snapshot.has(pid))) return;
+    if (same && loud === snapshot.size) return;
+    const next = new Set<number>();
+    for (const [pid, ear] of ears) if (ear.until > now) next.add(pid);
     snapshot = next;
     listeners.forEach((listener) => listener());
   }
@@ -66,7 +72,7 @@ export function createSpeaking(): Speaking {
           const source = context.createMediaStreamSource(stream);
           const analyser = new AnalyserNode(context, { fftSize: 512 });
           source.connect(analyser);
-          ears.set(pid, { stream, source, analyser, samples: new Float32Array(analyser.fftSize), until: 0 });
+          ears.set(pid, { stream, tracks: stream.getAudioTracks(), source, analyser, samples: new Float32Array(analyser.fftSize), until: 0 });
         } catch {
           continue;
         }

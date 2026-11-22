@@ -1,0 +1,292 @@
+package sfu
+
+import (
+	"encoding/binary"
+	"sync"
+	"time"
+
+	"github.com/pion/interceptor"
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
+)
+
+const (
+	historyFewest = 128
+	historyMost   = 1024
+	historySpan   = 500 * time.Millisecond
+	rateEvery     = 64
+)
+
+const resendGap = 100 * time.Millisecond
+
+const dedupSlots = 256
+
+type history struct {
+	mu    sync.RWMutex
+	slots []slot
+	now   func() time.Time
+	since time.Time
+	count int
+}
+
+type slot struct {
+	seq  uint16
+	full bool
+	raw  []byte
+}
+
+func newHistory(now func() time.Time) *history {
+	return &history{slots: make([]slot, historyFewest), now: now}
+}
+
+func (h *history) at(seq uint16) *slot {
+	return &h.slots[int(seq)&(len(h.slots)-1)]
+}
+
+func (h *history) put(header *rtp.Header, payload []byte) {
+	if header.Padding {
+		return
+	}
+	seq := header.SequenceNumber
+	h.mu.RLock()
+	s := h.at(seq)
+	kept := s.full && s.seq == seq
+	h.mu.RUnlock()
+	if kept {
+		return
+	}
+	size := header.MarshalSize() + len(payload)
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.count++; h.count%rateEvery == 0 {
+		h.resize(h.now())
+	}
+	s = h.at(seq)
+	if cap(s.raw) < size {
+		s.raw = make([]byte, size, max(size, 1200))
+	}
+	s.raw = s.raw[:size]
+	n, err := header.MarshalTo(s.raw)
+	if err == nil {
+		copy(s.raw[n:], payload)
+	}
+	s.seq, s.full = seq, err == nil
+}
+
+func (h *history) resize(now time.Time) {
+	if h.since.IsZero() {
+		h.since, h.count = now, 0
+		return
+	}
+	elapsed := now.Sub(h.since)
+	if elapsed < time.Second {
+		return
+	}
+	need := int(int64(h.count) * int64(historySpan) / int64(elapsed))
+	h.since, h.count = now, 0
+	size := len(h.slots)
+	for size < need && size < historyMost {
+		size *= 2
+	}
+	if size == len(h.slots) {
+		return
+	}
+	grown := make([]slot, size)
+	for _, old := range h.slots {
+		if old.full {
+			grown[int(old.seq)&(size-1)] = old
+		}
+	}
+	h.slots = grown
+}
+
+func (h *history) copyOut(seq uint16, scratch []byte) ([]byte, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	s := h.at(seq)
+	if !s.full || s.seq != seq {
+		return scratch, false
+	}
+	return append(scratch[:0], s.raw...), true
+}
+
+type histories struct {
+	mu     sync.Mutex
+	bySSRC map[uint32]*history
+	shared map[uint32]int
+}
+
+func newHistories() *histories {
+	return &histories{bySSRC: map[uint32]*history{}, shared: map[uint32]int{}}
+}
+
+func (h *histories) route(ssrc uint32, past *history) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.shared[ssrc]++
+	if h.shared[ssrc] == 1 {
+		h.bySSRC[ssrc] = past
+	} else {
+		delete(h.bySSRC, ssrc)
+	}
+}
+
+func (h *histories) unroute(ssrc uint32) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.shared[ssrc]--; h.shared[ssrc] <= 0 {
+		delete(h.shared, ssrc)
+		delete(h.bySSRC, ssrc)
+	}
+}
+
+func (h *histories) find(ssrc uint32) *history {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.bySSRC[ssrc]
+}
+
+type retransmitter struct {
+	interceptor.NoOp
+	shared *histories
+	now    func() time.Time
+	mu     sync.Mutex
+	bySSRC map[uint32]*outgoing
+}
+
+type outgoing struct {
+	past        *history
+	writer      interceptor.RTPWriter
+	ssrc        uint32
+	payloadType uint8
+	rtxSSRC     uint32
+	rtxType     uint8
+	mu          sync.Mutex
+	scratch     []byte
+	wrapped     []byte
+	header      rtp.Header
+	rtxSeq      uint16
+	sent        [dedupSlots]int64
+}
+
+func (o *outgoing) send(payload []byte) error {
+	if o.rtxSSRC == 0 || o.rtxType == 0 {
+		o.header.SSRC, o.header.PayloadType = o.ssrc, o.payloadType
+		_, err := o.writer.Write(&o.header, payload, nil)
+		return err
+	}
+	o.wrapped = binary.BigEndian.AppendUint16(o.wrapped[:0], o.header.SequenceNumber)
+	o.wrapped = append(o.wrapped, payload...)
+	o.rtxSeq++
+	o.header.SSRC, o.header.PayloadType, o.header.SequenceNumber = o.rtxSSRC, o.rtxType, o.rtxSeq
+	_, err := o.writer.Write(&o.header, o.wrapped, nil)
+	return err
+}
+
+type retransmitFactory struct {
+	shared *histories
+	now    func() time.Time
+}
+
+func (f retransmitFactory) NewInterceptor(string) (interceptor.Interceptor, error) {
+	return &retransmitter{shared: f.shared, now: f.now, bySSRC: map[uint32]*outgoing{}}, nil
+}
+
+func (r *retransmitter) BindLocalStream(info *interceptor.StreamInfo, writer interceptor.RTPWriter) interceptor.RTPWriter {
+	past := r.shared.find(info.SSRC)
+	if past == nil || !acceptsNack(info) {
+		return writer
+	}
+	out := &outgoing{past: past, writer: writer, ssrc: info.SSRC, payloadType: info.PayloadType, rtxSSRC: info.SSRCRetransmission, rtxType: info.PayloadTypeRetransmission}
+	r.mu.Lock()
+	r.bySSRC[info.SSRC] = out
+	r.mu.Unlock()
+	return interceptor.RTPWriterFunc(func(header *rtp.Header, payload []byte, attributes interceptor.Attributes) (int, error) {
+		if header.SSRC == info.SSRC {
+			past.put(header, payload)
+		}
+		return writer.Write(header, payload, attributes)
+	})
+}
+
+func (r *retransmitter) UnbindLocalStream(info *interceptor.StreamInfo) {
+	r.mu.Lock()
+	delete(r.bySSRC, info.SSRC)
+	r.mu.Unlock()
+}
+
+func (r *retransmitter) BindRTCPReader(reader interceptor.RTCPReader) interceptor.RTCPReader {
+	return interceptor.RTCPReaderFunc(func(b []byte, a interceptor.Attributes) (int, interceptor.Attributes, error) {
+		n, attr, err := reader.Read(b, a)
+		if err != nil || !hasNack(b[:n]) {
+			return n, attr, err
+		}
+		packets, parseErr := rtcp.Unmarshal(b[:n])
+		if parseErr != nil {
+			return n, attr, err
+		}
+		for _, packet := range packets {
+			if nack, ok := packet.(*rtcp.TransportLayerNack); ok {
+				r.resend(nack)
+			}
+		}
+		return n, attr, err
+	})
+}
+
+func (r *retransmitter) resend(nack *rtcp.TransportLayerNack) {
+	r.mu.Lock()
+	out := r.bySSRC[nack.MediaSSRC]
+	r.mu.Unlock()
+
+	if out == nil {
+		return
+	}
+	now := r.now().UnixNano()
+	out.mu.Lock()
+	defer out.mu.Unlock()
+	for _, pair := range nack.Nacks {
+		pair.Range(func(seq uint16) bool {
+			at := &out.sent[seq%dedupSlots]
+			if now-*at < int64(resendGap) {
+				return true
+			}
+			raw, ok := out.past.copyOut(seq, out.scratch)
+			out.scratch = raw
+			if !ok {
+				return true
+			}
+			n, err := out.header.Unmarshal(raw)
+			if err != nil {
+				return true
+			}
+			if out.send(raw[n:]) == nil {
+				*at = now
+			}
+			return true
+		})
+	}
+}
+
+func acceptsNack(info *interceptor.StreamInfo) bool {
+	for _, feedback := range info.RTCPFeedback {
+		if feedback.Type == "nack" && feedback.Parameter == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasNack(b []byte) bool {
+	for len(b) >= 4 {
+		if b[1] == 205 && b[0]&0x1f == 1 {
+			return true
+		}
+		size := (int(binary.BigEndian.Uint16(b[2:4])) + 1) * 4
+		if size > len(b) {
+			return false
+		}
+		b = b[size:]
+	}
+	return false
+}

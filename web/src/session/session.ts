@@ -1,5 +1,5 @@
 import { openLink, type Link, type LinkEvent, type SocketFactory } from "../signal/link";
-import type { Hello, OwnerOp, ServerFrame, RtcSignal } from "../signal/protocol";
+import type { Hello, OwnerOp, ServerFrame, RtcSignal, MediaTrouble } from "../signal/protocol";
 import { photoAddress } from "../domain/photo";
 import { IDLE, reduceConnection, type Connection, type ConnectionEvent, type DropCause, type EndReason } from "./connection";
 import { clearSeat, readSeat, writeSeat, type SeatStorage } from "./seat";
@@ -56,6 +56,8 @@ export type Session = {
   owner(op: OwnerOp, effect?: { listed?: boolean; password?: string | undefined; private?: boolean }): boolean;
   /** Sends a media signal to the server; false when it could not be sent. */
   sendRtc(signal: RtcSignal): boolean;
+  /** Tells the server something went wrong on my media path, so it can be found in its logs. */
+  sendTrouble(code: MediaTrouble): boolean;
   /** Sends a piece of the whiteboard to the others in the room, or to one of them. */
   sendBoard(data: object, to?: number): boolean;
   /** Hears pieces of the whiteboard from the others. */
@@ -107,6 +109,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   let generation = 0;
   let leaving = false;
   let resuming = false;
+  let entering: { hello: Hello; tries: number } | undefined;
   const boardListeners = new Set<(from: number, data: unknown) => void>();
   const rtcListeners = new Set<(event: { kind: "signal"; signal: RtcSignal } | { kind: "seated" }) => void>();
   let mediaFlags = 0;
@@ -186,6 +189,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
   function open(hello: Hello, timeoutMs: number) {
     closeLink();
     resuming = hello.t === "resume";
+    if (entering?.hello !== hello) entering = { hello, tries: 0 };
     const mine = generation;
     link = openLink({
       url,
@@ -256,6 +260,19 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
         return;
       case "flood":
         end({ kind: "flood" });
+        return;
+      case "restarting":
+        if (phase === "joining" && entering && entering.tries < BACKOFF_MS.length) {
+          const again = entering;
+          clearTimeout(watchdog);
+          retry = setTimeout(() => {
+            if (snapshot.connection.phase === "joining") open(again.hello, DEAD_AFTER_MS);
+          }, BACKOFF_MS[again.tries++]);
+          return;
+        }
+        if (phase === "joined") recover("network");
+        else if (phase === "reconnecting") attemptFailed();
+        else dispatch({ type: "dropped", cause: "network", at: Date.now() });
         return;
       case "left":
         if (phase === "reconnecting") attemptFailed();
@@ -373,6 +390,9 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     },
     sendRtc(signal) {
       return link?.send({ t: "rtc", ...signal }) ?? false;
+    },
+    sendTrouble(code) {
+      return link?.send({ t: "trouble", code }) ?? false;
     },
     onRtc(listener) {
       rtcListeners.add(listener);

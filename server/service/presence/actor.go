@@ -362,6 +362,14 @@ func (a *actor) showPhotos(session outbound.Session) {
 	}
 }
 
+func (a *actor) trouble(pid room.PID, gen uint32, trouble room.MediaTrouble, browser bool, detail string) {
+	s := a.seats[pid]
+	if s == nil || s.gen != gen {
+		return
+	}
+	a.hub.troubles.Report(outbound.MediaTroubleEvent{At: a.now(), Room: string(a.room.Slug()), PID: uint32(pid), Trouble: string(trouble), Browser: browser, Detail: detail, TraceID: s.traceID, SpanID: s.spanID})
+}
+
 func (a *actor) holds(pid room.PID, gen uint32) bool {
 	s := a.seats[pid]
 	return s != nil && s.gen == gen

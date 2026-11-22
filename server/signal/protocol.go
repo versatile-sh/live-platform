@@ -3,7 +3,9 @@ package signal
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
+	"strconv"
 
 	"github.com/gobwas/ws"
 
@@ -49,7 +51,13 @@ type clientFrame struct {
 	SDP       string            `json:"sdp"`
 	Candidate string            `json:"candidate"`
 	Sources   map[string]string `json:"sources"`
+	Code      string            `json:"code"`
 }
+
+const (
+	troublesPerSec = 0.1
+	troubleBurst   = 5
+)
 
 type mediaFrame struct {
 	T         string `json:"t"`
@@ -57,18 +65,6 @@ type mediaFrame struct {
 	Kind      string `json:"kind"`
 	SDP       string `json:"sdp,omitempty"`
 	Candidate string `json:"candidate,omitempty"`
-}
-
-type photoFrame struct {
-	T    string `json:"t"`
-	PID  uint32 `json:"pid"`
-	Data string `json:"data"`
-}
-
-type boardFrame struct {
-	T    string          `json:"t"`
-	PID  uint32          `json:"pid"`
-	Data json.RawMessage `json:"data"`
 }
 
 type chatFrame struct {
@@ -133,14 +129,6 @@ func encodeMedia(s room.MediaSignal) []byte {
 	return mustJSON(mediaFrame{T: "rtc", Role: s.Role, Kind: s.Kind, SDP: s.SDP, Candidate: s.Candidate})
 }
 
-func encodePhoto(pid room.PID, jpeg []byte) []byte {
-	return mustJSON(photoFrame{T: "photo", PID: uint32(pid), Data: base64.StdEncoding.EncodeToString(jpeg)})
-}
-
-func encodeBoard(u room.BoardUpdate) []byte {
-	return mustJSON(boardFrame{T: "board", PID: uint32(u.From), Data: json.RawMessage(u.Data)})
-}
-
 func encodeChat(m room.ChatMessage) []byte {
 	return mustJSON(chatFrame{T: "chat", PID: uint32(m.From), To: uint32(m.To), Name: m.Name, Text: m.Text, Img: base64.StdEncoding.EncodeToString(m.Image), At: m.At.UnixMilli()})
 }
@@ -189,7 +177,9 @@ func closeCode(reason room.CloseReason) ws.StatusCode {
 }
 
 func textFrame(payload []byte) []byte {
-	return ws.MustCompileFrame(ws.NewTextFrame(payload))
+	frame, at := textFrameOf(len(payload))
+	copy(frame[at:], payload)
+	return frame
 }
 
 func closeFrame(code ws.StatusCode, reason string) []byte {
@@ -202,4 +192,50 @@ func mustJSON(v any) []byte {
 		panic(err)
 	}
 	return b
+}
+
+func textFrameOf(n int) ([]byte, int) {
+	switch {
+	case n >= 0 && n <= 125:
+		frame := make([]byte, 2+n)
+		frame[0], frame[1] = 0x81, byte(n)
+		return frame, 2
+	case n > 125 && n <= 0xffff:
+		frame := make([]byte, 4+n)
+		frame[0], frame[1] = 0x81, 126
+		binary.BigEndian.PutUint16(frame[2:], uint16(n))
+		return frame, 4
+	default:
+		frame := make([]byte, 10+n)
+		frame[0], frame[1] = 0x81, 127
+		binary.BigEndian.PutUint64(frame[2:], uint64(max(n, 0)))
+		return frame, 10
+	}
+}
+
+func boardText(u room.BoardUpdate) []byte {
+	var digits [10]byte
+	pid := strconv.AppendUint(digits[:0], uint64(u.From), 10)
+	const open, mid = `{"t":"board","pid":`, `,"data":`
+	frame, at := textFrameOf(len(open) + len(pid) + len(mid) + len(u.Data) + 1)
+	w := append(frame[at:at], open...)
+	w = append(w, pid...)
+	w = append(w, mid...)
+	w = append(w, u.Data...)
+	_ = append(w, '}')
+	return frame
+}
+
+func photoText(pid room.PID, jpeg []byte) []byte {
+	var digits [10]byte
+	id := strconv.AppendUint(digits[:0], uint64(pid), 10)
+	const open, mid, end = `{"t":"photo","pid":`, `,"data":"`, `"}`
+	size := base64.StdEncoding.EncodedLen(len(jpeg))
+	frame, at := textFrameOf(len(open) + len(id) + len(mid) + size + len(end))
+	w := append(frame[at:at], open...)
+	w = append(w, id...)
+	w = append(w, mid...)
+	base64.StdEncoding.Encode(w[len(w):len(w)+size], jpeg)
+	_ = append(w[:len(w)+size], end...)
+	return frame
 }

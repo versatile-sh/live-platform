@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/port/inbound"
+	"github.com/versatile-sh/live/server/port/outbound"
 	"github.com/versatile-sh/live/server/service/presence"
 )
 
@@ -43,6 +45,11 @@ type client struct {
 
 func startServer(t *testing.T, tune func(*Config)) string {
 	t.Helper()
+	return startServerHub(t, tune, nil)
+}
+
+func startServerHub(t *testing.T, tune func(*Config), useHub func(*presence.Hub)) string {
+	t.Helper()
 	roomCfg := room.Config{Capacity: 10, ConnectTimeout: time.Second, Grace: 150 * time.Millisecond, UnhealthyCap: 300 * time.Millisecond, EmptyRelease: 200 * time.Millisecond, PasswordTries: 10, PasswordWindow: time.Minute}
 	hub := presence.NewHub(roomCfg, presence.Liveness{UnstableAfter: 200 * time.Millisecond, SuspectAfter: 500 * time.Millisecond}, time.Now)
 	cfg := DefaultConfig(nil, time.Now)
@@ -53,6 +60,9 @@ func startServer(t *testing.T, tune func(*Config)) string {
 	require.NoError(t, err)
 	addr := probe.Addr().String()
 	require.NoError(t, probe.Close())
+	if useHub != nil {
+		useHub(hub)
+	}
 	var port inbound.Presence = hub
 	if cfg.AddressHeader != "" {
 		port = presence.WithoutMedia{Hub: hub}
@@ -145,6 +155,23 @@ func TestSignalling(t *testing.T) {
 		gone := ana.until(func(f serverFrame) bool { return f.T == "roster" && !has(f, bia.me.PID, "") })
 		require.Len(t, gone.Gone, 1)
 		assert.Equal(t, "timeout", gone.Gone[0].Reason)
+	})
+
+	t.Run("a browser's media trouble reaches the hub only from the fixed list, and a burst of them is cut short", func(t *testing.T) {
+		heard := &troubleCount{}
+		url := startServerHub(t, nil, func(hub *presence.Hub) { hub.UseTroubles(heard) })
+		ana := dial(t, url)
+		ana.join("ana")
+		ana.send(`{"t":"trouble","code":"not a code"}`)
+		ana.send(`{"t":"trouble","code":"offer.rejected"}`)
+		for range 9 {
+			ana.send(`{"t":"trouble","code":"answer.late"}`)
+		}
+		ana.send(`{"t":"hb"}`)
+		ana.until(func(f serverFrame) bool { return f.T == "hb" })
+		require.Eventually(t, func() bool { return heard.count() == 5 }, 2*time.Second, 10*time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
+		assert.Equal(t, 5, heard.count())
 	})
 
 	t.Run("leaving removes at once and a heartbeat is answered", func(t *testing.T) {
@@ -348,4 +375,21 @@ func TestSignalling(t *testing.T) {
 		require.Error(t, err, "the server closes a handshake that never completes")
 		assert.NotErrorIs(t, err, context.DeadlineExceeded)
 	})
+}
+
+type troubleCount struct {
+	mu sync.Mutex
+	n  int
+}
+
+func (c *troubleCount) Report(outbound.MediaTroubleEvent) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.n++
+}
+
+func (c *troubleCount) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.n
 }

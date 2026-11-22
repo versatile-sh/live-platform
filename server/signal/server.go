@@ -75,6 +75,9 @@ type Server struct {
 	open     sync.Map
 	passes   outbound.PassLedger
 	join     func(parent string, attrs ...attribute.KeyValue) trace.Span
+	frames   frames
+	entry    sync.RWMutex
+	draining bool
 }
 
 // NewServer builds the signalling endpoint over the presence port.
@@ -115,6 +118,13 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 }
 
+// Drain stops seating anyone: a join or resume already under way finishes first, and every later one is closed with the code that sends a browser to try again, so nothing changes the rooms once they are handed over.
+func (s *Server) Drain() {
+	s.entry.Lock()
+	s.draining = true
+	s.entry.Unlock()
+}
+
 // Handoff closes every connection with the code that tells a browser to come straight back, for when another server has taken the rooms over.
 func (s *Server) Handoff() {
 	s.open.Range(func(key, _ any) bool {
@@ -135,7 +145,7 @@ func (s *Server) OnOpen(raw gnet.Conn) ([]byte, gnet.Action) {
 	if s.conns.Add(1) > s.cfg.MaxConns {
 		return nil, gnet.Close
 	}
-	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, s.cfg.Now())}
+	c := &conn{server: s, raw: raw, limiter: newBucket(s.cfg.FramesPerSec, s.cfg.FrameBurst, s.cfg.Now()), troubles: newBucket(troublesPerSec, troubleBurst, s.cfg.Now())}
 	if raw.RemoteAddr() != nil {
 		if host, _, err := net.SplitHostPort(raw.RemoteAddr().String()); err == nil {
 			c.remote = host

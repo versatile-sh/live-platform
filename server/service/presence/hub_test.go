@@ -10,6 +10,7 @@ import (
 
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/port"
+	"github.com/versatile-sh/live/server/port/outbound"
 )
 
 const (
@@ -165,7 +166,40 @@ func enter(t *testing.T, h *Hub, name string) (*room.Seat, *fakeSession) {
 	return &seat, session
 }
 
+type heardTroubles struct {
+	mu   sync.Mutex
+	seen []outbound.MediaTroubleEvent
+}
+
+func (h *heardTroubles) Report(e outbound.MediaTroubleEvent) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.seen = append(h.seen, e)
+}
+
+func (h *heardTroubles) all() []outbound.MediaTroubleEvent {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return append([]outbound.MediaTroubleEvent(nil), h.seen...)
+}
+
 func TestHub(t *testing.T) {
+	t.Run("a media trouble is told with the room and participant, and one from a connection the participant no longer holds is not", func(t *testing.T) {
+		h := newHub()
+		heard := &heardTroubles{}
+		h.UseTroubles(heard)
+		ana, _ := enter(t, h, "ana")
+		h.MediaTrouble("bk", ana.PID, ana.Gen+1, room.TroubleAnswerLate)
+		h.MediaTrouble("bk", ana.PID, ana.Gen, room.TroubleAnswerLate)
+		h.ServerTrouble("bk", ana.PID, ana.Gen, room.TroubleOfferRejected, "connection closed")
+		require.Eventually(t, func() bool { return len(heard.all()) == 2 }, wait, tick)
+		got := heard.all()
+		assert.Equal(t, outbound.MediaTroubleEvent{At: got[0].At, Room: "bk", PID: uint32(ana.PID), Trouble: string(room.TroubleAnswerLate), Browser: true}, got[0])
+		assert.Equal(t, string(room.TroubleOfferRejected), got[1].Trouble)
+		assert.False(t, got[1].Browser)
+		assert.Equal(t, "connection closed", got[1].Detail)
+	})
+
 	t.Run("the first to open a free slug owns the room and everyone sees everyone", func(t *testing.T) {
 		h := newHub()
 		ana, anaSession := enter(t, h, "ana")

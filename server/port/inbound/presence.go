@@ -16,6 +16,7 @@ type Presence interface {
 	SetLook(slug room.Slug, pid room.PID, gen uint32, look room.Look, face string)
 	SetPhoto(slug room.Slug, pid room.PID, gen uint32, jpeg []byte)
 	MediaSignal(slug room.Slug, pid room.PID, gen uint32, signal room.MediaSignal)
+	MediaTrouble(slug room.Slug, pid room.PID, gen uint32, trouble room.MediaTrouble)
 	Chat(slug room.Slug, pid room.PID, gen uint32, to room.PID, text string, image []byte)
 	Board(slug room.Slug, pid room.PID, gen uint32, to room.PID, data string)
 	Leave(slug room.Slug, pid room.PID, gen uint32)
