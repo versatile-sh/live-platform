@@ -7,6 +7,7 @@ vi.mock("../board/Whiteboard", () => ({ default: ({ readOnly }: { readOnly?: boo
 vi.mock("../board/BoardPreview", () => ({ default: () => "a small picture of the board" }));
 
 import type { RoomSummary, StatusResult } from "../api/rooms";
+import type { KeptPass } from "../domain/guest-pass";
 import { writeSeat } from "../session/seat";
 import type { FakeSocket } from "../signal/fake-socket";
 import type { Person } from "../signal/protocol";
@@ -112,6 +113,21 @@ describe("RoomPage", () => {
       const socket = await socketOf(services);
       act(() => socket.serverOpen());
       expect(JSON.parse(socket.sent[0]!)).toEqual({ t: "join", slug: "demo", name: "Ana", listed: true, look: "ff9ec7-0e1116-0", face: "^_^" });
+    });
+  });
+
+  describe("when I come back to a room I entered with a guest pass", () => {
+    test("enters with the kept pass and photo, and keeps the pass the server hands back", async () => {
+      const kept = new Map<string, KeptPass>([["demo", { pass: "pass-renewed-000000", face: "AQID", private: false, listed: false }]]);
+      const passMemory = { read: (slug: string) => kept.get(slug), write: (slug: string, value: KeptPass) => void kept.set(slug, value) };
+      const { services } = await setup(undefined, { passMemory });
+      await submitName();
+      const socket = await socketOf(services);
+      act(() => socket.serverOpen());
+      expect(JSON.parse(socket.sent[0]!)).toMatchObject({ t: "join", pass: "pass-renewed-000000" });
+      await send(socket, { t: "joined", pid: 1, gen: 1, secret: "s1", pass: "pass-renewed-111111" });
+      expect(socket.sent.map((f) => JSON.parse(f) as Record<string, unknown>)).toContainEqual({ t: "photo", data: "AQID" });
+      expect(kept.get("demo")).toEqual({ pass: "pass-renewed-111111", face: "AQID", private: false, listed: false });
     });
   });
 

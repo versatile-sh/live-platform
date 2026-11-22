@@ -21,7 +21,7 @@ type onePass struct{ pass outbound.GuestPass }
 
 func (o onePass) Take(context.Context, string) (outbound.GuestPass, bool) { return o.pass, true }
 
-func TestLedgerRecallsUntilSpentOrExpired(t *testing.T) {
+func TestLedgerRecallsUntilRenewedOrExpired(t *testing.T) {
 	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
 	ledger := NewLedger(func() time.Time { return now })
 	record := outbound.PassRecord{Slug: "a-b", Discord: room.Discord{UserID: "1"}}
@@ -30,13 +30,42 @@ func TestLedgerRecallsUntilSpentOrExpired(t *testing.T) {
 	got, ok := ledger.Recall("p1")
 	assert.True(t, ok)
 	assert.Equal(t, record, got)
-	ledger.Spend("p1")
+	_, ok = ledger.Renew("p1")
+	assert.True(t, ok)
 	_, ok = ledger.Recall("p1")
 	assert.False(t, ok)
 	now = now.Add(ledgerTTL)
 	_, ok = ledger.Recall("p2")
 	assert.False(t, ok)
 	_, ok = ledger.Recall("unknown")
+	assert.False(t, ok)
+}
+
+func TestRenewHandsAFreshPassForTheSameRoomForTwelveHours(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	ledger := NewLedger(func() time.Time { return now })
+	ledger.Remember("p1", outbound.PassRecord{Slug: "a-b", Discord: room.Discord{UserID: "1"}, TraceParent: "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"})
+
+	next, ok := ledger.Renew("p1")
+	require.True(t, ok)
+	assert.Regexp(t, `^[A-Za-z0-9_-]{43}$`, next)
+	got, ok := ledger.Recall(next)
+	require.True(t, ok)
+	assert.Equal(t, outbound.PassRecord{Slug: "a-b", Discord: room.Discord{UserID: "1"}}, got, "the re-entry pass vouches for the same person and room, without the issuer's trace")
+
+	again, ok := ledger.Renew(next)
+	require.True(t, ok)
+	assert.NotEqual(t, next, again)
+	_, ok = ledger.Recall(next)
+	assert.False(t, ok, "each entry retires the pass it used")
+
+	now = now.Add(reentryTTL - time.Second)
+	_, ok = ledger.Recall(again)
+	assert.True(t, ok)
+	now = now.Add(time.Second)
+	_, ok = ledger.Recall(again)
+	assert.False(t, ok)
+	_, ok = ledger.Renew("unknown")
 	assert.False(t, ok)
 }
 

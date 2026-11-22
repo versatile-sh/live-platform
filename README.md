@@ -148,7 +148,7 @@ A Docker image is built from the `Dockerfile` (`docker build -t live .`): it run
 
 Sharing the computer's sound with a screen: [Screen sound](docs/screen-audio.md).
 
-**From Discord.** [Add the bot to your server](https://live.versatile.sh/bot/install) and it sends people to a room with an invitation link. An invitation can carry a guest pass (`?pass=<id>`) that fills in the person's name and photo and chooses the room's access. The bot is a separate product; this repository holds only the page and the server side that read its passes.
+**From Discord.** [Add the bot to your server](https://live.versatile.sh/bot/install) and it sends people to a room with an invitation link. An invitation can carry a guest pass (`?pass=<id>`) that fills in the person's name and photo and chooses the room's access. Entering with it hands the browser a fresh pass for the same room, so the person can leave and come back with the same photo and Discord origin. The bot is a separate product; this repository holds only the page and the server side that read its passes.
 
 <a id="configuration"></a>
 

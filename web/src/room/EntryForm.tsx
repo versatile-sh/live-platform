@@ -26,11 +26,12 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
   const services = useServices();
   const creating = !room.exists;
   const [invite] = useState(() => services.invite.read());
-  const [photo, setPhoto] = useState<string>();
-  const [passId, setPassId] = useState<string>();
+  const [kept] = useState(() => (invite.pass ? undefined : services.passMemory.read(slug)));
+  const [photo, setPhoto] = useState(() => kept?.face || undefined);
+  const [passId, setPassId] = useState(() => kept?.pass);
   const [name, setName] = useState(() => services.nameMemory.read());
-  const [access, setAccess] = useState<Access>(() => (creating && services.readPasswordHash() ? "private" : "public"));
-  const [listed, setListed] = useState(invite.listed ?? false);
+  const [access, setAccess] = useState<Access>(() => (creating && (services.readPasswordHash() || kept?.private) ? "private" : "public"));
+  const [listed, setListed] = useState(invite.listed ?? kept?.listed ?? false);
   const [code, setCode] = useState(() => (creating ? services.readPasswordHash() || services.generatePassword() : services.readPasswordHash()));
   useEffect(() => {
     services.invite.forget();
@@ -39,6 +40,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     void services.takePass(invite.pass).then((pass) => {
       if (!current || !pass) return;
       services.nameMemory.write(pass.name);
+      services.passMemory.write(slug, { pass: invite.pass, face: pass.face, private: pass.private, listed: pass.listed });
       setPassId(invite.pass);
       setName(pass.name);
       setPhoto(pass.face || undefined);
@@ -50,7 +52,7 @@ export function EntryForm({ slug, room, refusal, expired, onEnter }: EntryFormPr
     return () => {
       current = false;
     };
-  }, [services, invite, creating]);
+  }, [services, invite, creating, slug]);
   const [problems, setProblems] = useState<{ name?: string; code?: string }>({});
   const [working, setWorking] = useState(false);
   const formId = useId();

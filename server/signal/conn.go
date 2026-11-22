@@ -211,7 +211,7 @@ func (c *conn) enter(hello clientFrame) {
 		c.fail(CloseRestarting, "restarting")
 		return
 	}
-	slug, seat, err := c.seatFor(hello)
+	slug, seat, reentry, err := c.seatFor(hello)
 	c.server.entry.RUnlock()
 	if err != nil {
 		c.send(textFrame(encodeError(err)))
@@ -223,7 +223,7 @@ func (c *conn) enter(hello clientFrame) {
 	lost := c.gone || c.phase == phaseEnding
 	if !lost {
 		c.phase = phaseJoined
-		c.send(textFrame(encodeJoined(seat)))
+		c.send(textFrame(encodeJoined(seat, reentry)))
 		for _, frame := range c.held {
 			c.send(frame)
 		}
@@ -235,20 +235,20 @@ func (c *conn) enter(hello clientFrame) {
 	}
 }
 
-func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
+func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, string, error) {
 	slug, err := room.NewSlug(hello.Slug)
 	if err != nil {
-		return "", room.Seat{}, err
+		return "", room.Seat{}, "", err
 	}
 	switch hello.T {
 	case "join":
 		proof, ok := decodeVerifier(hello.Verifier)
 		if !ok {
-			return "", room.Seat{}, port.NewError(port.CodeInvalidArgument, "verifier is 32 bytes in base64url")
+			return "", room.Seat{}, "", port.NewError(port.CodeInvalidArgument, "verifier is 32 bytes in base64url")
 		}
 		face, err := room.NewFace(hello.Face)
 		if err != nil {
-			return "", room.Seat{}, err
+			return "", room.Seat{}, "", err
 		}
 		client := c.headers.Client(c.remote)
 		record, vouched := c.vouched(hello.Pass, slug)
@@ -266,18 +266,19 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, error) {
 		if err != nil {
 			span.SetStatus(codes.Error, err.Error())
 		}
+		reentry := ""
 		if err == nil && vouched {
-			c.server.passes.Spend(hello.Pass)
+			reentry, _ = c.server.passes.Renew(hello.Pass)
 		}
-		return slug, seat, err
+		return slug, seat, reentry, err
 	case "resume":
 		if secret, ok := decodeSecret(hello.Secret); ok {
 			seat, err := c.server.presence.Resume(slug, room.PID(hello.PID), secret, c)
-			return slug, seat, err
+			return slug, seat, "", err
 		}
-		return "", room.Seat{}, port.NewError(port.CodeNotFound, "participant not found")
+		return "", room.Seat{}, "", port.NewError(port.CodeNotFound, "participant not found")
 	}
-	return "", room.Seat{}, port.NewError(port.CodeInvalidArgument, "the first frame is join or resume")
+	return "", room.Seat{}, "", port.NewError(port.CodeInvalidArgument, "the first frame is join or resume")
 }
 
 func (c *conn) joinSpan(parent string, slug room.Slug, vouched bool) trace.Span {

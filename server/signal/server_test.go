@@ -27,6 +27,7 @@ type serverFrame struct {
 	PID    uint32      `json:"pid"`
 	Gen    uint32      `json:"gen"`
 	Secret string      `json:"secret"`
+	Pass   string      `json:"pass"`
 	V      uint64      `json:"v"`
 	People []person    `json:"people"`
 	Gone   []departure `json:"gone"`
@@ -108,6 +109,11 @@ func (c *client) join(name string) {
 	require.NoError(c.t, err)
 	require.Equal(c.t, "joined", f.T)
 	c.me = f
+}
+
+func (c *client) joined() serverFrame {
+	c.t.Helper()
+	return c.until(func(f serverFrame) bool { return f.T == "joined" })
 }
 
 func (c *client) until(match func(serverFrame) bool) serverFrame {

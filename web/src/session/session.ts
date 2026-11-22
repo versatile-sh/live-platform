@@ -39,6 +39,8 @@ export type SessionOptions = {
   socket: SocketFactory;
   storage: SeatStorage;
   entry?: JoinEntry;
+  /** Hears the pass the server handed back for entering again after a join that presented one; undefined when it took none. */
+  onPass?: (pass: string | undefined) => void;
 };
 
 export type Session = {
@@ -93,7 +95,7 @@ function causeOf(meaning: Extract<LinkEvent, { kind: "closed" }>["meaning"]): Dr
  * My presence in one room as an observable store: it owns the socket, the heartbeat, the dead-socket watchdog,
  * the resume retries and the stored seat, and exposes the connection state machine's current state.
  */
-export function createSession({ slug, url, socket, storage, entry }: SessionOptions): Session {
+export function createSession({ slug, url, socket, storage, entry, onPass }: SessionOptions): Session {
   let snapshot: SessionSnapshot = {
     connection: IDLE,
     chat: [],
@@ -105,6 +107,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     password: entry?.password,
   };
   const listeners = new Set<() => void>();
+  let pass = entry?.pass;
   let link: Link | undefined;
   let generation = 0;
   let leaving = false;
@@ -207,6 +210,10 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
     clearTimeout(retry);
     deadline = retry = undefined;
     writeSeat(storage, slug, { pid: frame.pid, secret: frame.secret, private: snapshot.private, ...(snapshot.listed === undefined ? {} : { listed: snapshot.listed }) });
+    if (pass !== undefined && !resuming) {
+      pass = frame.pass;
+      onPass?.(pass);
+    }
     dispatch({ type: "joined", pid: frame.pid });
     clearInterval(heartbeat);
     heartbeat = setInterval(() => {
@@ -335,7 +342,7 @@ export function createSession({ slug, url, socket, storage, entry }: SessionOpti
       ...(joining.listed === undefined ? {} : { listed: joining.listed }),
       ...(joining.look ? { look: joining.look } : {}),
       ...(joining.face ? { face: joining.face } : {}),
-      ...(joining.pass ? { pass: joining.pass } : {}),
+      ...(pass ? { pass } : {}),
     };
   }
 

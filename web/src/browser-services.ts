@@ -8,7 +8,7 @@ import { createRoomsApi } from "./api/rooms";
 import { derive, generatePassword } from "./domain/password";
 import { GIF_MAX_BYTES, PHOTO_SOURCE_MAX_BYTES, sniffPhoto, toBase64 } from "./domain/photo";
 import { passwordFromHash } from "./domain/share-link";
-import { parsePass, readInvite, withoutInvite, type GuestPass } from "./domain/guest-pass";
+import { parsePass, readInvite, readKept, withKept, withoutInvite, type GuestPass } from "./domain/guest-pass";
 import { createLobbyStore, documentVisibility } from "./lobby/lobby-store";
 import { platformSocket, signalUrl } from "./signal/link";
 import type { Services } from "./services";
@@ -16,6 +16,7 @@ import type { Services } from "./services";
 const NAME_KEY = "live.name";
 const LOOK_KEY = "live.look";
 const FACE_KEY = "live.face";
+const PASSES_KEY = "live.passes";
 const THEME_KEY = "live.theme";
 const SETTINGS_KEY = "live.media";
 /** A pass is handed once by the server, so a second ask for the same id (React runs effects twice in development) reuses the first. */
@@ -98,6 +99,16 @@ export function createBrowserServices(): Services {
       write(face) {
         try {
           local?.setItem(FACE_KEY, face);
+        } catch {
+          return;
+        }
+      },
+    },
+    passMemory: {
+      read: (slug) => readKept(local?.getItem(PASSES_KEY) ?? null, slug),
+      write(slug, kept) {
+        try {
+          local?.setItem(PASSES_KEY, withKept(local.getItem(PASSES_KEY), slug, kept));
         } catch {
           return;
         }

@@ -15,7 +15,7 @@ export type Person = { pid: number; slot: number; name: string; state: PersonSta
 export type Departure = { pid: number; reason: GoneReason };
 
 export type ServerFrame =
-  | { t: "joined"; pid: number; gen: number; secret: string }
+  | { t: "joined"; pid: number; gen: number; secret: string; pass?: string }
   | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean; locked?: boolean }
   | { t: "error"; code: ErrorCode; message: string }
   | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number; img?: string }
@@ -95,7 +95,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       return { t: "hb" };
     case "joined":
       if (typeof raw.pid !== "number" || typeof raw.gen !== "number" || typeof raw.secret !== "string") return undefined;
-      return { t: "joined", pid: raw.pid, gen: raw.gen, secret: raw.secret };
+      return { t: "joined", pid: raw.pid, gen: raw.gen, secret: raw.secret, ...(typeof raw.pass === "string" && raw.pass !== "" ? { pass: raw.pass } : {}) };
     case "roster": {
       const people = parseList(raw.people, parsePerson);
       const gone = parseList(raw.gone, parseDeparture);
