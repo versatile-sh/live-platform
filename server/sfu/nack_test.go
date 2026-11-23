@@ -51,6 +51,27 @@ func TestLossLog(t *testing.T) {
 		assert.Equal(t, []uint16{1002}, log.missing(nil))
 	})
 
+	t.Run("a jump far past the window clears it at once and tracks from the new sequence", func(t *testing.T) {
+		var log lossLog
+		for _, seq := range []uint16{100, 101, 103} {
+			log.add(seq)
+		}
+		log.add(103 + 32000)
+		assert.Equal(t, uint16(103+32000), log.end)
+		assert.Len(t, log.missing(nil), lossWindow-1)
+		assert.False(t, log.has(103+32000-1))
+		log.add(103 + 32000 - 1)
+		assert.Len(t, log.missing(nil), lossWindow-2)
+	})
+
+	t.Run("a jump of exactly the window length leaves nothing recorded from before it", func(t *testing.T) {
+		var log lossLog
+		log.add(1)
+		log.add(1 + lossWindow)
+		assert.False(t, log.has(1+lossWindow-1))
+		assert.True(t, log.has(1+lossWindow))
+	})
+
 	t.Run("lost packets are packed into NACK pairs of a first one and the sixteen after it", func(t *testing.T) {
 		assert.Equal(t, []rtcp.NackPair{{PacketID: 12, LostPackets: 0b110}, {PacketID: 40}}, pairs(nil, []uint16{12, 14, 15, 40}))
 		assert.Equal(t, []rtcp.NackPair{{PacketID: 1, LostPackets: 1 << 15}, {PacketID: 18}}, pairs(nil, []uint16{1, 17, 18}))
@@ -189,4 +210,13 @@ func TestOneLossLoopForEveryConnection(t *testing.T) {
 		defer factory.loop.mu.Unlock()
 		return !factory.loop.running
 	}, time.Second, 10*time.Millisecond, "the loop stops once no connection needs it")
+}
+
+func BenchmarkLossLogJump(b *testing.B) {
+	var log lossLog
+	seq := uint16(0)
+	for b.Loop() {
+		seq += 32000
+		log.add(seq)
+	}
 }

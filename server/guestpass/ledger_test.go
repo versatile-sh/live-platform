@@ -162,3 +162,58 @@ func TestFullLedgerEvictsTheOldestPassAndSaysSo(t *testing.T) {
 	ledger.Remember("newest", record)
 	assert.Equal(t, uint64(1), ledger.Evicted(), "refreshing a held pass evicts nothing")
 }
+
+func TestClaimTakesAPassForOneJoinOnly(t *testing.T) {
+	now := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	ledger := NewLedger(func() time.Time { return now })
+	record := outbound.PassRecord{Slug: "a-b", Discord: room.Discord{UserID: "1"}}
+	ledger.Remember("p1", record)
+
+	t.Run("with another room it leaves the pass", func(t *testing.T) {
+		_, ok := ledger.Claim("p1", "other")
+		assert.False(t, ok)
+		_, ok = ledger.Recall("p1")
+		assert.True(t, ok)
+	})
+	t.Run("with two claims the second fails", func(t *testing.T) {
+		got, ok := ledger.Claim("p1", "a-b")
+		require.True(t, ok)
+		assert.Equal(t, record, got)
+		_, ok = ledger.Claim("p1", "a-b")
+		assert.False(t, ok)
+	})
+	t.Run("when released it works again until its original expiry", func(t *testing.T) {
+		ledger.Release("p1")
+		now = now.Add(ledgerTTL - time.Second)
+		_, ok := ledger.Claim("p1", "a-b")
+		require.True(t, ok)
+		ledger.Release("p1")
+		now = now.Add(time.Second)
+		_, ok = ledger.Claim("p1", "a-b")
+		assert.False(t, ok)
+	})
+	t.Run("when renewed after a claim it hands a fresh pass", func(t *testing.T) {
+		ledger.Remember("p2", record)
+		_, ok := ledger.Claim("p2", "a-b")
+		require.True(t, ok)
+		next, ok := ledger.Renew("p2")
+		require.True(t, ok)
+		_, ok = ledger.Claim(next, "a-b")
+		assert.True(t, ok)
+	})
+}
+
+func TestRenewStopsOneDayAfterTheFirstIssue(t *testing.T) {
+	start := time.Date(2026, 3, 10, 12, 0, 0, 0, time.UTC)
+	now := start
+	ledger := NewLedger(func() time.Time { return now })
+	ledger.Remember("p1", outbound.PassRecord{Slug: "a-b", Discord: room.Discord{UserID: "1"}})
+	pass, ok := ledger.Renew("p1")
+	require.True(t, ok)
+	for now = start.Add(5 * time.Hour); now.Before(start.Add(maxLifetime)); now = now.Add(5 * time.Hour) {
+		pass, ok = ledger.Renew(pass)
+		require.True(t, ok, "at %s", now.Sub(start))
+	}
+	_, ok = ledger.Renew(pass)
+	assert.False(t, ok, "past one day the person uses the bot's link again")
+}

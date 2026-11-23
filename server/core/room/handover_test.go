@@ -27,7 +27,7 @@ func TestHandover(t *testing.T) {
 	require.NoError(t, err)
 	old.MediaUp(caio.ID, caio.Gen)
 	old.From(caio.ID, "office")
-	_, err = old.Ban(t0, ana.ID, caio.ID)
+	_, _, err = old.Ban(t0, ana.ID, caio.ID)
 	require.NoError(t, err)
 	_, err = old.MuteAll(ana.ID)
 	require.NoError(t, err)
@@ -49,8 +49,8 @@ func TestHandover(t *testing.T) {
 	assert.True(t, next.Hushed())
 	assert.Greater(t, next.Version(), old.Version())
 	require.Error(t, next.Admit("office"), "a ban outlives the handover")
-	require.Error(t, next.Authorize(later, nil), "and so does the room code")
-	require.NoError(t, next.Authorize(later, &verifier))
+	require.Error(t, next.Authorize(later, "home", nil), "and so does the room code")
+	require.NoError(t, next.Authorize(later, "home", &verifier))
 
 	_, _, err = next.Resume(later, bia.ID, sha256.Sum256([]byte("wrong")), biaSecret)
 	require.Error(t, err, "only the holder of the secret comes back")
@@ -85,4 +85,23 @@ func TestRestoreRefusesWhatItCouldNotHaveBuilt(t *testing.T) {
 		_, err := Restore(s, DefaultConfig(), t0, time.Second)
 		assert.Error(t, err, name)
 	}
+}
+
+func TestRestoreValidatesFlags(t *testing.T) {
+	build := func(flags ...Flags) Handed {
+		state := Handed{Slug: "bk", NextPID: 5}
+		for i, f := range flags {
+			state.People = append(state.People, Kept{ID: PID(i + 1), Slot: uint8(i), Name: "p", Flags: f})
+		}
+		return state
+	}
+	t.Run("a handed room with two owners is refused", func(t *testing.T) {
+		_, err := Restore(build(FlagOwner, FlagOwner), DefaultConfig(), t0, time.Second)
+		assert.Error(t, err)
+	})
+	t.Run("undefined flag bits are dropped", func(t *testing.T) {
+		r, err := Restore(build(FlagOwner|Flags(1<<14)), DefaultConfig(), t0, time.Second)
+		require.NoError(t, err)
+		assert.Equal(t, FlagOwner, r.Roster()[0].Flags)
+	})
 }

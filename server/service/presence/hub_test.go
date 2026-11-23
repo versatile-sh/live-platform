@@ -471,3 +471,17 @@ func TestHub(t *testing.T) {
 		assert.Empty(t, anaSession.boards())
 	})
 }
+
+func TestAccessChangeReachesTheRoster(t *testing.T) {
+	h := newCalmHub()
+	session := &fakeSession{}
+	owner, err := h.Join("access", room.Entry{Name: "a", Country: "BR"}, session)
+	require.NoError(t, err)
+	h.MediaUp("access", owner.PID, owner.Gen)
+	require.Eventually(t, func() bool { return h.SetListed("access", owner.PID, owner.Gen, true) == nil }, wait, tick)
+	require.Eventually(t, func() bool {
+		session.mu.Lock()
+		defer session.mu.Unlock()
+		return session.last.Listed && !session.last.Private
+	}, wait, tick)
+}

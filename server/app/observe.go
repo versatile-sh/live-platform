@@ -58,7 +58,7 @@ func reportMetrics(ctx context.Context, log *slog.Logger, hub *presence.Hub, tra
 		rooms, people, joins := hub.Stats()
 		attrs := []any{"rooms", rooms, "people", people, "joins_total", joins, "joins_per_min", float64(joins-last) * float64(time.Minute) / float64(every)}
 		last = joins
-		attrs = append(attrs, "guestpass_evicted", ledger.Evicted())
+		attrs = append(attrs, "guestpass_evicted", ledger.Evicted(), "media_drops", hub.MediaDrops())
 		if trail != nil {
 			attrs = append(attrs, "audit_queue", trail.Depth(), "audit_written", trail.Written(), "audit_dropped", trail.Dropped(), "audit_failed", trail.Failed())
 		}

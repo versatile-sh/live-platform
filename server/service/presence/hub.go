@@ -28,15 +28,16 @@ func DefaultLiveness() Liveness {
 
 // Hub owns the set of live rooms; a slug is free whenever its room is not here.
 type Hub struct {
-	cfg      room.Config
-	liveness Liveness
-	now      func() time.Time
-	media    outbound.MediaPlane
-	audit    outbound.Audit
-	troubles outbound.MediaTroubles
-	joins    atomic.Uint64
-	mu       sync.RWMutex
-	actors   map[room.Slug]*actor
+	cfg        room.Config
+	liveness   Liveness
+	now        func() time.Time
+	media      outbound.MediaPlane
+	audit      outbound.Audit
+	troubles   outbound.MediaTroubles
+	mediaDrops atomic.Uint64
+	joins      atomic.Uint64
+	mu         sync.RWMutex
+	actors     map[room.Slug]*actor
 }
 
 // NewHub builds a hub whose rooms share one configuration.
@@ -46,6 +47,9 @@ func NewHub(cfg room.Config, liveness Liveness, now func() time.Time) *Hub {
 
 // UseAudit connects the audit trail; call it before the hub serves anyone. Without one, nothing is recorded.
 func (h *Hub) UseAudit(audit outbound.Audit) { h.audit = audit }
+
+// MediaDrops counts media-plane operations that could not be queued because the plane fell too far behind.
+func (h *Hub) MediaDrops() uint64 { return h.mediaDrops.Load() }
 
 // UseTroubles connects where troubles on media paths are told; call it before the hub serves anyone. Without one, they are dropped.
 func (h *Hub) UseTroubles(troubles outbound.MediaTroubles) { h.troubles = troubles }
@@ -106,6 +110,9 @@ func (h *Hub) SetListed(slug room.Slug, by room.PID, gen uint32, listed bool) er
 	return h.owner(slug, by, gen, func(a *actor) error {
 		err := a.room.SetListed(by, listed)
 		a.owned(err, by, "listed", nil)
+		if err == nil {
+			a.broadcast()
+		}
 		return err
 	})
 }
@@ -115,6 +122,9 @@ func (h *Hub) SetPassword(slug room.Slug, by room.PID, gen uint32, verifier *roo
 	return h.owner(slug, by, gen, func(a *actor) error {
 		err := a.room.SetPassword(by, verifier)
 		a.owned(err, by, "access", nil)
+		if err == nil {
+			a.broadcast()
+		}
 		return err
 	})
 }

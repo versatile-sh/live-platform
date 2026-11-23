@@ -87,7 +87,7 @@ func TestRosterText(t *testing.T) {
 	for _, name := range hard {
 		for _, snapshot := range []room.Snapshot{
 			{Version: 0},
-			{Version: 18446744073709551615, Participants: []room.Participant{{ID: 4294967295, Slot: 255, Name: name, Flags: 65535, Look: room.Look(name), Face: name}}, Quiet: true, Locked: true},
+			{Version: 18446744073709551615, Participants: []room.Participant{{ID: 4294967295, Slot: 255, Name: name, Flags: 65535, Look: room.Look(name), Face: name}}, Quiet: true, Locked: true, Private: true, Listed: true},
 			{Version: 7, Participants: []room.Participant{{ID: 1, Name: name}, {ID: 2, Name: "Bia", State: room.StateActive}}, Gone: []room.Departure{{PID: 3, Reason: room.Reason(name)}, {PID: 9, Reason: room.ReasonLeft}}},
 		} {
 			assert.Equal(t, string(textFrame(encodeRoster(snapshot))), string(rosterText(snapshot)), "%q", name)

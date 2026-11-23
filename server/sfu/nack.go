@@ -53,8 +53,12 @@ func (l *lossLog) add(seq uint16) {
 	case diff == 0:
 		return
 	case diff < 1<<15:
-		for i := l.end + 1; i != seq; i++ {
-			l.unset(i)
+		if diff >= lossWindow {
+			clear(l.seen[:])
+		} else {
+			for i := l.end + 1; i != seq; i++ {
+				l.unset(i)
+			}
 		}
 		l.end = seq
 		if l.consecutive+1 == seq {

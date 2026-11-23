@@ -131,9 +131,9 @@ func TestAuditKeepsPublicChatTextButNeverPrivateRoomContent(t *testing.T) {
 
 func TestAuditRecordsOwnerActionsWithActorAndTarget(t *testing.T) {
 	h, log := audited()
-	ana := enterAs(t, h, room.Entry{Name: "ana"})
+	ana := enterAs(t, h, room.Entry{Name: "ana", Origin: "home"})
 	bia := enterAs(t, h, room.Entry{Name: "bia"})
-	cai := enterAs(t, h, room.Entry{Name: "cai"})
+	cai := enterAs(t, h, room.Entry{Name: "cai", Origin: "office"})
 	require.NoError(t, h.Quiet("bk", ana.PID, ana.Gen, room.QuietOp("mute"), bia.PID))
 	require.NoError(t, h.SetListed("bk", ana.PID, ana.Gen, true))
 	proof := room.Verifier{9}

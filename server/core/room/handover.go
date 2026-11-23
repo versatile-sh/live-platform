@@ -70,14 +70,21 @@ func Restore(s Handed, cfg Config, now time.Time, hold time.Duration) (*Room, er
 			r.banned[origin] = struct{}{}
 		}
 	}
+	owners := 0
 	for _, k := range s.People {
+		if k.Flags.Has(FlagOwner) {
+			owners++
+		}
+		if owners > 1 {
+			return nil, port.NewError(port.CodeInvalidArgument, "a room handed over has at most one owner")
+		}
 		name, err := cleanName(k.Name)
 		if err != nil || k.ID == 0 || k.ID > s.NextPID || int(k.Slot) >= cfg.Capacity || r.slots[k.Slot] != nil || r.find(k.ID) != nil {
 			return nil, port.NewError(port.CodeInvalidArgument, "a room handed over must be one this server could have built")
 		}
 		face, _ := NewFace(k.Face)
 		r.slots[k.Slot] = &Participant{
-			ID: k.ID, Slot: k.Slot, Name: name, State: StateReconnecting, Flags: k.Flags &^ FlagUnstable, Look: NewLook(string(k.Look)), Face: face, Gen: k.Gen,
+			ID: k.ID, Slot: k.Slot, Name: name, State: StateReconnecting, Flags: k.Flags & knownFlags &^ FlagUnstable, Look: NewLook(string(k.Look)), Face: face, Gen: k.Gen,
 			secretHash: k.SecretHash, origin: k.Origin, outsideSince: now, deadline: now.Add(hold),
 		}
 		r.occupied |= 1 << k.Slot

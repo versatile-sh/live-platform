@@ -267,8 +267,12 @@ func (c *conn) seatFor(hello clientFrame) (room.Slug, room.Seat, string, error) 
 			span.SetStatus(codes.Error, err.Error())
 		}
 		reentry := ""
-		if err == nil && vouched {
-			reentry, _ = c.server.passes.Renew(hello.Pass)
+		if vouched {
+			if err == nil {
+				reentry, _ = c.server.passes.Renew(hello.Pass)
+			} else {
+				c.server.passes.Release(hello.Pass)
+			}
 		}
 		return slug, seat, reentry, err
 	case "resume":
@@ -292,11 +296,7 @@ func (c *conn) vouched(pass string, slug room.Slug) (outbound.PassRecord, bool) 
 	if pass == "" || c.server.passes == nil {
 		return outbound.PassRecord{}, false
 	}
-	record, ok := c.server.passes.Recall(pass)
-	if !ok || record.Slug != slug {
-		return outbound.PassRecord{}, false
-	}
-	return record, true
+	return c.server.passes.Claim(pass, slug)
 }
 
 func (c *conn) dispatch(f clientFrame) {
@@ -307,7 +307,7 @@ func (c *conn) dispatch(f clientFrame) {
 	case "media":
 		p.SetMedia(c.slug, c.seat.PID, c.seat.Gen, room.Flags(f.Flags))
 	case "rtc":
-		if (f.Role != room.MediaRolePublish && f.Role != room.MediaRoleSubscribe) || (f.Kind != room.MediaKindOffer && f.Kind != room.MediaKindAnswer && f.Kind != room.MediaKindICE) || len(f.Sources) > 8 {
+		if (f.Role != room.MediaRolePublish && f.Role != room.MediaRoleSubscribe) || (f.Kind != room.MediaKindOffer && f.Kind != room.MediaKindAnswer && f.Kind != room.MediaKindICE) || !validSources(f.Sources) {
 			c.fail(CloseBadFrame, "malformed media signal")
 			return
 		}
@@ -401,4 +401,18 @@ func (c *conn) owner(f clientFrame) {
 	if err != nil {
 		c.send(textFrame(encodeError(err)))
 	}
+}
+
+func validSources(sources map[string]string) bool {
+	if len(sources) > 8 {
+		return false
+	}
+	for _, source := range sources {
+		switch source {
+		case "microphone", "camera", "screen", "screenAudio":
+		default:
+			return false
+		}
+	}
+	return true
 }

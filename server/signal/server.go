@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"io"
 	"net"
 	"strings"
@@ -29,6 +30,7 @@ const (
 	path             = "/ws"
 	maxHandshakeSize = 4 << 10
 	maxControlSize   = 125
+	maxHeaderSize    = 14
 )
 
 var headEnd = []byte("\r\n\r\n")
@@ -218,6 +220,7 @@ func (c *conn) handshake(buf []byte) (int, gnet.Action) {
 
 func (c *conn) upgrader() ws.Upgrader {
 	var host, origin string
+	forwarded := false
 	return ws.Upgrader{
 		Protocol: func(p []byte) bool { return string(p) == Subprotocol },
 		OnRequest: func(uri []byte) error {
@@ -242,6 +245,7 @@ func (c *conn) upgrader() ws.Upgrader {
 				first, _, _ := strings.Cut(string(value), ",")
 				if ip := net.ParseIP(strings.TrimSpace(first)); ip != nil {
 					c.origin = c.server.originOf(ip.String())
+					forwarded = true
 				}
 			}
 			return nil
@@ -249,6 +253,9 @@ func (c *conn) upgrader() ws.Upgrader {
 		OnBeforeUpgrade: func() (ws.HandshakeHeader, error) {
 			if !originAllowed(origin, host, c.server.cfg.Origins) {
 				return nil, ws.RejectConnectionError(ws.RejectionStatus(403), ws.RejectionReason("origin not allowed"))
+			}
+			if !forwarded && c.server.cfg.AddressHeader != "" && c.remote != "" {
+				c.origin = c.server.originOf(c.remote)
 			}
 			return nil, nil
 		},
@@ -283,7 +290,15 @@ func (c *conn) frame(buf []byte) (int, gnet.Action) {
 	r := bytes.NewReader(buf)
 	h, err := ws.ReadHeader(r)
 	if err != nil {
-		return 0, gnet.None
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			if int64(len(buf)) > c.server.cfg.ReadLimit+maxHeaderSize {
+				c.fail(ws.StatusMessageTooBig, "frame too large")
+				return len(buf), gnet.None
+			}
+			return 0, gnet.None
+		}
+		c.fail(ws.StatusProtocolError, "malformed frame")
+		return len(buf), gnet.None
 	}
 	head := len(buf) - r.Len()
 	control := h.OpCode.IsControl()
@@ -307,7 +322,14 @@ func (c *conn) frame(buf []byte) (int, gnet.Action) {
 		}
 		c.text(payload)
 	case ws.OpPing:
-		c.send(ws.MustCompileFrame(ws.NewPongFrame(payload)))
+		switch {
+		case !c.limiter.take(c.server.cfg.Now()):
+			c.fail(CloseFlood, "too many frames")
+		case c.pending.Load() > c.server.cfg.MaxPending:
+			c.fail(CloseSlow, "too slow")
+		default:
+			c.send(ws.MustCompileFrame(ws.NewPongFrame(payload)))
+		}
 	case ws.OpPong:
 	case ws.OpClose:
 		c.fail(ws.StatusNormalClosure, "")
