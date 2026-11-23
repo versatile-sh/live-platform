@@ -311,7 +311,7 @@ describe("RoomPage", () => {
       await submitName("Ana");
       const socket = await socketOf(ctx.services);
       await joinAs(socket);
-      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 }), person(2, "Bia")], gone: [] });
+      await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia")], gone: [] });
       await screen.findAllByText("Bia");
       return { ...ctx, socket };
     }
@@ -385,7 +385,7 @@ describe("RoomPage", () => {
         await renderWithAppSettled(<RoomPage slug="demo" />, { services });
         const socket = await socketOf(services);
         await joinAs(socket);
-        await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 })], gone: [] });
+        await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32, state: "active" })], gone: [], private: true });
         await fromMore("Room settings");
         return { services, socket };
       }
@@ -417,6 +417,38 @@ describe("RoomPage", () => {
         await userEvent.click(within(screen.getByRole("region", { name: "Room settings" })).getByRole("button", { name: "Copy link" }));
         expect(services.copied.at(-1)).toBe("https://live.test/demo#9XYZ-45QR");
       });
+    });
+
+    describe("while the owner's own seat is not active yet", () => {
+      test("the access controls are disabled and say why", async () => {
+        const ctx = await setup({ kind: "ok", room: free });
+        await submitName("Ana");
+        const socket = await socketOf(ctx.services);
+        await joinAs(socket);
+        await send(socket, { t: "roster", v: 2, people: [person(1, "Ana", { flags: 32 })], gone: [] });
+        await fromMore("Room settings");
+        expect(screen.getByRole("radio", { name: /Private/ })).toBeDisabled();
+        expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeDisabled();
+        expect(screen.getByText("Room settings unlock when your connection is fully up.")).toBeInTheDocument();
+        await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active" })], gone: [] });
+        expect(screen.getByRole("radio", { name: /Private/ })).toBeEnabled();
+        expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeEnabled();
+      });
+    });
+
+    test("show the access the server reports once a roster confirms the change", async () => {
+      const { socket } = await asOwner();
+      await fromMore("Room settings");
+      await userEvent.click(screen.getByRole("switch", { name: /Show in open rooms/ }));
+      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
+      await send(socket, { t: "roster", v: 3, people: [person(1, "Ana", { flags: 32, state: "active" }), person(2, "Bia")], gone: [], listed: true });
+      expect(screen.getByRole("switch", { name: /Show in open rooms/ })).toBeChecked();
+    });
+
+    test("tell the owner when a ban removed someone but could not be kept", async () => {
+      const { socket } = await asOwner();
+      await send(socket, { t: "error", code: "ban-not-kept", message: "ban not kept" });
+      expect(await screen.findByText("Removed. The ban could not be kept this time.")).toBeInTheDocument();
     });
 
     test("show a refusal in words when the server will not do it", async () => {
@@ -981,7 +1013,7 @@ describe("RoomPage", () => {
     test("a muted participant always sees why, and the whiteboard shows as a small picture when it is not in front", async () => {
       const { socket } = await inCall();
       await send(socket, { t: "roster", v: 5, people: [person(1, "Ana", { flags: 256, state: "active" }), person(2, "Bia", { flags: 32 | 128, state: "active" })], gone: [], quiet: true });
-      expect(screen.getByText("The owner muted everyone. Raise your hand to ask to speak.")).toBeInTheDocument();
+      expect(screen.getByText("The owner muted everyone, and screen sound is silenced too. Raise your hand to ask to speak.")).toBeInTheDocument();
       await userEvent.click(screen.getByRole("listitem", { name: /Bia, connected/ }));
       expect(await within(screen.getByRole("listitem", { name: "Whiteboard" })).findByText("a small picture of the board")).toBeInTheDocument();
     });

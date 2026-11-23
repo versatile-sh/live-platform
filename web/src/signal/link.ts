@@ -55,7 +55,7 @@ export function openLink({ url, hello, socket: factory, onEvent }: LinkOptions):
     const frame = parseServerFrame(event.data);
     if (!frame) return;
     if (frame.t === "joined") joined = true;
-    if (frame.t === "error") lastError = { code: frame.code, message: frame.message };
+    if (frame.t === "error") lastError = { code: frame.code === "ban-not-kept" ? "INTERNAL" : frame.code, message: frame.message };
     onEvent({ kind: "frame", frame });
   };
   socket.onclose = (event) => {

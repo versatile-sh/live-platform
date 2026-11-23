@@ -14,13 +14,14 @@ type AccessSettingsProps = {
   onListed(listed: boolean): void;
   code: string | undefined;
   onRenew(): void;
+  disabled?: boolean;
 };
 
 const CHOICE =
   "relative z-10 flex cursor-pointer flex-col gap-1 bubble px-4 py-3.5 text-left text-fg transition-colors duration-300 has-checked:text-on-bubble has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-fg/55";
 
 /** A room's two settings: who may enter, as one sliding choice (public, or private behind a room code), and whether it shows in the open rooms. */
-export function AccessSettings({ access, onAccess, listed, onListed, code, onRenew }: AccessSettingsProps) {
+export function AccessSettings({ access, onAccess, listed, onListed, code, onRenew, disabled = false }: AccessSettingsProps) {
   const t = useT();
   const id = useId();
   return (
@@ -30,8 +31,8 @@ export function AccessSettings({ access, onAccess, listed, onListed, code, onRen
         <div data-access={access} className="group/access relative grid grid-cols-2 bubble border border-fg/30 bg-card p-1">
           <span aria-hidden="true" className="bubble absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] bg-bubble transition-transform duration-500 ease-(--ease-glide) group-data-[access=private]/access:translate-x-full" />
           {(["public", "private"] as const).map((option) => (
-            <label key={option} className={CHOICE}>
-              <input type="radio" name={`${id}-access`} className="sr-only" checked={access === option} onChange={() => onAccess(option)} />
+            <label key={option} className={`${CHOICE} has-disabled:cursor-not-allowed has-disabled:opacity-60`}>
+              <input type="radio" name={`${id}-access`} className="sr-only" checked={access === option} disabled={disabled} onChange={() => onAccess(option)} />
               <span className="font-display text-lg leading-none font-bold tracking-[-0.03em]">{t(option === "public" ? "entry.accessPublic" : "entry.accessPrivate")}</span>
               <span className="text-[0.8125rem] leading-snug opacity-75">{t(option === "public" ? "home.publicHint" : "home.privateHint")}</span>
             </label>
@@ -47,12 +48,12 @@ export function AccessSettings({ access, onAccess, listed, onListed, code, onRen
                 <p role="status" className="min-w-0 flex-1 text-sm">
                   {t("owner.codeUnknown")}
                 </p>
-                <button type="button" className={button({ size: "xs" })} onClick={onRenew}>
+                <button type="button" className={button({ size: "xs" })} disabled={disabled} onClick={onRenew}>
                   {t("home.newCode")}
                 </button>
               </div>
             ) : (
-              <RoomCode code={code} onRenew={onRenew} />
+              <RoomCode code={code} onRenew={onRenew} disabled={disabled} />
             )}
           </div>
         </div>
@@ -64,7 +65,7 @@ export function AccessSettings({ access, onAccess, listed, onListed, code, onRen
       </div>
 
       <div className="mt-4">
-        <Switch checked={listed} onChange={onListed} hint={t(access === "private" ? "home.listedPrivateHint" : "home.listedHint")}>
+        <Switch checked={listed} onChange={onListed} disabled={disabled} hint={t(access === "private" ? "home.listedPrivateHint" : "home.listedHint")}>
           {t("entry.listed")}
         </Switch>
       </div>

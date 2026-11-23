@@ -10,14 +10,17 @@ export type GoneReason = "left" | "removed-by-owner" | "banned-by-owner" | "time
 
 export type ErrorCode = "INVALID_ARGUMENT" | "NOT_FOUND" | "CONFLICT" | "PERMISSION_DENIED" | "RATE_LIMITED" | "BANNED" | "INVARIANT_VIOLATION" | "INTERNAL";
 
+/** What an error frame can carry once in the room: the codes above, and one that says a ban removed someone but could not be kept. */
+export type FrameErrorCode = ErrorCode | "ban-not-kept";
+
 export type Person = { pid: number; slot: number; name: string; state: PersonState; flags: number; look?: string; face?: string };
 
 export type Departure = { pid: number; reason: GoneReason };
 
 export type ServerFrame =
   | { t: "joined"; pid: number; gen: number; secret: string; pass?: string }
-  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean; locked?: boolean }
-  | { t: "error"; code: ErrorCode; message: string }
+  | { t: "roster"; v: number; people: Person[]; gone: Departure[]; quiet?: boolean; locked?: boolean; private?: boolean; listed?: boolean }
+  | { t: "error"; code: FrameErrorCode; message: string }
   | { t: "chat"; pid: number; to?: number; name: string; text: string; at: number; img?: string }
   | { t: "photo"; pid: number; data: string }
   | ({ t: "rtc" } & RtcSignal)
@@ -53,7 +56,7 @@ export type ClientFrame = Hello | { t: "hb" } | { t: "media"; flags: number } | 
 
 const PERSON_STATES: readonly string[] = ["connecting", "active", "reconnecting"];
 const GONE_REASONS: readonly string[] = ["left", "removed-by-owner", "banned-by-owner", "timeout", "media-timeout", "unhealthy-cap"];
-const ERROR_CODES: readonly string[] = ["INVALID_ARGUMENT", "NOT_FOUND", "CONFLICT", "PERMISSION_DENIED", "RATE_LIMITED", "BANNED", "INVARIANT_VIOLATION"];
+const ERROR_CODES: readonly string[] = ["INVALID_ARGUMENT", "NOT_FOUND", "CONFLICT", "PERMISSION_DENIED", "RATE_LIMITED", "BANNED", "INVARIANT_VIOLATION", "ban-not-kept"];
 
 type Fields = Record<string, unknown>;
 
@@ -100,7 +103,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       const people = parseList(raw.people, parsePerson);
       const gone = parseList(raw.gone, parseDeparture);
       if (typeof raw.v !== "number" || !people || !gone) return undefined;
-      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}), ...(raw.locked === true ? { locked: true } : {}) };
+      return { t: "roster", v: raw.v, people, gone, ...(raw.quiet === true ? { quiet: true } : {}), ...(raw.locked === true ? { locked: true } : {}), ...(raw.private === true ? { private: true } : {}), ...(raw.listed === true ? { listed: true } : {}) };
     }
     case "board":
       return typeof raw.pid === "number" ? { t: "board", pid: raw.pid, data: raw.data } : undefined;
@@ -115,7 +118,7 @@ export function parseServerFrame(text: string): ServerFrame | undefined {
       return { t: "chat", pid: raw.pid, name: raw.name, text: raw.text, at: raw.at, ...(typeof raw.to === "number" && raw.to > 0 ? { to: raw.to } : {}), ...(typeof raw.img === "string" && raw.img !== "" ? { img: raw.img } : {}) };
     case "error": {
       if (typeof raw.code !== "string" || typeof raw.message !== "string") return undefined;
-      const code = ERROR_CODES.includes(raw.code) ? (raw.code as ErrorCode) : "INTERNAL";
+      const code = ERROR_CODES.includes(raw.code) ? (raw.code as FrameErrorCode) : "INTERNAL";
       return { t: "error", code, message: raw.message };
     }
     default:

@@ -16,6 +16,8 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
   const services = useServices();
   const [code, setCode] = useState<string | undefined>(snapshot.password);
   const { result, copy } = useCopy();
+  const { connection } = snapshot;
+  const seatActive = connection.phase === "joined" && connection.roster.people.find((person) => person.pid === connection.me)?.state === "active";
   const access: Access = snapshot.private ? "private" : "public";
   const codeUnknown = snapshot.private && code === undefined;
   const link = shareLink(services.origin, slug, snapshot.private ? snapshot.password : undefined);
@@ -43,12 +45,16 @@ export function OwnerPanel({ slug, session, snapshot }: OwnerPanelProps) {
         listed={snapshot.listed ?? false}
         onListed={(listed) => session.owner({ op: "listed", listed }, { listed })}
         code={code}
+        disabled={!seatActive}
         onRenew={() => {
           const next = services.generatePassword();
           setCode(next);
           void lockWith(next);
         }}
       />
+      <p role="status" className="mt-3 min-h-5 text-sm text-muted">
+        {!seatActive ? t("owner.accessWaiting") : snapshot.accessPending ? t("owner.accessPending") : ""}
+      </p>
       <p className="mt-6 mb-1.5 text-sm font-semibold">{t("owner.linkLabel")}</p>
       <p className="bubble truncate border border-line-strong bg-canvas px-3.5 py-2.5 font-mono text-sm text-muted" translate="no">
         {link}

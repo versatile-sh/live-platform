@@ -234,7 +234,11 @@ function NoticeLine({ notice }: { notice: Notice }) {
       ? t("notice.arrived", { name: notice.name })
       : notice.kind === "left"
         ? t(`notice.left.${notice.reason}`, { name: notice.name })
-        : t(`notice.refused.${notice.code}`);
+        : notice.kind === "access-failed"
+          ? t(notice.private ? "notice.accessFailed.private" : "notice.accessFailed.public")
+          : notice.kind === "remove-failed"
+            ? t("notice.removeFailed", { name: notice.name })
+            : t(`notice.refused.${notice.code}`);
   return (
     <li className="arrive bubble border border-line-strong bg-card px-3.5 py-2 text-sm">
       {text}
