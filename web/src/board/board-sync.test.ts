@@ -1,8 +1,8 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { chunk, createBoardSync, FRAME_BYTES, wins, type BoardElement, type BoardMessage } from "./board-sync";
+import { chunk, createBoardSync, FRAME_BYTES, MAX_BYTES, MAX_ELEMENTS, MAX_QUEUE, wins, type BoardElement, type BoardMessage } from "./board-sync";
 
-const el = (id: string, version: number, versionNonce = 1, extra: object = {}): BoardElement => ({ id, version, versionNonce, ...extra });
+const el = (id: string, version: number, versionNonce = 1, extra: object = {}): BoardElement => ({ id, type: "rectangle", version, versionNonce, ...extra });
 
 function setup() {
   vi.useFakeTimers();
@@ -27,9 +27,9 @@ describe("chunk", () => {
   describe("with elements that all fit", () => {
     test("groups them so every encoded frame stays within the limit", () => {
       const els = [el("a", 1, 1, { text: "x".repeat(300) }), el("b", 1, 1, { text: "y".repeat(300) }), el("c", 1)];
-      const { groups, oversized } = chunk(els, 740);
+      const { groups, oversized } = chunk(els, 800);
       expect(groups.map((group) => group.map((e) => e.id))).toEqual([["a", "b"], ["c"]]);
-      expect(groups.every((group) => frameBytes(group) <= 740)).toBe(true);
+      expect(groups.every((group) => frameBytes(group) <= 800)).toBe(true);
       expect(oversized).toEqual([]);
     });
   });
@@ -184,6 +184,7 @@ describe("createBoardSync", () => {
         first.sync.remote(4, { k: "hello" }, 2, [1, 3, 4], [1, 2, 3]);
         vi.advanceTimersByTime(150);
         expect(first.sent).toHaveLength(1);
+        vi.advanceTimersByTime(2000);
         first.sync.remote(4, { k: "hello" }, 2, [1, 3, 4], [1, 2, 3]);
         vi.advanceTimersByTime(150);
         expect(first.sent[1]).toEqual({ message: { k: "els", els: [el("a", 1)] }, to: 4 });
@@ -241,6 +242,111 @@ describe("createBoardSync", () => {
         sync.local([el("big", 2, 1, { text: "x" })]);
         expect(sync.getOversized()).toBe(0);
       });
+    });
+  });
+});
+
+describe("remote elements from a peer", () => {
+  describe("with a version or nonce that is not a safe non-negative integer", () => {
+    test("rejects the element", () => {
+      const { sync } = setup();
+      const bad = [el("a", 1e308), el("b", -1), el("c", 1.5), el("d", 1, Number.MAX_SAFE_INTEGER + 1), el("e", 1, -2), el("f", Number.NaN)];
+      sync.remote(2, { k: "els", els: [...bad, { id: "g", version: 1, versionNonce: 1 }, { ...el("h", 1), type: 4 }, el("ok", 1)] }, 1, [2]);
+      expect(sync.getSnapshot().map((e) => e.id)).toEqual(["ok"]);
+    });
+  });
+
+  describe("with more elements than the cap", () => {
+    test("keeps the first ones and drops the rest", () => {
+      const { sync } = setup();
+      const els = Array.from({ length: MAX_ELEMENTS + 5 }, (_, i) => el(`e${i}`, 1));
+      sync.remote(2, { k: "els", els }, 1, [2]);
+      expect(sync.getSnapshot()).toHaveLength(MAX_ELEMENTS);
+    });
+
+    test("still takes a newer version of an element it already has", () => {
+      const { sync } = setup();
+      sync.remote(2, { k: "els", els: Array.from({ length: MAX_ELEMENTS }, (_, i) => el(`e${i}`, 1)) }, 1, [2]);
+      sync.remote(2, { k: "els", els: [el("e0", 2), el("extra", 1)] }, 1, [2]);
+      expect(sync.getSnapshot().find((e) => e.id === "e0")?.version).toBe(2);
+      expect(sync.getSnapshot().some((e) => e.id === "extra")).toBe(false);
+    });
+  });
+
+  describe("with more bytes than the cap", () => {
+    test("drops the elements that would pass it", () => {
+      const { sync } = setup();
+      const chunkOf = (i: number) => el(`big${i}`, 1, 1, { text: "x".repeat(1 << 20) });
+      sync.remote(2, { k: "els", els: Array.from({ length: 18 }, (_, i) => chunkOf(i)) }, 1, [2]);
+      expect(sync.getSnapshot().length).toBe(MAX_BYTES / (1 << 20) - 1);
+    });
+  });
+});
+
+describe("hello from a participant", () => {
+  const mine = [1];
+  function giver() {
+    vi.useFakeTimers();
+    const sent: Array<{ message: BoardMessage; to?: number }> = [];
+    let open = true;
+    const sync = createBoardSync((message, to) => {
+      if (!open) return false;
+      sent.push({ message, ...(to === undefined ? {} : { to }) });
+      return true;
+    });
+    sync.local([el("a", 1)]);
+    vi.advanceTimersByTime(150);
+    sent.length = 0;
+    return { sync, sent, block: () => (open = false), unblock: () => (open = true) };
+  }
+  const transfers = (sent: Array<{ to?: number }>) => sent.filter((s) => s.to === 4).length;
+
+  describe("from someone who is not in the room", () => {
+    test("is ignored", () => {
+      const { sync, sent } = giver();
+      sync.remote(9, { k: "hello" }, 1, [2, 4], mine);
+      vi.advanceTimersByTime(1000);
+      expect(sent).toEqual([]);
+    });
+  });
+
+  describe("while a transfer to the same sender is still queued", () => {
+    test("is ignored, so the board goes once", () => {
+      const { sync, sent, block, unblock } = giver();
+      block();
+      sync.remote(4, { k: "hello" }, 1, [2, 4], mine);
+      vi.advanceTimersByTime(5000);
+      sync.remote(4, { k: "hello" }, 1, [2, 4], mine);
+      unblock();
+      vi.advanceTimersByTime(1000);
+      expect(transfers(sent)).toBe(1);
+    });
+  });
+
+  describe("again within the minimum interval", () => {
+    test("is ignored, and answered once the interval has passed", () => {
+      const { sync, sent } = giver();
+      sync.remote(4, { k: "hello" }, 1, [2, 4], mine);
+      vi.advanceTimersByTime(200);
+      sync.remote(4, { k: "hello" }, 1, [2, 4], mine);
+      vi.advanceTimersByTime(200);
+      expect(transfers(sent)).toBe(1);
+      vi.advanceTimersByTime(2000);
+      sync.remote(4, { k: "hello" }, 1, [2, 4], mine);
+      vi.advanceTimersByTime(200);
+      expect(transfers(sent)).toBe(2);
+    });
+  });
+
+  describe("when the queue is already full", () => {
+    test("does not queue the transfer", () => {
+      vi.useFakeTimers();
+      const sent: Array<{ to?: number }> = [];
+      const sync = createBoardSync((_message, to) => (sent.push({ ...(to === undefined ? {} : { to }) }), true));
+      sync.local(Array.from({ length: MAX_QUEUE + 10 }, (_, i) => el(`e${i}`, 1, 1, { text: "x".repeat(FRAME_BYTES - 200) })));
+      sync.remote(4, { k: "hello" }, 1, [2, 4], mine);
+      vi.advanceTimersByTime(150 * (MAX_QUEUE + 100));
+      expect(transfers(sent)).toBe(0);
     });
   });
 });

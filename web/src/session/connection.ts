@@ -1,4 +1,4 @@
-import type { ErrorCode, GoneReason, ServerFrame } from "../signal/protocol";
+import type { ErrorCode, FrameErrorCode, GoneReason, ServerFrame } from "../signal/protocol";
 import { EMPTY_ROSTER, applyRoster, type Roster } from "./roster";
 
 /** Why my connection ended for good. Every kind has its own plain message and none loops. */
@@ -23,7 +23,9 @@ export type DropCause = "network" | "dead" | "silent" | "slow" | "no-hello";
 export type Notice =
   | { id: number; kind: "arrived"; name: string }
   | { id: number; kind: "left"; name: string; reason: GoneReason }
-  | { id: number; kind: "refused"; code: ErrorCode };
+  | { id: number; kind: "refused"; code: FrameErrorCode }
+  | { id: number; kind: "access-failed"; private: boolean }
+  | { id: number; kind: "remove-failed"; name: string };
 
 /** What I know of the room while I am in it. */
 export type Presence = { me: number; roster: Roster; notices: Notice[]; nextNotice: number };
@@ -45,14 +47,15 @@ export type ConnectionEvent =
   | { type: "gave-up" }
   | { type: "end"; reason: EndReason }
   | { type: "notice-expired"; id: number }
-  | { type: "owner-refused"; code: ErrorCode };
+  | { type: "owner-refused"; code: FrameErrorCode }
+  | { type: "notify"; notice: NoticeBody };
 
 /** The state before anything has happened. */
 export const IDLE: Connection = { phase: "idle" };
 
 const MAX_NOTICES = 4;
 
-type NoticeBody = Notice extends infer N ? (N extends { id: number } ? Omit<N, "id"> : never) : never;
+export type NoticeBody = Notice extends infer N ? (N extends { id: number } ? Omit<N, "id"> : never) : never;
 
 function addNotices(presence: Presence, items: NoticeBody[]): Presence {
   if (items.length === 0) return presence;
@@ -100,6 +103,8 @@ export function reduceConnection(state: Connection, event: ConnectionEvent): Con
       return state.phase === "idle" || state.phase === "ended" ? state : { phase: "ended", reason: event.reason };
     case "notice-expired":
       return state.phase === "joined" || state.phase === "reconnecting" ? { ...state, notices: state.notices.filter((n) => n.id !== event.id) } : state;
+    case "notify":
+      return state.phase === "joined" ? { phase: "joined", ...addNotices(takePresence(state), [event.notice]) } : state;
     case "owner-refused":
       return state.phase === "joined" ? { phase: "joined", ...addNotices(takePresence(state), [{ kind: "refused", code: event.code }]) } : state;
   }

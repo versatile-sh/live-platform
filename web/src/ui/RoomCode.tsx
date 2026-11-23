@@ -7,7 +7,7 @@ import { button } from "./styles";
 const SMALL = button({ variant: "onInk", size: "xs" });
 
 /** A room code shown large in an ink bubble, to be read aloud or copied, with a way to draw another. */
-export function RoomCode({ code, onRenew }: { code: string; onRenew(): void }) {
+export function RoomCode({ code, onRenew, disabled = false }: { code: string; onRenew(): void; disabled?: boolean }) {
   const t = useT();
   const { clipboard } = useServices();
   const [copied, setCopied] = useState(false);
@@ -20,6 +20,7 @@ export function RoomCode({ code, onRenew }: { code: string; onRenew(): void }) {
         <button
           type="button"
           className={SMALL}
+          disabled={disabled}
           onClick={() => {
             setCopied(false);
             onRenew();

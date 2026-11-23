@@ -3,15 +3,26 @@ package presence
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/versatile-sh/live/server/core/room"
 	"github.com/versatile-sh/live/server/port"
 	"github.com/versatile-sh/live/server/port/outbound"
 )
 
-const pictureEvery = 2 * time.Second
+const (
+	pictureEvery   = 2 * time.Second
+	wireBacklogMax = 1024
+	wireRetryEvery = 100 * time.Millisecond
+	troubleBurst   = 5
+	troubleRate    = 0.2
+	troubleDetail  = 256
+	boardRate      = 256 << 10
+	boardBurst     = 1 << 20
+)
 
 type seat struct {
 	session  outbound.Session
@@ -22,6 +33,8 @@ type seat struct {
 	joined   time.Time
 	traceID  string
 	spanID   string
+	board    bucket
+	troubles bucket
 }
 
 type actor struct {
@@ -32,6 +45,8 @@ type actor struct {
 	gone     []room.Departure
 	shots    map[room.PID][]byte
 	wires    chan func()
+	backlog  []wireOp
+	retry    bool
 	silent   map[room.PID]bool
 	pictured map[room.PID]time.Time
 	born     time.Time
@@ -40,13 +55,19 @@ type actor struct {
 	summary atomic.Pointer[room.Summary]
 }
 
+type wireOp struct {
+	run    func()
+	detach bool
+}
+
 func newActor(h *Hub, r *room.Room) *actor {
 	a := &actor{hub: h, room: r, seats: map[room.PID]*seat{}, shots: map[room.PID][]byte{}, inbox: make(chan func(*actor), inboxSize), born: h.now()}
 	a.publish()
 	if h.media != nil {
-		a.wires = make(chan func(), inboxSize)
+		wires := make(chan func(), inboxSize)
+		a.wires = wires
 		go func() {
-			for op := range a.wires {
+			for op := range wires {
 				op()
 			}
 		}()
@@ -66,10 +87,14 @@ func (a *actor) run() {
 	defer timer.Stop()
 	for {
 		a.sweep()
+		a.mend()
 		a.publish()
 		if a.room.ReleaseDue(a.now()) && a.hub.release(a) {
 			a.record(outbound.AuditEvent{Kind: outbound.AuditRoomEnded, DurationMS: a.now().Sub(a.born).Milliseconds()})
 			if a.wires != nil {
+				for _, op := range a.backlog {
+					a.wires <- op.run
+				}
 				close(a.wires)
 			}
 			return
@@ -115,6 +140,11 @@ func (a *actor) untilNextWake() time.Duration {
 			wake, ok = at, true
 		}
 	}
+	if a.retry || len(a.backlog) > 0 {
+		if retry := now.Add(wireRetryEvery); !ok || retry.Before(wake) {
+			wake, ok = retry, true
+		}
+	}
 	if !ok {
 		return time.Hour
 	}
@@ -125,7 +155,7 @@ func (a *actor) join(entry room.Entry, session outbound.Session) (room.Seat, err
 	if err := a.room.Admit(entry.Origin); err != nil {
 		return room.Seat{}, err
 	}
-	if err := a.room.Authorize(a.now(), entry.Proof); err != nil {
+	if err := a.room.Authorize(a.now(), entry.Origin, entry.Proof); err != nil {
 		return room.Seat{}, err
 	}
 	secret, err := newSecret()
@@ -211,9 +241,12 @@ func (a *actor) ban(by room.PID, gen uint32, target room.PID) error {
 		return port.NewError(port.CodeNotFound, "participant not found")
 	}
 	named := a.target(target)
-	events, err := a.room.Ban(a.now(), by, target)
+	events, kept, err := a.room.Ban(a.now(), by, target)
 	a.apply(events)
 	a.owned(err, by, "ban", named)
+	if err == nil && !kept {
+		return port.NewError(CodeBanNotKept, "the participant was removed but the ban could not be kept, so they can come back")
+	}
 	return err
 }
 
@@ -236,18 +269,66 @@ func (a *actor) hush() {
 	for _, pid := range a.room.Silenced() {
 		now[pid] = true
 	}
+	if a.silent == nil {
+		a.silent = map[room.PID]bool{}
+	}
 	slug, plane := a.room.Slug(), a.hub.media
+	a.retry = false
 	for pid := range a.seats {
 		if now[pid] == a.silent[pid] {
 			continue
 		}
 		silent := now[pid]
+		if a.enqueue(wireOp{run: func() { plane.Silence(slug, pid, silent) }}) {
+			a.silent[pid] = silent
+		} else {
+			a.retry = true
+		}
+	}
+	for pid := range a.silent {
+		if a.seats[pid] == nil {
+			delete(a.silent, pid)
+		}
+	}
+}
+
+func (a *actor) mend() {
+	if a.wires == nil {
+		return
+	}
+	a.flush()
+	if a.retry {
+		a.hush()
+	}
+}
+
+func (a *actor) flush() {
+	for len(a.backlog) > 0 {
 		select {
-		case a.wires <- func() { plane.Silence(slug, pid, silent) }:
+		case a.wires <- a.backlog[0].run:
+			a.backlog[0] = wireOp{}
+			a.backlog = a.backlog[1:]
+		default:
+			return
+		}
+	}
+	a.backlog = nil
+}
+
+func (a *actor) enqueue(op wireOp) bool {
+	if len(a.backlog) == 0 {
+		select {
+		case a.wires <- op.run:
+			return true
 		default:
 		}
 	}
-	a.silent = now
+	if len(a.backlog) >= wireBacklogMax && !op.detach {
+		a.hub.mediaDrops.Add(1)
+		return false
+	}
+	a.backlog = append(a.backlog, op)
+	return true
 }
 
 func (a *actor) transfer(by room.PID, gen uint32, target room.PID) error {
@@ -298,20 +379,16 @@ func (a *actor) board(pid room.PID, gen uint32, to room.PID, data string) {
 		return
 	}
 	update, ok := a.room.Draw(pid, to, data)
-	if !ok {
+	if !ok || !a.seats[pid].board.take(a.now(), float64(len(data)), boardRate, boardBurst) {
 		return
 	}
-	var slow []room.PID
 	for id, s := range a.seats {
 		if id == pid || (to != 0 && id != to) {
 			continue
 		}
-		if s.online && !s.session.Board(update) {
-			slow = append(slow, id)
+		if s.online {
+			s.session.Board(update)
 		}
-	}
-	for _, id := range slow {
-		a.suspect(id, a.seats[id].gen, room.CloseSlow)
 	}
 }
 
@@ -320,13 +397,10 @@ func (a *actor) wire(pid room.PID, gen uint32, session outbound.Session) {
 		return
 	}
 	slug, plane, silent := a.room.Slug(), a.hub.media, a.silent[pid]
-	select {
-	case a.wires <- func() {
+	a.enqueue(wireOp{run: func() {
 		plane.Attach(slug, pid, gen, session.Media)
 		plane.Silence(slug, pid, silent)
-	}:
-	default:
-	}
+	}})
 }
 
 func (a *actor) unwire(pid room.PID) {
@@ -334,10 +408,7 @@ func (a *actor) unwire(pid room.PID) {
 		return
 	}
 	slug, plane := a.room.Slug(), a.hub.media
-	select {
-	case a.wires <- func() { plane.Detach(slug, pid) }:
-	default:
-	}
+	a.enqueue(wireOp{run: func() { plane.Detach(slug, pid) }, detach: true})
 }
 
 func (a *actor) photo(pid room.PID, gen uint32, jpeg []byte) {
@@ -367,7 +438,10 @@ func (a *actor) trouble(pid room.PID, gen uint32, trouble room.MediaTrouble, bro
 	if s == nil || s.gen != gen {
 		return
 	}
-	a.hub.troubles.Report(outbound.MediaTroubleEvent{At: a.now(), Room: string(a.room.Slug()), PID: uint32(pid), Trouble: string(trouble), Browser: browser, Detail: detail, TraceID: s.traceID, SpanID: s.spanID})
+	if !s.troubles.take(a.now(), 1, troubleRate, troubleBurst) {
+		return
+	}
+	a.hub.troubles.Report(outbound.MediaTroubleEvent{At: a.now(), Room: string(a.room.Slug()), PID: uint32(pid), Trouble: string(trouble), Browser: browser, Detail: clip(detail, troubleDetail), TraceID: s.traceID, SpanID: s.spanID})
 }
 
 func (a *actor) holds(pid room.PID, gen uint32) bool {
@@ -408,7 +482,8 @@ func (a *actor) apply(events []room.Event) {
 
 func (a *actor) broadcast() {
 	a.hush()
-	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone, Quiet: a.room.Hushed(), Locked: a.room.Locked()}
+	summary := a.room.Summary()
+	snapshot := room.Snapshot{Version: a.room.Version(), Participants: a.room.Roster(), Gone: a.gone, Quiet: a.room.Hushed(), Locked: a.room.Locked(), Private: summary.Private, Listed: summary.Listed}
 	a.gone = nil
 	var slow []room.PID
 	for pid, s := range a.seats {
@@ -427,4 +502,15 @@ func newSecret() ([32]byte, error) {
 		return s, port.WrapError(port.CodeInvariantViolation, "no entropy for a secret", err)
 	}
 	return s, nil
+}
+
+func clip(text string, limit int) string {
+	if len(text) <= limit {
+		return text
+	}
+	cut := text[:limit]
+	for !utf8.ValidString(cut) && len(cut) > 0 {
+		cut = cut[:len(cut)-1]
+	}
+	return strings.TrimSpace(cut)
 }

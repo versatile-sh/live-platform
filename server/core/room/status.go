@@ -46,6 +46,8 @@ const (
 // MediaFlags is the mask of bits a participant may set about themselves.
 const MediaFlags = FlagMicrophone | FlagCamera | FlagScreen | FlagScreenAudio | FlagHand | FlagBoard
 
+const knownFlags = MediaFlags | FlagOwner | FlagUnstable | FlagMuted | FlagNoDraw
+
 // Has reports whether every bit of mask is set.
 func (f Flags) Has(mask Flags) bool { return f&mask == mask }
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { fakeSockets, type FakeSocket } from "../signal/fake-socket";
 import { readSeat, writeSeat } from "./seat";
-import { ATTEMPT_TIMEOUT_MS, DEAD_AFTER_MS, HEARTBEAT_MS, NOTICE_MS, RETRY_WINDOW_MS, createSession, type JoinEntry } from "./session";
+import { ATTEMPT_TIMEOUT_MS, CONFIRM_MS, DEAD_AFTER_MS, HEARTBEAT_MS, NOTICE_MS, RETRY_WINDOW_MS, createSession, type JoinEntry } from "./session";
 
 function memoryStorage() {
   const map = new Map<string, string>();
@@ -431,5 +431,133 @@ describe("Session#owner", () => {
   test("reports false when not joined", () => {
     const { session } = setup();
     expect(session.owner({ op: "remove", pid: 2 })).toBe(false);
+  });
+});
+
+describe("Session access state", () => {
+  const person = (pid: number) => ({ pid, slot: pid, name: `p${pid}`, state: "active", flags: 0 });
+  function joined(entry: JoinEntry = { name: "Ana" }) {
+    const ctx = setup(entry);
+    ctx.session.start();
+    enter(ctx.sockets[0]!);
+    return { ...ctx, socket: ctx.sockets[0]! };
+  }
+
+  describe("with a roster that names the access", () => {
+    test("takes private and listed from it, and absent means false", () => {
+      const { session, socket } = joined({ name: "Ana", verifier: "v", listed: true });
+      socket.serverSend({ t: "roster", v: 1, people: [person(1)], gone: [], private: true, listed: true });
+      expect(session.getSnapshot()).toMatchObject({ private: true, listed: true });
+      socket.serverSend({ t: "roster", v: 2, people: [person(1)], gone: [] });
+      expect(session.getSnapshot()).toMatchObject({ private: false, listed: false });
+    });
+  });
+
+  describe("when the owner changes it", () => {
+    test("shows it as pending until the next roster confirms the server's state", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [person(1)], gone: [] });
+      session.owner({ op: "listed", listed: true }, { listed: true });
+      expect(session.getSnapshot()).toMatchObject({ listed: true, accessPending: true });
+      socket.serverSend({ t: "roster", v: 2, people: [person(1)], gone: [], listed: true });
+      expect(session.getSnapshot()).toMatchObject({ listed: true, accessPending: false });
+    });
+
+    test("is sent again once the seat is active when the server refuses it, and confirmed by the roster", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [person(1)], gone: [] });
+      session.owner({ op: "password", verifier: "v" }, { private: true, password: "code" });
+      socket.serverSend({ t: "error", code: "INVARIANT_VIOLATION", message: "not active" });
+      expect(sentFrames(socket).filter((f) => f.t === "owner")).toHaveLength(1);
+      vi.advanceTimersByTime(500);
+      expect(sentFrames(socket).filter((f) => f.t === "owner")).toHaveLength(2);
+      expect(session.getSnapshot()).toMatchObject({ private: true, accessPending: true });
+      socket.serverSend({ t: "roster", v: 2, people: [person(1)], gone: [], private: true });
+      expect(session.getSnapshot()).toMatchObject({ private: true, accessPending: false });
+      vi.advanceTimersByTime(CONFIRM_MS * 2);
+      expect(sentFrames(socket).filter((f) => f.t === "owner")).toHaveLength(2);
+    });
+
+    test("is sent again when no roster confirms it in time, waiting for the seat to be active", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [{ ...person(1), state: "reconnecting" }], gone: [] });
+      session.owner({ op: "listed", listed: true }, { listed: true });
+      vi.advanceTimersByTime(CONFIRM_MS + 2000);
+      expect(sentFrames(socket).filter((f) => f.t === "owner")).toHaveLength(1);
+      socket.serverSend({ t: "roster", v: 2, people: [person(1)], gone: [] });
+      expect(sentFrames(socket).filter((f) => f.t === "owner")).toHaveLength(2);
+    });
+
+    test("after three attempts tells the owner and shows the server's state", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [person(1)], gone: [] });
+      session.owner({ op: "password", verifier: "v" }, { private: true, password: "code" });
+      for (let i = 0; i < 3; i++) {
+        socket.serverSend({ t: "error", code: "INVARIANT_VIOLATION", message: "not active" });
+        vi.advanceTimersByTime(1000);
+      }
+      expect(sentFrames(socket).filter((f) => f.t === "owner")).toHaveLength(3);
+      expect(session.getSnapshot()).toMatchObject({ private: false, accessPending: false });
+      expect(session.getSnapshot().connection).toMatchObject({ notices: [{ kind: "access-failed", private: false }] });
+    });
+  });
+
+  describe("when the owner bans someone", () => {
+    const ban = (socket: FakeSocket) => sentFrames(socket).filter((f) => f.op === "ban");
+
+    test("a transient refusal is retried, and after three attempts the owner is told the person stays", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [person(1), person(2)], gone: [] });
+      session.owner({ op: "ban", pid: 2 });
+      for (let i = 0; i < 3; i++) {
+        socket.serverSend({ t: "error", code: "INVARIANT_VIOLATION", message: "not active" });
+        vi.advanceTimersByTime(1000);
+      }
+      expect(ban(socket)).toHaveLength(3);
+      expect(session.getSnapshot().connection).toMatchObject({ notices: [{ kind: "remove-failed", name: "p2" }] });
+    });
+
+    test("ban-not-kept is never retried and shows its own notice", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [person(1), person(2)], gone: [] });
+      session.owner({ op: "ban", pid: 2 });
+      socket.serverSend({ t: "error", code: "ban-not-kept", message: "x" });
+      vi.advanceTimersByTime(5000);
+      expect(ban(socket)).toHaveLength(1);
+      expect(session.getSnapshot().connection).toMatchObject({ notices: [{ kind: "refused", code: "ban-not-kept" }] });
+    });
+
+    test("is not retried once the person leaves the roster", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "roster", v: 1, people: [person(1), person(2)], gone: [] });
+      session.owner({ op: "ban", pid: 2 });
+      socket.serverSend({ t: "roster", v: 2, people: [person(1)], gone: [{ pid: 2, reason: "banned-by-owner" }] });
+      vi.advanceTimersByTime(5000);
+      expect(ban(socket)).toHaveLength(1);
+    });
+  });
+
+  describe("with an error frame that says the ban was not kept", () => {
+    test("raises a notice for the owner", () => {
+      const { session, socket } = joined();
+      socket.serverSend({ t: "error", code: "ban-not-kept", message: "removed, ban not kept" });
+      expect(session.getSnapshot().connection).toMatchObject({ notices: [{ kind: "refused", code: "ban-not-kept" }] });
+    });
+  });
+});
+
+describe("Session photos", () => {
+  describe("when a roster no longer lists someone", () => {
+    test("drops the photo of who left and keeps the others", () => {
+      const { session, sockets } = setup();
+      session.start();
+      enter(sockets[0]!);
+      const person = (pid: number) => ({ pid, slot: pid, name: `p${pid}`, state: "active", flags: 0 });
+      sockets[0]!.serverSend({ t: "roster", v: 1, people: [person(1), person(2), person(3)], gone: [] });
+      sockets[0]!.serverSend({ t: "photo", pid: 2, data: "/9j/AQID" });
+      sockets[0]!.serverSend({ t: "photo", pid: 3, data: "/9j/AQID" });
+      sockets[0]!.serverSend({ t: "roster", v: 2, people: [person(1), person(3)], gone: [{ pid: 2, reason: "left" }] });
+      expect(Object.keys(session.getSnapshot().photos)).toEqual(["3"]);
+    });
   });
 });

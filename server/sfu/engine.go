@@ -283,7 +283,7 @@ func (e *Engine) Detach(slug room.Slug, pid room.PID) {
 	}
 }
 
-// Silence stops, or resumes, carrying a participant's microphone: the packets still arrive and are dropped here, so a muted participant cannot be heard whatever their browser does.
+// Silence stops, or resumes, carrying every audio track of a participant, whatever source it is declared as: the packets still arrive and are dropped here, so a muted participant cannot be heard whatever their browser does.
 func (e *Engine) Silence(slug room.Slug, pid room.PID, silent bool) {
 	e.mu.Lock()
 	p := e.rooms[slug][pid]
@@ -493,7 +493,7 @@ func (e *Engine) incoming(p *peer, pc *webrtc.PeerConnection, remote *webrtc.Tra
 		if err != nil {
 			break
 		}
-		if source == "microphone" && p.silent.Load() {
+		if !f.video && p.silent.Load() {
 			continue
 		}
 		if _, err := local.Write(packet[:n]); err != nil && !errors.Is(err, io.ErrClosedPipe) {

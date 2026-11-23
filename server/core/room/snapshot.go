@@ -13,6 +13,8 @@ type Snapshot struct {
 	Gone         []Departure
 	Quiet        bool
 	Locked       bool
+	Private      bool
+	Listed       bool
 }
 
 // CloseReason says why the server ended a participant's connection.

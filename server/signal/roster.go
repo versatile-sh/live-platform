@@ -125,6 +125,12 @@ func rosterLen(s room.Snapshot) int {
 	if s.Locked {
 		n += len(`,"locked":true`)
 	}
+	if s.Private {
+		n += len(`,"private":true`)
+	}
+	if s.Listed {
+		n += len(`,"listed":true`)
+	}
 	return n
 }
 
@@ -177,6 +183,12 @@ func writeRoster(s room.Snapshot, size int) []byte {
 	}
 	if s.Locked {
 		w = append(w, `,"locked":true`...)
+	}
+	if s.Private {
+		w = append(w, `,"private":true`...)
+	}
+	if s.Listed {
+		w = append(w, `,"listed":true`...)
 	}
 	_ = append(w, '}')
 	return frame

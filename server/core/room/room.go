@@ -70,6 +70,7 @@ type Room struct {
 	settings Settings
 	tries    int
 	triesEnd time.Time
+	origins  map[string]*tally
 	slots    [MaxCapacity]*Participant
 	occupied uint64
 	nextPID  PID
@@ -248,21 +249,28 @@ func (r *Room) Remove(now time.Time, by, target PID) ([]Event, error) {
 }
 
 // Ban lets the owner remove a participant and keep where they came from out of the room for as long as it exists; an origin the owner shares is only removed, so the owner is never locked out.
-func (r *Room) Ban(now time.Time, by, target PID) ([]Event, error) {
+// It reports whether the origin is barred: false means the participant was removed but nothing keeps them from coming back (unknown origin, the owner's own origin, or a full ban list).
+func (r *Room) Ban(now time.Time, by, target PID) ([]Event, bool, error) {
 	owner, p, err := r.ownerAnd(by, target)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if owner == p {
-		return nil, port.NewError(port.CodeInvalidArgument, "the owner leaves instead of banning themselves")
+		return nil, false, port.NewError(port.CodeInvalidArgument, "the owner leaves instead of banning themselves")
 	}
-	if p.origin != "" && p.origin != owner.origin && len(r.banned) < maxBanned {
-		if r.banned == nil {
-			r.banned = map[string]struct{}{}
+	kept := false
+	if p.origin != "" && p.origin != owner.origin {
+		if _, already := r.banned[p.origin]; already {
+			kept = true
+		} else if len(r.banned) < maxBanned {
+			if r.banned == nil {
+				r.banned = map[string]struct{}{}
+			}
+			r.banned[p.origin] = struct{}{}
+			kept = true
 		}
-		r.banned[p.origin] = struct{}{}
 	}
-	return r.remove(now, p, ReasonBanned), nil
+	return r.remove(now, p, ReasonBanned), kept, nil
 }
 
 // Admit refuses an origin the owner banned; an unknown origin is never refused.

@@ -19,15 +19,17 @@ import (
 )
 
 const (
-	ledgerTTL  = 15 * time.Minute
-	reentryTTL = 12 * time.Hour
-	ledgerCap  = 16384
-	sweepAbove = 1024
+	ledgerTTL   = 15 * time.Minute
+	reentryTTL  = 12 * time.Hour
+	maxLifetime = 24 * time.Hour
+	ledgerCap   = 16384
+	sweepAbove  = 1024
 )
 
 type remembered struct {
 	record  outbound.PassRecord
 	expires time.Time
+	issued  time.Time
 	seq     uint64
 }
 
@@ -40,11 +42,12 @@ type Ledger struct {
 	mu      sync.Mutex
 	seq     uint64
 	entries map[string]remembered
+	claimed map[string]remembered
 }
 
 // NewLedger builds an empty ledger that reads time from now.
 func NewLedger(now func() time.Time) *Ledger {
-	return &Ledger{now: now, log: slog.Default(), entries: map[string]remembered{}}
+	return &Ledger{now: now, log: slog.Default(), entries: map[string]remembered{}, claimed: map[string]remembered{}}
 }
 
 // WithLog sends the ledger's eviction warnings to log and returns the ledger.
@@ -72,7 +75,7 @@ func (l *Ledger) Remember(id string, record outbound.PassRecord) {
 		l.evictOldest()
 	}
 	l.seq++
-	l.entries[id] = remembered{record: record, expires: now.Add(ledgerTTL), seq: l.seq}
+	l.entries[id] = remembered{record: record, expires: now.Add(ledgerTTL), issued: now, seq: l.seq}
 }
 
 func (l *Ledger) evictOldest() {
@@ -100,8 +103,46 @@ func (l *Ledger) Recall(id string) (outbound.PassRecord, bool) {
 	return v.record, true
 }
 
-// Renew forgets a pass that was used to enter and keeps what it vouched for under a fresh id, without the issuer's trace, for twelve hours;
-// false when the pass is unknown, spent or expired.
+// Claim takes a pass out of circulation for the one join that holds it, in a single step, and returns what it vouched for; false when the
+// pass is unknown, spent, expired or for another room. A second claim of the same id fails until the first is released.
+func (l *Ledger) Claim(id string, slug room.Slug) (outbound.PassRecord, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	v, ok := l.entries[id]
+	if !ok {
+		return outbound.PassRecord{}, false
+	}
+	if !l.now().Before(v.expires) {
+		delete(l.entries, id)
+		return outbound.PassRecord{}, false
+	}
+	if v.record.Slug != slug {
+		return outbound.PassRecord{}, false
+	}
+	delete(l.entries, id)
+	l.claimed[id] = v
+	return v.record, true
+}
+
+// Release puts a claimed pass back with its original expiry, for a join that did not enter.
+func (l *Ledger) Release(id string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	v, ok := l.claimed[id]
+	if !ok {
+		return
+	}
+	delete(l.claimed, id)
+	if !l.now().Before(v.expires) {
+		return
+	}
+	l.seq++
+	v.seq = l.seq
+	l.entries[id] = v
+}
+
+// Renew spends a pass that was used to enter, claimed or not, and keeps what it vouched for under a fresh id, without the issuer's trace, for twelve hours;
+// false when the pass is unknown, spent or expired, or when a day has passed since the first pass was issued.
 func (l *Ledger) Renew(id string) (string, bool) {
 	var raw [32]byte
 	if _, err := rand.Read(raw[:]); err != nil {
@@ -110,15 +151,23 @@ func (l *Ledger) Renew(id string) (string, bool) {
 	next := base64.RawURLEncoding.EncodeToString(raw[:])
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	v, ok := l.entries[id]
-	delete(l.entries, id)
+	v, ok := l.claimed[id]
+	if ok {
+		delete(l.claimed, id)
+	} else if v, ok = l.entries[id]; ok {
+		delete(l.entries, id)
+	}
 	now := l.now()
-	if !ok || !now.Before(v.expires) {
+	if !ok || !now.Before(v.expires) || !now.Before(v.issued.Add(maxLifetime)) {
 		return "", false
 	}
 	v.record.TraceParent = ""
 	l.seq++
-	l.entries[next] = remembered{record: v.record, expires: now.Add(reentryTTL), seq: l.seq}
+	expires := now.Add(reentryTTL)
+	if end := v.issued.Add(maxLifetime); expires.After(end) {
+		expires = end
+	}
+	l.entries[next] = remembered{record: v.record, expires: expires, issued: v.issued, seq: l.seq}
 	return next, true
 }
 

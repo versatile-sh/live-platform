@@ -273,23 +273,23 @@ func TestPrivateRoom(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("admits only the holder of the password", func(t *testing.T) {
-		require.NoError(t, r.Authorize(t0, &right))
-		assert.Equal(t, port.CodePermissionDenied, port.CodeOf(r.Authorize(t0, nil)))
-		assert.Equal(t, port.CodePermissionDenied, port.CodeOf(r.Authorize(t0, &wrong)))
+		require.NoError(t, r.Authorize(t0, "home", &right))
+		assert.Equal(t, port.CodePermissionDenied, port.CodeOf(r.Authorize(t0, "home", nil)))
+		assert.Equal(t, port.CodePermissionDenied, port.CodeOf(r.Authorize(t0, "home", &wrong)))
 	})
 	t.Run("locks after ten wrong proofs, even for the right one, until the window ends", func(t *testing.T) {
 		for i := 0; i < 9; i++ {
-			_ = r.Authorize(at(1), &wrong)
+			_ = r.Authorize(at(1), "home", &wrong)
 		}
-		assert.Equal(t, port.CodeRateLimited, port.CodeOf(r.Authorize(at(2), &right)))
-		assert.Equal(t, port.CodeRateLimited, port.CodeOf(r.Authorize(at(299), &wrong)))
-		assert.NoError(t, r.Authorize(at(300), &right))
+		assert.Equal(t, port.CodeRateLimited, port.CodeOf(r.Authorize(at(2), "home", &right)))
+		assert.Equal(t, port.CodeRateLimited, port.CodeOf(r.Authorize(at(299), "home", &wrong)))
+		assert.NoError(t, r.Authorize(at(300), "home", &right))
 	})
 	t.Run("asking without a proof does not spend an attempt", func(t *testing.T) {
 		for i := 0; i < 50; i++ {
-			_ = r.Authorize(at(600), nil)
+			_ = r.Authorize(at(600), "home", nil)
 		}
-		assert.NoError(t, r.Authorize(at(601), &right))
+		assert.NoError(t, r.Authorize(at(601), "home", &right))
 	})
 }
 
@@ -380,23 +380,23 @@ func TestBan(t *testing.T) {
 	bia := joinActive(t, r, "bia", false)
 	caio := joinActive(t, r, "caio", false)
 	r.From(bia.ID, "office")
-	_, err := r.Ban(t0, bia.ID, caio.ID)
+	_, _, err := r.Ban(t0, bia.ID, caio.ID)
 	require.Error(t, err, "only the owner bans")
-	_, err = r.Ban(t0, ana.ID, ana.ID)
+	_, _, err = r.Ban(t0, ana.ID, ana.ID)
 	require.Error(t, err, "the owner cannot ban themselves")
-	events, err := r.Ban(t0, ana.ID, bia.ID)
+	events, _, err := r.Ban(t0, ana.ID, bia.ID)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	assert.Equal(t, ReasonBanned, events[0].Reason)
 	require.Error(t, r.Admit("office"))
 	assert.NoError(t, r.Admit("home"))
 	assert.NoError(t, r.Admit(""), "an unknown origin is never refused")
-	_, err = r.Ban(t0, ana.ID, caio.ID)
+	_, _, err = r.Ban(t0, ana.ID, caio.ID)
 	require.NoError(t, err, "someone of unknown origin is removed all the same")
 	dani := joinActive(t, r, "dani", false)
 	r.From(ana.ID, "home")
 	r.From(dani.ID, "home")
-	_, err = r.Ban(t0, ana.ID, dani.ID)
+	_, _, err = r.Ban(t0, ana.ID, dani.ID)
 	require.NoError(t, err)
 	assert.NoError(t, r.Admit("home"), "an origin shared with the owner is never barred")
 	assert.NoError(t, r.Admit(""))
@@ -420,4 +420,53 @@ func TestBrowserTrouble(t *testing.T) {
 		_, ok := BrowserTrouble(refused)
 		assert.False(t, ok, refused)
 	}
+}
+
+func TestPrivateRoomLockoutPerOrigin(t *testing.T) {
+	right, wrong := Verifier{1}, Verifier{2}
+	settings, err := NewSettings(&right, false, "BR")
+	require.NoError(t, err)
+	r, err := New("bk", DefaultConfig(), settings, t0)
+	require.NoError(t, err)
+
+	t.Run("an origin that guessed wrong ten times is locked and another origin still enters", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			_ = r.Authorize(t0, "attacker", &wrong)
+		}
+		assert.Equal(t, port.CodeRateLimited, port.CodeOf(r.Authorize(t0, "attacker", &right)))
+		assert.NoError(t, r.Authorize(t0, "friend", &right))
+	})
+	t.Run("many origins together hit the room backstop at a hundred wrong proofs", func(t *testing.T) {
+		for i := 0; i < 100; i++ {
+			_ = r.Authorize(at(1), string(rune('a'+i%26))+string(rune('a'+i/26)), &wrong)
+		}
+		assert.Equal(t, port.CodeRateLimited, port.CodeOf(r.Authorize(at(2), "friend", &right)))
+		assert.NoError(t, r.Authorize(at(301), "friend", &right), "the window ends the lock")
+	})
+	t.Run("the table of origins stays bounded", func(t *testing.T) {
+		for i := 0; i < 5*maxOrigins; i++ {
+			_ = r.Authorize(at(400), "o"+string(rune(0x100+i)), nil)
+		}
+		assert.LessOrEqual(t, len(r.origins), maxOrigins+1)
+	})
+}
+
+func TestBanKept(t *testing.T) {
+	r := newRoom(t)
+	ana := joinActive(t, r, "ana", true)
+	bia := joinActive(t, r, "bia", false)
+	caio := joinActive(t, r, "caio", false)
+	dani := joinActive(t, r, "dani", false)
+	r.From(bia.ID, "office")
+	r.From(dani.ID, "home")
+	r.From(ana.ID, "home")
+	_, kept, err := r.Ban(t0, ana.ID, bia.ID)
+	require.NoError(t, err)
+	assert.True(t, kept)
+	_, kept, err = r.Ban(t0, ana.ID, caio.ID)
+	require.NoError(t, err)
+	assert.False(t, kept, "an unknown origin cannot be kept out")
+	_, kept, err = r.Ban(t0, ana.ID, dani.ID)
+	require.NoError(t, err)
+	assert.False(t, kept, "the owner's own origin cannot be kept out")
 }

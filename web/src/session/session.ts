@@ -10,6 +10,12 @@ export const DEAD_AFTER_MS = 8000;
 export const RETRY_WINDOW_MS = 10_000;
 export const ATTEMPT_TIMEOUT_MS = 3000;
 export const NOTICE_MS = 6000;
+/** How many times an owner's access change or ban is sent before the owner is told it failed, how long a roster may take to confirm it, and the waits before each resend. */
+export const OWNER_ATTEMPTS = 3;
+export const CONFIRM_MS = 3000;
+const RESEND_BACKOFF_MS = [500, 1000];
+
+type Tracked = { op: OwnerOp; attempts: number; ready: boolean; due: boolean; confirm?: Handle; backoff?: Handle; intended?: { private?: boolean; listed?: boolean }; pid?: number; name?: string };
 const BACKOFF_MS = [300, 600, 1000, 1500, 2000];
 
 /** What a person gave to enter a room. A verifier makes the room private. */
@@ -28,8 +34,11 @@ export type SessionSnapshot = {
   /** How long my last heartbeat took to come back, in milliseconds. */
   rtt: number | undefined;
   slug: string;
+  /** Whether the room needs a code: the server's word once a roster arrived, my own change while `accessPending`. */
   private: boolean;
   listed: boolean | undefined;
+  /** True from the moment the owner changes the access until the next roster confirms it or an error refuses it. */
+  accessPending: boolean;
   password: string | undefined;
 };
 
@@ -104,8 +113,10 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
     slug,
     private: entry?.verifier !== undefined,
     listed: entry?.listed,
+    accessPending: false,
     password: entry?.password,
   };
+  let confirmed: { private: boolean; listed: boolean | undefined } = { private: snapshot.private, listed: snapshot.listed };
   const listeners = new Set<() => void>();
   let pass = entry?.pass;
   let link: Link | undefined;
@@ -124,6 +135,9 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
   let deadline: Handle | undefined;
   let retry: Handle | undefined;
   const noticeTimers = new Map<number, Handle>();
+  let access: Tracked | undefined;
+  let ban: Tracked | undefined;
+  let lastOwner: "access" | "ban" | undefined;
 
   function emit() {
     listeners.forEach((listener) => listener());
@@ -132,6 +146,111 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
   function patch(next: Partial<SessionSnapshot>) {
     snapshot = { ...snapshot, ...next };
     emit();
+  }
+
+  function keepSeatAccess() {
+    const seat = readSeat(storage, slug);
+    if (seat) writeSeat(storage, slug, { ...seat, private: snapshot.private, ...(snapshot.listed === undefined ? {} : { listed: snapshot.listed }) });
+  }
+
+  function seatActive(): boolean {
+    const state = snapshot.connection;
+    return state.phase === "joined" && state.roster.people.find((person) => person.pid === state.me)?.state === "active";
+  }
+
+  function forget(tracked: Tracked | undefined) {
+    if (!tracked) return;
+    clearTimeout(tracked.confirm);
+    clearTimeout(tracked.backoff);
+  }
+
+  function clearOwnerOps() {
+    forget(access);
+    forget(ban);
+    access = ban = undefined;
+  }
+
+  function armConfirm(tracked: Tracked, kind: "access" | "ban") {
+    clearTimeout(tracked.confirm);
+    tracked.confirm = setTimeout(() => {
+      if (kind === "access") failed("access");
+      else if (ban === tracked) ban = undefined;
+    }, CONFIRM_MS);
+  }
+
+  function failed(kind: "access" | "ban") {
+    const tracked = kind === "access" ? access : ban;
+    if (!tracked) return;
+    clearTimeout(tracked.confirm);
+    if (tracked.attempts >= OWNER_ATTEMPTS) {
+      if (kind === "access") {
+        access = undefined;
+        patch({ ...confirmed, accessPending: false });
+        keepSeatAccess();
+        dispatch({ type: "notify", notice: { kind: "access-failed", private: confirmed.private } });
+      } else {
+        ban = undefined;
+        dispatch({ type: "notify", notice: { kind: "remove-failed", name: tracked.name ?? "" } });
+      }
+      return;
+    }
+    tracked.due = true;
+    tracked.ready = false;
+    tracked.backoff = setTimeout(() => {
+      tracked.ready = true;
+      resend();
+    }, RESEND_BACKOFF_MS[tracked.attempts - 1] ?? 1000);
+  }
+
+  function resend() {
+    if (!seatActive()) return;
+    for (const [kind, tracked] of [["access", access], ["ban", ban]] as const) {
+      if (!tracked || !tracked.due || !tracked.ready) continue;
+      tracked.due = false;
+      tracked.attempts++;
+      lastOwner = kind;
+      link?.send({ t: "owner", ...tracked.op });
+      armConfirm(tracked, kind);
+    }
+  }
+
+  function onRoster(frame: Extract<ServerFrame, { t: "roster" }>) {
+    dispatch({ type: "roster", frame });
+    const state = snapshot.connection;
+    if (state.phase !== "joined" || state.roster.version !== frame.v) return;
+    confirmed = { private: state.roster.private === true, listed: state.roster.listed === true };
+    const present = new Set(state.roster.people.map((p) => p.pid));
+    if (access && (access.intended?.private === undefined || access.intended.private === confirmed.private) && (access.intended?.listed === undefined || access.intended.listed === confirmed.listed)) {
+      forget(access);
+      access = undefined;
+    }
+    if (ban?.pid !== undefined && !present.has(ban.pid)) {
+      forget(ban);
+      ban = undefined;
+    }
+    const kept = Object.entries(snapshot.photos).filter(([pid]) => present.has(Number(pid)));
+    patch({
+      ...(access ? {} : { ...confirmed, accessPending: false }),
+      ...(kept.length === Object.keys(snapshot.photos).length ? {} : { photos: Object.fromEntries(kept) }),
+    });
+    if (!access) keepSeatAccess();
+    resend();
+  }
+
+  function onError(frame: Extract<ServerFrame, { t: "error" }>) {
+    if (snapshot.connection.phase !== "joined") return;
+    if (lastOwner === "ban" && ban && frame.code !== "ban-not-kept") {
+      failed("ban");
+      return;
+    }
+    if (lastOwner === "ban" && ban) {
+      forget(ban);
+      ban = undefined;
+    } else if (lastOwner === "access" && access) {
+      failed("access");
+      return;
+    }
+    dispatch({ type: "owner-refused", code: frame.code });
   }
 
   function stopTimers() {
@@ -172,6 +291,7 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
       closeLink();
       noticeTimers.forEach(clearTimeout);
       noticeTimers.clear();
+      clearOwnerOps();
       clearSeat(storage, slug);
     }
   }
@@ -230,7 +350,7 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
       const { frame } = event;
       if (snapshot.connection.phase === "joined" || frame.t === "joined") armWatchdog(DEAD_AFTER_MS);
       if (frame.t === "joined") onJoined(frame);
-      else if (frame.t === "roster") dispatch({ type: "roster", frame });
+      else if (frame.t === "roster") onRoster(frame);
       else if (frame.t === "chat") patch({ chat: [...snapshot.chat, { id: nextChatId++, pid: frame.pid, name: frame.name, text: frame.text, at: frame.at, ...(frame.to ? { to: frame.to } : {}), ...(frame.img && photoAddress(frame.img) ? { image: photoAddress(frame.img)! } : {}) }].slice(-CHAT_KEPT) });
       else if (frame.t === "board") boardListeners.forEach((listener) => listener(frame.pid, frame.data));
       else if (frame.t === "rtc") {
@@ -244,7 +364,7 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
         patch({ rtt: Date.now() - beatAt });
         beatAt = 0;
       }
-      else if (frame.t === "error" && snapshot.connection.phase === "joined") dispatch({ type: "owner-refused", code: frame.code });
+      else if (frame.t === "error") onError(frame);
       return;
     }
     if (leaving) return;
@@ -367,6 +487,7 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
         end({ kind: "expired" });
         return;
       }
+      confirmed = { private: seat.private, listed: seat.listed };
       patch({ private: seat.private, listed: seat.listed });
       begin({ t: "resume", slug, pid: seat.pid, secret: seat.secret });
     },
@@ -376,7 +497,7 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
       photoSent = false;
       nextChatId = 1;
       beatAt = 0;
-      patch({ chat: [], photos: {}, rtt: undefined });
+      patch({ chat: [], photos: {}, rtt: undefined, accessPending: false });
       begin(joinHello(entry));
     },
     leave() {
@@ -388,6 +509,7 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
       leaving = true;
       tellServerGoodbye();
       stopTimers();
+      clearOwnerOps();
       noticeTimers.forEach(clearTimeout);
       noticeTimers.clear();
       closeLink();
@@ -426,14 +548,27 @@ export function createSession({ slug, url, socket, storage, entry, onPass }: Ses
     },
     owner(op, effect) {
       const sent = link?.send({ t: "owner", ...op }) ?? false;
+      if (sent && op.op === "ban") {
+        forget(ban);
+        const state = snapshot.connection;
+        ban = { op, attempts: 1, ready: false, due: false, pid: op.pid, name: state.phase === "joined" ? (state.roster.people.find((p) => p.pid === op.pid)?.name ?? "") : "" };
+        lastOwner = "ban";
+        armConfirm(ban, "ban");
+      }
+      if (sent && effect && (effect.listed !== undefined || effect.private !== undefined)) {
+        forget(access);
+        access = { op, attempts: 1, ready: false, due: false, intended: { ...(effect.private === undefined ? {} : { private: effect.private }), ...(effect.listed === undefined ? {} : { listed: effect.listed }) } };
+        lastOwner = "access";
+        armConfirm(access, "access");
+      }
       if (sent && effect) {
         patch({
           ...(effect.listed === undefined ? {} : { listed: effect.listed }),
           ...(effect.private === undefined ? {} : { private: effect.private }),
+          ...(effect.listed === undefined && effect.private === undefined ? {} : { accessPending: true }),
           ...("password" in effect ? { password: effect.password } : {}),
         });
-        const seat = readSeat(storage, slug);
-        if (seat) writeSeat(storage, slug, { ...seat, private: snapshot.private, ...(snapshot.listed === undefined ? {} : { listed: snapshot.listed }) });
+        keepSeatAccess();
       }
       return sent;
     },

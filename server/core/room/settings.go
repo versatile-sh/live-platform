@@ -70,15 +70,28 @@ func (r *Room) Summary() Summary {
 	return Summary{Slug: r.slug, Private: r.settings.Private, Listed: r.settings.Listed, Country: r.settings.Country, Count: r.Count(), Capacity: r.cfg.Capacity}
 }
 
-// Authorize admits a holder of the password to a private room, and locks the room after too many wrong proofs.
-func (r *Room) Authorize(now time.Time, proof *Verifier) error {
+const (
+	maxOrigins     = 1024
+	overflowOrigin = "\x00overflow"
+	roomTriesScale = 10
+)
+
+type tally struct {
+	count int
+	end   time.Time
+}
+
+// Authorize admits a holder of the password to a private room; wrong proofs count per origin and lock only that origin,
+// while the whole room locks at ten times the limit in one window, and origins past a bounded table share one tally.
+func (r *Room) Authorize(now time.Time, origin string, proof *Verifier) error {
 	if !r.settings.Private {
 		return nil
 	}
 	if !now.Before(r.triesEnd) {
 		r.tries, r.triesEnd = 0, now.Add(r.cfg.PasswordWindow)
 	}
-	if r.tries >= r.cfg.PasswordTries {
+	t := r.tallyOf(now, origin)
+	if t.count >= r.cfg.PasswordTries || r.tries >= r.cfg.PasswordTries*roomTriesScale {
 		return port.NewError(port.CodeRateLimited, "too many wrong passwords, try again later")
 	}
 	if proof != nil {
@@ -86,9 +99,41 @@ func (r *Room) Authorize(now time.Time, proof *Verifier) error {
 		if subtle.ConstantTimeCompare(hash[:], r.settings.verifier[:]) == 1 {
 			return nil
 		}
+		t.count++
 		r.tries++
 	}
 	return port.NewError(port.CodePermissionDenied, "this room needs its password")
+}
+
+func (r *Room) tallyOf(now time.Time, origin string) *tally {
+	if t, ok := r.origins[origin]; ok {
+		if !now.Before(t.end) {
+			t.count, t.end = 0, now.Add(r.cfg.PasswordWindow)
+		}
+		return t
+	}
+	if len(r.origins) >= maxOrigins {
+		for key, t := range r.origins {
+			if !now.Before(t.end) {
+				delete(r.origins, key)
+			}
+		}
+	}
+	if len(r.origins) >= maxOrigins {
+		origin = overflowOrigin
+		if t, ok := r.origins[origin]; ok {
+			if !now.Before(t.end) {
+				t.count, t.end = 0, now.Add(r.cfg.PasswordWindow)
+			}
+			return t
+		}
+	}
+	if r.origins == nil {
+		r.origins = map[string]*tally{}
+	}
+	t := &tally{end: now.Add(r.cfg.PasswordWindow)}
+	r.origins[origin] = t
+	return t
 }
 
 // SetListed lets the owner show or hide the room in the lobby.
@@ -102,6 +147,7 @@ func (r *Room) SetListed(by PID, listed bool) error {
 		return err
 	}
 	r.settings = next
+	r.version++
 	return nil
 }
 
@@ -114,7 +160,8 @@ func (r *Room) SetPassword(by PID, verifier *Verifier) error {
 	if err != nil {
 		return err
 	}
-	r.settings, r.tries = next, 0
+	r.settings, r.tries, r.origins = next, 0, nil
+	r.version++
 	return nil
 }
 

@@ -343,7 +343,7 @@ func TestEngine(t *testing.T) {
 				}
 			}
 		})
-		ana.publish("microphone")
+		ana.publishLanes(lane{"stream-camera", "camera", webrtc.MimeTypeVP8}, lane{"stream-microphone", "microphone", webrtc.MimeTypeOpus})
 		require.Eventually(t, func() bool { return packets.Load() > 3 }, wait, 20*time.Millisecond)
 		engine.Silence("bk", 1, true)
 		time.Sleep(150 * time.Millisecond)
@@ -457,5 +457,89 @@ func TestEngine(t *testing.T) {
 		_, still := engine.rooms["bk"][1]
 		engine.mu.Unlock()
 		assert.False(t, still)
+	})
+}
+
+type lane struct {
+	key, source, mime string
+}
+
+func (b *browser) publishLanes(lanes ...lane) {
+	b.t.Helper()
+	pub := b.publisher()
+	declared := map[string]string{}
+	for _, l := range lanes {
+		track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: l.mime}, "track-"+l.key, l.key)
+		require.NoError(b.t, err)
+		_, err = pub.AddTrack(track)
+		require.NoError(b.t, err)
+		declared[l.key] = l.source
+		stop := make(chan struct{})
+		b.t.Cleanup(func() { close(stop) })
+		go func() {
+			for seq := uint16(0); ; seq++ {
+				select {
+				case <-stop:
+					return
+				case <-time.After(20 * time.Millisecond):
+					_ = track.WriteRTP(&rtp.Packet{Header: rtp.Header{Version: 2, SequenceNumber: seq, Timestamp: uint32(seq) * 3000}, Payload: []byte{0x10, 0x02, 0x03}})
+				}
+			}
+		}()
+	}
+	b.offer(pub, declared)
+}
+
+func TestSilencedAudio(t *testing.T) {
+	seen := &reports{up: map[room.PID]bool{}}
+	engine, err := New(Config{Loopback: true, Now: time.Now}, seen)
+	require.NoError(t, err)
+	speaker := enter(t, engine, 1)
+	listener := enter(t, engine, 2)
+
+	var mu sync.Mutex
+	counts := map[string]int{}
+	listener.sub.OnTrack(func(remote *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+		for {
+			if _, _, err := remote.ReadRTP(); err != nil {
+				return
+			}
+			mu.Lock()
+			counts[remote.ID()]++
+			mu.Unlock()
+		}
+	})
+	count := func(source string) int {
+		mu.Lock()
+		defer mu.Unlock()
+		return counts[source]
+	}
+
+	speaker.publishLanes(
+		lane{"s-screen", "screen", webrtc.MimeTypeVP8},
+		lane{"s-screenaudio", "screenAudio", webrtc.MimeTypeOpus},
+		lane{"s-camera", "camera", webrtc.MimeTypeOpus},
+	)
+	for _, source := range []string{"screen", "screenAudio", "camera"} {
+		require.Eventually(t, func() bool { return count(source) > 3 }, wait, 20*time.Millisecond, source)
+	}
+
+	engine.Silence("bk", 1, true)
+	time.Sleep(150 * time.Millisecond)
+	audio, video := count("screenAudio")+count("camera"), count("screen")
+	time.Sleep(300 * time.Millisecond)
+
+	t.Run("a silenced participant's audio is dropped whatever source it is declared as", func(t *testing.T) {
+		assert.LessOrEqual(t, count("screenAudio")+count("camera")-audio, 2)
+	})
+
+	t.Run("a silenced participant's video keeps flowing", func(t *testing.T) {
+		assert.Greater(t, count("screen")-video, 3)
+	})
+
+	t.Run("once let speak again, every audio track is carried again", func(t *testing.T) {
+		screenAudio, camera := count("screenAudio"), count("camera")
+		engine.Silence("bk", 1, false)
+		require.Eventually(t, func() bool { return count("screenAudio") > screenAudio+3 && count("camera") > camera+3 }, wait, 20*time.Millisecond)
 	})
 }

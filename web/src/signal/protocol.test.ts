@@ -26,6 +26,15 @@ describe("parseServerFrame", () => {
     expect(frame).toMatchObject({ gone: [{ pid: 2, reason: "unknown" }] });
   });
 
+  test("reads the access of the room from a roster, absent meaning false", () => {
+    expect(parseServerFrame('{"t":"roster","v":1,"people":[],"private":true,"listed":true}')).toMatchObject({ private: true, listed: true });
+    expect(parseServerFrame('{"t":"roster","v":1,"people":[]}')).not.toHaveProperty("private");
+  });
+
+  test("keeps the ban-not-kept error code", () => {
+    expect(parseServerFrame('{"t":"error","code":"ban-not-kept","message":"x"}')).toEqual({ t: "error", code: "ban-not-kept", message: "x" });
+  });
+
   test("maps an unknown error code to INTERNAL", () => {
     expect(parseServerFrame('{"t":"error","code":"BOOM","message":"x"}')).toEqual({ t: "error", code: "INTERNAL", message: "x" });
   });

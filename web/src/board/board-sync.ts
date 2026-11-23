@@ -24,12 +24,28 @@ export const FRAME_BYTES = 48 << 10;
 const GAP_MS = 150;
 const HELLO_RETRY_MS = 2000;
 const HELLO_ATTEMPTS = 2;
+/** Most elements, and most encoded bytes of them, kept from what others send; anything that would pass either is dropped. */
+export const MAX_ELEMENTS = 20_000;
+export const MAX_BYTES = 16 << 20;
+/** Shortest wait before answering the same participant's hello again; under the 2 s the asker waits before its one retry. */
+export const HELLO_MIN_MS = 1500;
+/** Most frames waiting to go out before a transfer to one participant is refused. */
+export const MAX_QUEUE = 512;
 const EMPTY_FRAME_BYTES = JSON.stringify({ k: "els", els: [] }).length;
 const encoder = new TextEncoder();
 
 function isElement(value: unknown): value is BoardElement {
   const el = value as BoardElement | null;
-  return typeof el === "object" && el !== null && typeof el.id === "string" && typeof el.version === "number" && typeof el.versionNonce === "number";
+  return (
+    typeof el === "object" &&
+    el !== null &&
+    typeof el.id === "string" &&
+    typeof el.type === "string" &&
+    Number.isSafeInteger(el.version) &&
+    el.version >= 0 &&
+    Number.isSafeInteger(el.versionNonce) &&
+    el.versionNonce >= 0
+  );
 }
 
 /** Whether `next` replaces `kept`: the higher version wins, and on a tie the lower nonce, so every browser settles on the same element. */
@@ -61,8 +77,11 @@ export function chunk(elements: readonly BoardElement[], limit = FRAME_BYTES): {
 }
 
 /** Keeps one whiteboard the same in every browser of the room: last version of each element wins, changes go out in paced frames, and whoever arrives is given the board by the lowest pid among those who may draw, and by the next one when asked again. */
-export function createBoardSync(send: (message: BoardMessage, to?: number) => boolean, timers: { set(run: () => void, ms: number): unknown; clear(handle: unknown): void } = { set: (run, ms) => setTimeout(run, ms), clear: (handle) => clearTimeout(handle as number) }): BoardSync {
+export function createBoardSync(send: (message: BoardMessage, to?: number) => boolean, timers: { set(run: () => void, ms: number): unknown; clear(handle: unknown): void } = { set: (run, ms) => setTimeout(run, ms), clear: (handle) => clearTimeout(handle as number) }, now: () => number = Date.now): BoardSync {
   const known = new Map<string, BoardElement>();
+  const sizes = new Map<string, number>();
+  let totalBytes = 0;
+  const lastHello = new Map<number, number>();
   const listeners = new Set<() => void>();
   const queue: Array<{ els: BoardElement[]; to?: number }> = [];
   let snapshot: readonly BoardElement[] = [];
@@ -78,6 +97,22 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
     listeners.forEach((listener) => listener());
   }
 
+  function sizeOf(element: BoardElement): number {
+    return encoder.encode(JSON.stringify(element)).byteLength;
+  }
+
+  function keep(id: string, element: BoardElement, bytes: number) {
+    totalBytes += bytes - (sizes.get(id) ?? 0);
+    sizes.set(id, bytes);
+    known.set(id, element);
+  }
+
+  function fits(id: string, bytes: number): boolean {
+    const isNew = !known.has(id);
+    if (isNew && known.size >= MAX_ELEMENTS) return false;
+    return totalBytes + bytes - (sizes.get(id) ?? 0) <= MAX_BYTES;
+  }
+
   function drain() {
     timer = undefined;
     const next = queue[0];
@@ -88,6 +123,7 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
 
   function post(elements: readonly BoardElement[], to?: number) {
     const { groups, oversized: tooLarge } = chunk(elements);
+    if (to !== undefined && queue.length + groups.length > MAX_QUEUE) return;
     let changed = false;
     for (const element of elements) {
       if (!tooLarge.includes(element) && oversized.delete(element.id)) changed = true;
@@ -115,7 +151,7 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
     local(elements) {
       const changed = elements.filter((element) => wins(element, known.get(element.id)));
       if (changed.length === 0) return;
-      for (const element of changed) known.set(element.id, { ...element });
+      for (const element of changed) keep(element.id, { ...element }, sizeOf(element));
       publish();
       post(changed.map((element) => ({ ...element })));
     },
@@ -123,6 +159,12 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
       const data = message as BoardMessage | null;
       if (typeof data !== "object" || data === null) return;
       if (data.k === "hello") {
+        if (!others.includes(from) || from === me) return;
+        if (queue.some((item) => item.to === from)) return;
+        const at = now();
+        const before = lastHello.get(from);
+        if (before !== undefined && at - before < HELLO_MIN_MS) return;
+        lastHello.set(from, at);
         const round = ((asked.get(from) ?? 0) % HELLO_ATTEMPTS) + 1;
         asked.set(from, round);
         const candidates = [...new Set(drawers)].filter((pid) => pid !== from).sort((a, b) => a - b);
@@ -132,10 +174,15 @@ export function createBoardSync(send: (message: BoardMessage, to?: number) => bo
       }
       if (data.k !== "els" || !Array.isArray(data.els)) return;
       heard = true;
-      const fresh = data.els.filter(isElement).filter((element) => wins(element, known.get(element.id)));
-      if (fresh.length === 0) return;
-      for (const element of fresh) known.set(element.id, element);
-      publish();
+      let stored = false;
+      for (const element of data.els.filter(isElement)) {
+        if (!wins(element, known.get(element.id))) continue;
+        const bytes = sizeOf(element);
+        if (!fits(element.id, bytes)) continue;
+        keep(element.id, element, bytes);
+        stored = true;
+      }
+      if (stored) publish();
     },
     hello() {
       if (helloTimer !== undefined) timers.clear(helloTimer);
